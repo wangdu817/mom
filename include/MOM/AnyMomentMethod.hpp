@@ -65,12 +65,15 @@ namespace MOM {
 //   MOM::AnyMomentMethod<MyThermo> model =
 //       MOM::MakeAnyMomentMethod<MyThermo>(thermo, "HMOM");
 //
-//   // Uniform call site — identical regardless of which method is active:
-//   MOM::SetState(model, T, P, Y, mu);
-//   MOM::SetMoments(model, cell_moments);
-//   MOM::Compute(model);
+//   // Preferred per-cell call — one std::visit for the full update:
+//   MOM::ComputeCell(model, T, P, Y, mu, cell_moments);
 //   auto src = MOM::GetSources(model);       // std::span<const double>
 //   auto n   = MOM::GetNEquations(model);    // unsigned
+//
+//   // Individual setters remain available when only part of the state changes:
+//   MOM::SetState(model, T, P, Y);
+//   MOM::SetMoments(model, cell_moments);
+//   MOM::Compute(model);
 //
 // ============================================================================
 
@@ -140,6 +143,33 @@ inline void SetMoments(AnyMomentMethod<Thermo>& m,
 template <ThermoMap Thermo>
 inline void Compute(AnyMomentMethod<Thermo>& m) {
     std::visit([](auto& mm) { mm.CalculateSourceMoments(); }, m);
+}
+
+// ============================================================================
+// ComputeCell — single-call per-cell entry point (runtime path)
+// ============================================================================
+//
+// Collapses the four-call sequence (SetState/SetMoments/SetViscosity/Compute)
+// into a single std::visit, reducing jump-table dispatches from four to one.
+//
+// For the compile-time path (type known statically), use the MomentMethod-
+// constrained overload in MomentMethodConcept.hpp instead.
+// ============================================================================
+
+template <ThermoMap Thermo>
+inline void ComputeCell(AnyMomentMethod<Thermo>& m,
+                        double                   T,
+                        double                   P_Pa,
+                        const double*            Y,
+                        double                   mu,
+                        std::span<const double>  moments) noexcept
+{
+    std::visit([T, P_Pa, Y, mu, moments](auto& mm) noexcept {
+        mm.SetStatus(T, P_Pa, Y);
+        mm.SetMoments(moments);
+        mm.SetViscosity(mu);
+        mm.CalculateSourceMoments();
+    }, m);
 }
 
 /// Write header line

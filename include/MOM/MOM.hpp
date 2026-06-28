@@ -50,9 +50,7 @@
 |   USAGE (runtime method selection — one indirect branch per call):      |
 |                                                                         |
 |     auto model = MOM::MakeAnyMomentMethod(thermo, "HMOM");             |
-|     MOM::SetState(model, T, P, Y);                                      |
-|     MOM::SetMoments(model, moments_span);                               |
-|     MOM::Compute(model);                                                |
+|     MOM::ComputeCell(model, T, P, Y, mu, moments_span);  // preferred  |
 |     auto src = MOM::GetSources(model);                                  |
 |                                                                         |
 \*-----------------------------------------------------------------------*/

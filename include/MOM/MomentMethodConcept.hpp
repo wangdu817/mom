@@ -196,4 +196,46 @@ concept MomentMethod =
 //
 // ============================================================================
 
+// ============================================================================
+// ComputeCell — single-call per-cell entry point (compile-time path)
+// ============================================================================
+//
+// Preferred over calling SetStatus/SetMoments/SetViscosity/CalculateSourceMoments
+// individually. Bundling all four into one call lets the compiler keep the
+// object layout in registers across the full per-cell computation without
+// reloading 'this' at each function boundary.
+//
+// @param model    Any type satisfying MomentMethod<M>
+// @param T        Temperature [K]
+// @param P_Pa     Pressure [Pa]
+// @param Y        Species mass fractions (pointer, size = thermo.NumberOfSpecies())
+// @param mu       Mixture dynamic viscosity [kg/m/s]
+// @param moments  Current moment values (span of size M::n_equations)
+//
+// USAGE in a templated CFD cell loop:
+//
+//   template <MOM::MomentMethod M>
+//   void CellLoop(M& model, /* cell fields */) {
+//       for (auto& cell : cells) {
+//           MOM::ComputeCell(model, cell.T, cell.P, cell.Y.data(),
+//                            cell.mu, cell.moments);
+//           auto src = model.sources();   // zero-copy span — no allocation
+//       }
+//   }
+// ============================================================================
+
+template <MomentMethod M>
+inline void ComputeCell(M&                      model,
+                        double                  T,
+                        double                  P_Pa,
+                        const double*           Y,
+                        double                  mu,
+                        std::span<const double> moments) noexcept
+{
+    model.SetStatus(T, P_Pa, Y);
+    model.SetMoments(moments);
+    model.SetViscosity(mu);
+    model.CalculateSourceMoments();
+}
+
 } // namespace MOM
