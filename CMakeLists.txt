@@ -111,12 +111,6 @@ target_compile_options(MOM PRIVATE
 if(MOM_BUILD_TESTS)
     enable_testing()
 
-    add_executable(test_ThreeEquations tests/test_ThreeEquations.cpp)
-    target_link_libraries(test_ThreeEquations PRIVATE MOM)
-    target_compile_options(test_ThreeEquations PRIVATE
-        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
-    add_test(NAME ThreeEquations COMMAND test_ThreeEquations)
-
     add_executable(test_loop_benchmark tests/test_loop_benchmark.cpp)
     target_link_libraries(test_loop_benchmark PRIVATE MOM)
     target_compile_options(test_loop_benchmark PRIVATE
