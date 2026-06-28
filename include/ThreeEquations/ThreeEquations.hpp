@@ -162,7 +162,7 @@ public:
     [[nodiscard]] double MassFraction()          const noexcept;  //!< = Ys_
     [[nodiscard]] double SpecificSurface()       const noexcept;  //!< Ss [m2/m3]
     [[nodiscard]] double NumberOfPrimaryParticles()const noexcept;
-    [[nodiscard]] double DiffusionCoefficient()  noexcept;        //!< [kg/m/s]
+    [[nodiscard]] double DiffusionCoefficient()  const noexcept;  //!< [kg/m/s]
 
     // ── MomentMethod concept — initial conditions ─────────────────────────────
 

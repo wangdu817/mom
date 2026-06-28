@@ -223,8 +223,8 @@ template <ThermoMap Thermo>
 
 /// Returns the effective diffusion coefficient [kg/m/s].
 template <ThermoMap Thermo>
-[[nodiscard]] inline double GetDiffusionCoefficient(AnyMomentMethod<Thermo>& m) noexcept {
-    return std::visit([](auto& mm) { return mm.DiffusionCoefficient(); }, m);
+[[nodiscard]] inline double GetDiffusionCoefficient(const AnyMomentMethod<Thermo>& m) noexcept {
+    return std::visit([](const auto& mm) { return mm.DiffusionCoefficient(); }, m);
 }
 
 /// Returns true if the Planck absorption coefficient should be included.

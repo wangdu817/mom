@@ -171,7 +171,7 @@ public:
     [[nodiscard]] double MassFraction()          const noexcept;  //!< = YTiO2_
     [[nodiscard]] double SpecificSurface()       const noexcept;  //!< STiO2 [m2/m3]
     [[nodiscard]] double NumberOfPrimaryParticles()const noexcept; //!< np [-]
-    [[nodiscard]] double DiffusionCoefficient()  noexcept;        //!< [kg/m/s]
+    [[nodiscard]] double DiffusionCoefficient()  const noexcept;  //!< [kg/m/s]
 
     // ── MomentMethod concept — initial conditions ─────────────────────────────
 

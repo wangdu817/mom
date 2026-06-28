@@ -485,7 +485,7 @@ double TiO2<Thermo>::NumberOfPrimaryParticles() const noexcept
 // ============================================================================
 
 template <ThermoMap Thermo>
-double TiO2<Thermo>::DiffusionCoefficient() noexcept
+double TiO2<Thermo>::DiffusionCoefficient() const noexcept
 {
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);

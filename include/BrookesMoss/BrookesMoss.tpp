@@ -821,7 +821,7 @@ double BrookesMoss<Thermo>::SpecificSurface() const noexcept
 }
 
 template <ThermoMap Thermo>
-double BrookesMoss<Thermo>::DiffusionCoefficient() noexcept
+double BrookesMoss<Thermo>::DiffusionCoefficient() const noexcept
 {
     return this->mu_ / this->schmidt_number_;
 }

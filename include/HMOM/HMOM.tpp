@@ -1097,7 +1097,7 @@ double HMOM<Thermo>::NumberOfPrimaryParticles() const noexcept
 }
 
 template <ThermoMap Thermo>
-double HMOM<Thermo>::DiffusionCoefficient() noexcept
+double HMOM<Thermo>::DiffusionCoefficient() const noexcept
 {
     const double m      = this->rho_*this->kB_*this->T_/this->P_Pa_;
     const double lambda = this->mu_/this->rho_*std::sqrt(this->pi_*m/(2.*this->kB_*this->T_));

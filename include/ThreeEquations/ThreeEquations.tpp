@@ -453,7 +453,7 @@ double ThreeEquations<Thermo>::NumberOfPrimaryParticles() const noexcept
 }
 
 template <ThermoMap Thermo>
-double ThreeEquations<Thermo>::DiffusionCoefficient() noexcept
+double ThreeEquations<Thermo>::DiffusionCoefficient() const noexcept
 {
     double fv, dp, dc, np, ss, vs;
     Properties(fv, dp, dc, np, ss, vs);
