@@ -37,9 +37,9 @@
 
 #include "MOM/MomentMethodBase.hpp"
 #include "MOM/ThermoProxy.hpp"
-#include "Utilities/OutputFileColumns.h"
 #include "Eigen/Dense"
 #include <array>
+#include <cmath>
 #include <span>
 #include <string>
 #include <string_view>
@@ -248,6 +248,94 @@ public:
     void Properties(double& fv, double& dp, double& dc,
                     double& np, double& ss, double& vs) const noexcept;
 
+    // ── Coagulation sub-breakdown (reporter/diagnostics access) ──────────────
+    //
+    // Exposes the 9 private coagulation sub-vectors as zero-copy spans.
+    // This is the only HMOM-internal data not reachable through the common
+    // MomentMethod concept interface.  The reporter uses this to write the
+    // detailed coagulation column block without friendship or private access.
+
+    /// Read-only bundle of all HMOM coagulation sub-vector spans.
+    struct CoagulationDetail {
+        std::span<const double> all;        //!< discrete + continuous total
+        std::span<const double> discrete;   //!< discrete sub-total
+        std::span<const double> disc_ss;    //!< discrete small–small
+        std::span<const double> disc_sl;    //!< discrete small–large
+        std::span<const double> disc_ll;    //!< discrete large–large
+        std::span<const double> continuous; //!< continuous sub-total
+        std::span<const double> cont_ss;    //!< continuous small–small
+        std::span<const double> cont_sl;    //!< continuous small–large
+        std::span<const double> cont_ll;    //!< continuous large–large
+    };
+
+    /// Returns zero-copy spans into all HMOM coagulation sub-vectors.
+    /// Valid after CalculateSourceMoments(); all spans have size == n_equations.
+    [[nodiscard]] CoagulationDetail coagulation_detail() const noexcept {
+        return {
+            { source_coagulation_all_.data(),        this->n_equations },
+            { source_coagulation_discrete_.data(),   this->n_equations },
+            { source_coagulation_ss_.data(),         this->n_equations },
+            { source_coagulation_sl_.data(),         this->n_equations },
+            { source_coagulation_ll_.data(),         this->n_equations },
+            { source_coagulation_continuous_.data(), this->n_equations },
+            { source_coagulation_cont_ss_.data(),    this->n_equations },
+            { source_coagulation_cont_sl_.data(),    this->n_equations },
+            { source_coagulation_cont_ll_.data(),    this->n_equations },
+        };
+    }
+
+    // ── Reporter output hooks (MomentMethodReporter extensibility protocol) ────
+    //
+    // These two methods make HMOM self-describing with respect to output.
+    // MomentMethodReporter detects them via `if constexpr (requires(...))` and
+    // calls them with a lambda cb(std::string_view label, double value):
+    //   • in header mode  — lambda uses the label to register the column
+    //   • in row mode     — lambda uses the value to write the data
+    // The variant implementation is identical for both modes.
+    //
+    // variant_prefix_output: extra columns inserted BEFORE omega_gas.
+    // variant_suffix_output: extra columns appended AFTER source terms.
+    //
+    // To remove or add columns: edit only this class — reporter unchanged.
+
+    /// HMOM-specific prefix columns: np, ss, vs, bimodal statistics.
+    template <typename CB>
+    void variant_prefix_output(CB&& cb) const {
+        cb("np[-]",          NumberOfPrimaryParticles());
+        cb("ss[m2/#]",       SootMeanParticleSurface());
+        cb("vs[m3/#]",       SootMeanParticleVolume());
+        cb("N0[#/m3]",       SootSmallParticleNumberDensity());
+        cb("NL[#/m3]",       SootLargeParticleNumberDensity());
+        cb("alphaL[-]",      SootLargeParticleFraction());
+        cb("dpL[nm]",        SootLargePrimaryParticleDiameter() * 1.e9);
+        cb("npL[-]",         SootLargeNumberOfPrimaryParticles());
+        cb("d63[nm]",        SootD63() * 1.e9);
+        cb("sigma_dp[-]",    SootLogGeometricStdDevPrimaryParticleDiameter());
+        cb("sigma_np[-]",    SootLogGeometricStdDevPrimaryParticleNumber());
+        cb("sigma_dp_L[-]",  SootLargeLogGeometricStdDevPrimaryParticleDiameter());
+        cb("sigma_np_L[-]",  SootLargeLogGeometricStdDevPrimaryParticleNumber());
+        cb("gsd_dp[-]",      std::exp(SootLogGeometricStdDevPrimaryParticleDiameter()));
+        cb("gsd_np[-]",      std::exp(SootLogGeometricStdDevPrimaryParticleNumber()));
+        cb("gsd_dp_L[-]",    std::exp(SootLargeLogGeometricStdDevPrimaryParticleDiameter()));
+        cb("gsd_np_L[-]",    std::exp(SootLargeLogGeometricStdDevPrimaryParticleNumber()));
+    }
+
+    /// HMOM-specific suffix columns: detailed coagulation sub-breakdown.
+    template <typename CB>
+    void variant_suffix_output(CB&& cb) const {
+        const auto cd = coagulation_detail();
+        const unsigned N = this->n_equations;
+        for (unsigned j = 0; j < N; ++j) cb("ScoaTot("   + std::to_string(j) + ")[mol/m3/s]", cd.all[j]);
+        for (unsigned j = 0; j < N; ++j) cb("ScoaDis("   + std::to_string(j) + ")[mol/m3/s]", cd.discrete[j]);
+        for (unsigned j = 0; j < N; ++j) cb("ScoaDisSS(" + std::to_string(j) + ")[mol/m3/s]", cd.disc_ss[j]);
+        for (unsigned j = 0; j < N; ++j) cb("ScoaDisSL(" + std::to_string(j) + ")[mol/m3/s]", cd.disc_sl[j]);
+        for (unsigned j = 0; j < N; ++j) cb("ScoaDisLL(" + std::to_string(j) + ")[mol/m3/s]", cd.disc_ll[j]);
+        for (unsigned j = 0; j < N; ++j) cb("ScoaCon("   + std::to_string(j) + ")[mol/m3/s]", cd.continuous[j]);
+        for (unsigned j = 0; j < N; ++j) cb("ScoaConSS(" + std::to_string(j) + ")[mol/m3/s]", cd.cont_ss[j]);
+        for (unsigned j = 0; j < N; ++j) cb("ScoaConSL(" + std::to_string(j) + ")[mol/m3/s]", cd.cont_sl[j]);
+        for (unsigned j = 0; j < N; ++j) cb("ScoaConLL(" + std::to_string(j) + ")[mol/m3/s]", cd.cont_ll[j]);
+    }
+
     // ── Model switches ────────────────────────────────────────────────────────
 
     void SetNucleation(int flag) noexcept                { nucleation_model_              = flag; }
@@ -317,11 +405,7 @@ public:
     [[nodiscard]] double V0()                            const noexcept { return V0_; }
     [[nodiscard]] double S0()                            const noexcept { return S0_; }
 
-	void WriteHeaderLine(MOM::OutputFileColumns& fOutput, const unsigned int precision);
 
-	void WriteOutputLine( MOM::OutputFileColumns& fOutput,
-							const double T, const double P_Pa, const double* Y, const double mu,
-							const double* M);
 
 private:
     // ── Private computational methods ─────────────────────────────────────────

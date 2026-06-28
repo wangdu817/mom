@@ -123,6 +123,12 @@ if(MOM_BUILD_TESTS)
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
     add_test(NAME VerifyAllVariants COMMAND test_verify_all_variants)
 
+    add_executable(reporter_usage_example tests/reporter_usage_example.cpp)
+    target_link_libraries(reporter_usage_example PRIVATE MOM)
+    target_compile_options(reporter_usage_example PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME ReporterUsageExample COMMAND reporter_usage_example)    
+
 endif()
 
 # Install rules --------------------------------------------------------------

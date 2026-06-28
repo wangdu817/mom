@@ -69,6 +69,7 @@
 // authoritative registry of all concrete variants.  Adding a new variant
 // requires only editing MomVariantList.hpp — no changes here.
 #include "AnyMomentMethod.hpp"       // AnyMomentMethod<T>, dispatch helpers, factory
+#include "MomentMethodReporter.hpp"  // Observer: formats output via concept interface only
 
 // ============================================================================
 // Compile-time concept satisfaction check — auto-covers all registered variants

@@ -37,7 +37,6 @@
 
 #include "MOM/MomentMethodBase.hpp"
 #include "MOM/ThermoProxy.hpp"
-#include "Utilities/OutputFileColumns.h"
 #include "Eigen/Dense"
 #include <span>
 #include <string>
@@ -211,11 +210,7 @@ public:
     [[nodiscard, gnu::always_inline]] std::span<const double> sources_growth_impl()      const noexcept { return { source_growth_.data(),      this->n_equations }; }
     [[nodiscard, gnu::always_inline]] std::span<const double> sources_oxidation_impl()   const noexcept { return { source_oxidation_.data(),   this->n_equations }; }
 
-	void WriteHeaderLine(MOM::OutputFileColumns& fOutput, const unsigned int precision);
 
-	void WriteOutputLine( MOM::OutputFileColumns& fOutput,
-							const double T, const double P_Pa, const double* Y, const double mu,
-							const double* M);
 
 private:
     // ── Private computational methods ──────────────────────────────────────────

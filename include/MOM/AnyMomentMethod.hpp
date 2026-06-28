@@ -267,18 +267,6 @@ inline void ForEachCell(AnyMomentMethod<Thermo>& m, CellCallback&& callback)
     std::visit(std::forward<CellCallback>(callback), m);
 }
 
-/// Write header line
-template <ThermoMap Thermo>
-inline void WriteHeaderLine(AnyMomentMethod<Thermo>& m, MOM::OutputFileColumns& fOutput, const unsigned int precision) {
-    std::visit([&fOutput, precision](auto& mm) { mm.WriteHeaderLine(fOutput, precision); }, m);
-}
-
-/// Write header line
-template <ThermoMap Thermo>
-inline void WriteOutputLine(AnyMomentMethod<Thermo>& m, 
-								MOM::OutputFileColumns& fOutput, const double T, const double P_Pa, const double* Y, const double mu, const double* M) {
-    std::visit([&fOutput, T, P_Pa, Y, mu, M](auto& mm) { mm.WriteOutputLine(fOutput, T, P_Pa, Y, mu, M); }, m);
-}
 
 #if defined(MOM_USE_DICTIONARY)
 /// Setup from a dictionary

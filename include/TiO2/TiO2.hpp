@@ -37,7 +37,6 @@
 
 #include "MOM/MomentMethodBase.hpp"
 #include "MOM/ThermoProxy.hpp"
-#include "Utilities/OutputFileColumns.h"
 #include "Eigen/Dense"
 #include <span>
 #include <string>
@@ -196,6 +195,34 @@ public:
                     double& np,  double& ss,   double& vs,
                     double& ssph,double& tauS) const noexcept;
 
+    // ── Reporter output hook (MomentMethodReporter extensibility protocol) ──────
+    //
+    // Makes TiO2 self-describing with respect to output.
+    // MomentMethodReporter calls this with a lambda cb(label, value):
+    //   • header mode — lambda uses label to register the column
+    //   • row mode    — lambda uses value to write the data
+    // Columns are inserted BEFORE the omega_gas block.
+
+    /// TiO2-specific prefix columns: da, np, ss, vs, tauS, NDF parameters.
+    template <typename CB>
+    void variant_prefix_output(CB&& cb) const {
+        double fv, dp, dc, da, np, ss, vs, ssph, tauS;
+        Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
+        cb("da[nm]",          da * 1.e9);
+        cb("np[-]",           np);
+        cb("ss[m2/#]",        ss);
+        cb("vs[m3/#]",        vs);
+        cb("tauS[s]",         tauS);
+        const auto ndf = ReconstructedNDFData();
+        cb("alpha[-]",        ndf.alpha);
+        cb("nbar0[1/m3]",     ndf.nbar0);
+        cb("sigma[-]",        ndf.sigma);
+        cb("kPareto[-]",      ndf.k);
+        cb("nu1mean[m3/#]",   ndf.nu1mean);
+        cb("nu2mean[m3/#]",   ndf.nu2mean);
+        cb("mu[log(m3)]",     ndf.mu);
+    }
+
     // ── NDF reconstruction (TiO2-specific) ───────────────────────────────────
 
     [[nodiscard]] NDFReconstructionData
@@ -264,11 +291,7 @@ public:
     [[nodiscard, gnu::always_inline]] std::span<const double> sources_condensation_impl() const noexcept { return { source_condensation_.data(), this->n_equations }; }
     [[nodiscard, gnu::always_inline]] std::span<const double> sources_sintering_impl()    const noexcept { return { source_sintering_.data(),    this->n_equations }; }
 
-	void WriteHeaderLine(MOM::OutputFileColumns& fOutput, const unsigned int precision);
 
-	void WriteOutputLine( MOM::OutputFileColumns& fOutput,
-							const double T, const double P_Pa, const double* Y, const double mu,
-							const double* M);
 
 private:
     // ── Private computational methods ──────────────────────────────────────────
