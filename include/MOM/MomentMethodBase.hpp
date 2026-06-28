@@ -38,6 +38,7 @@
 #include "ProcessFlags.hpp"
 #include "Eigen/Dense"
 #include <array>
+#include <numbers>
 #include <span>
 #include <string>
 #include <string_view>
@@ -239,11 +240,19 @@ protected:
     [[nodiscard]] Derived&       derived()       noexcept { return static_cast<Derived&>(*this); }
     [[nodiscard]] const Derived& derived() const noexcept { return static_cast<const Derived&>(*this); }
 
-    // ── Physical constants (shared by all derived classes) ─────────────────
+    // ── Mathematical constants (from <numbers>, full double precision) ────────
     //
-    // constexpr: evaluated at compile time, zero runtime overhead.
+    // std::numbers::pi_v<double> and sqrt2_v<double> carry the maximum
+    // representable precision for double — no manual digit counting required.
 
-    static constexpr double pi_       = 3.14159265358979323846;
+    static constexpr double pi_    = std::numbers::pi_v<double>;    //!< π
+    static constexpr double sqrt2_ = std::numbers::sqrt2_v<double>; //!< √2
+
+    // ── Physical constants (CODATA 2018 exact values, SI units) ───────────
+    //
+    // kB and Nav are exact by SI 2019 redefinition.
+    // Rgas = kB * Nav (exact). WC is the standard atomic weight (IUPAC 2021).
+
     static constexpr double kB_       = 1.380649e-23;            //!< Boltzmann [J/K]
     static constexpr double Nav_mol_  = 6.02214076e23;           //!< Avogadro [#/mol]
     static constexpr double Nav_kmol_ = 6.02214076e26;           //!< Avogadro [#/kmol]

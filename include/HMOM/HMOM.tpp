@@ -123,7 +123,7 @@ HMOM<Thermo>::HMOM(const Thermo& thermo)
 
     // ── Free-molecular pre-factors ─────────────────────────────────────────
     Cfm_      = std::sqrt(this->pi_ * this->kB_ / 2.0 / this->rho_particle_);
-    betaN_TV_ = 2.2 * 4. * std::sqrt(2.0) * K_diam * K_diam * Cfm_;
+    betaN_TV_ = 2.2 * 4. * this->sqrt2_ * K_diam * K_diam * Cfm_;
 
     // ── Fractal / collision geometry (defaults: Model1 / Model2) ──────────
     // The HMOM.hpp inline setters only store the enum — they don't compute the
@@ -237,7 +237,7 @@ void HMOM<Thermo>::Precalculations()
 {
     Cfm_      = std::sqrt(this->pi_ * this->kB_ / 2.0 / this->rho_particle_);
     const double K_diam = K_diam_HMOM(this->pi_);
-    betaN_TV_ = 2.2 * 4. * std::sqrt(2.0) * K_diam * K_diam * Cfm_;
+    betaN_TV_ = 2.2 * 4. * this->sqrt2_ * K_diam * K_diam * Cfm_;
 
     // Re-apply geometry from stored enums
     {
@@ -835,7 +835,7 @@ void HMOM<Thermo>::SootCoagulationLargeLargeM4()
 template <ThermoMap Thermo>
 void HMOM<Thermo>::SootCoagulationContinuousM4()
 {
-    double lambda = 8.2057e-5 / std::sqrt(2.) / std::pow(200.e-12, 2.) / this->Nav_mol_;
+    double lambda = 8.2057e-5 / this->sqrt2_ / std::pow(200.e-12, 2.) / this->Nav_mol_;
     lambda = 1.257 * lambda * this->T_ / (this->P_Pa_ / 101325.);
 
     SootCoagulationContinuousSmallSmallM4(lambda);
