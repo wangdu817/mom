@@ -160,32 +160,39 @@ public:
     // explicit, clearly distinguishing "process is modelled here" from the
     // public concept-required API below.
 
-    [[nodiscard]] std::span<const double> sources_nucleation() const noexcept {
+    // [[gnu::always_inline]] guarantees the two-level call chain
+    //   sources_X() → derived().sources_X_impl()
+    // is collapsed to a direct memory access at ALL optimisation levels,
+    // including debug builds (-O0) and profiling builds (-Og).
+    // In release builds (-O2 / -O3) the compiler would inline anyway;
+    // the attribute makes the contract explicit and enforced.
+
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation() const noexcept {
         if constexpr (requires (const Derived& d) { d.sources_nucleation_impl(); })
             return derived().sources_nucleation_impl();
         else return { kZeroData, NEq };
     }
-    [[nodiscard]] std::span<const double> sources_coagulation() const noexcept {
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_coagulation() const noexcept {
         if constexpr (requires (const Derived& d) { d.sources_coagulation_impl(); })
             return derived().sources_coagulation_impl();
         else return { kZeroData, NEq };
     }
-    [[nodiscard]] std::span<const double> sources_condensation() const noexcept {
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_condensation() const noexcept {
         if constexpr (requires (const Derived& d) { d.sources_condensation_impl(); })
             return derived().sources_condensation_impl();
         else return { kZeroData, NEq };
     }
-    [[nodiscard]] std::span<const double> sources_growth() const noexcept {
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_growth() const noexcept {
         if constexpr (requires (const Derived& d) { d.sources_growth_impl(); })
             return derived().sources_growth_impl();
         else return { kZeroData, NEq };
     }
-    [[nodiscard]] std::span<const double> sources_oxidation() const noexcept {
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_oxidation() const noexcept {
         if constexpr (requires (const Derived& d) { d.sources_oxidation_impl(); })
             return derived().sources_oxidation_impl();
         else return { kZeroData, NEq };
     }
-    [[nodiscard]] std::span<const double> sources_sintering() const noexcept {
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_sintering() const noexcept {
         if constexpr (requires (const Derived& d) { d.sources_sintering_impl(); })
             return derived().sources_sintering_impl();
         else return { kZeroData, NEq };

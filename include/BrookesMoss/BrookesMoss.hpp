@@ -206,10 +206,10 @@ public:
     // BrookesMoss models: nucleation, coagulation, growth, oxidation.
     // NOT modelled: condensation, sintering → base class returns zero span.
 
-    [[nodiscard]] std::span<const double> sources_nucleation_impl()  const noexcept { return { source_nucleation_.data(),  this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_coagulation_impl() const noexcept { return { source_coagulation_.data(), this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_growth_impl()      const noexcept { return { source_growth_.data(),      this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_oxidation_impl()   const noexcept { return { source_oxidation_.data(),   this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation_impl()  const noexcept { return { source_nucleation_.data(),  this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_coagulation_impl() const noexcept { return { source_coagulation_.data(), this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_growth_impl()      const noexcept { return { source_growth_.data(),      this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_oxidation_impl()   const noexcept { return { source_oxidation_.data(),   this->n_equations }; }
 
 	void WriteHeaderLine(MOM::OutputFileColumns& fOutput, const unsigned int precision);
 

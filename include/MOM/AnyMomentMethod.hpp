@@ -231,6 +231,42 @@ inline void ComputeCell(AnyMomentMethod<Thermo>& m,
     }, m);
 }
 
+// ============================================================================
+// ForEachCell — hoist variant dispatch outside the cell loop
+// ============================================================================
+//
+// The key CFD loop pattern: call this ONCE before iterating over cells.
+// std::visit selects the concrete variant type once, then calls `callback`
+// with the concrete model as argument. The callback owns the loop, so all
+// N cells are processed with the SAME concrete type — zero jump-table
+// overhead inside the hot loop.
+//
+// Compare with ComputeCell (above), which calls std::visit for each cell
+// individually.  Both are correct; ForEachCell is optimal for bulk sweeps.
+//
+// Usage:
+//
+//   MOM::ForEachCell(model, [&](auto& m) {
+//       // typeof(m) is the concrete type, e.g. ThreeEquations<Thermo>&
+//       // All cells share this one instantiation — fully specialised.
+//       for (int i = 0; i < n_cells; ++i) {
+//           MOM::ComputeCell(m, T[i], P[i], Y + i*ns, mu[i], M + i*neq);
+//           auto src = m.sources();
+//           std::copy(src.begin(), src.end(), Src + i*neq);
+//       }
+//   });
+//
+// The compiler generates four fully-optimised loop bodies (one per variant
+// alternative) and selects among them via a single indirect branch, which
+// the branch predictor collapses to zero overhead after the first call.
+// ============================================================================
+
+template <ThermoMap Thermo, typename CellCallback>
+inline void ForEachCell(AnyMomentMethod<Thermo>& m, CellCallback&& callback)
+{
+    std::visit(std::forward<CellCallback>(callback), m);
+}
+
 /// Write header line
 template <ThermoMap Thermo>
 inline void WriteHeaderLine(AnyMomentMethod<Thermo>& m, MOM::OutputFileColumns& fOutput, const unsigned int precision) {

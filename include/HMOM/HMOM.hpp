@@ -201,11 +201,11 @@ public:
     // zero overhead. No `sources_sintering_impl()` is declared: HMOM does not
     // model sintering, so `sources_sintering()` returns a zero span automatically.
 
-    [[nodiscard]] std::span<const double> sources_nucleation_impl()   const noexcept { return { source_nucleation_.data(),   this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_coagulation_impl()  const noexcept { return { source_coagulation_.data(),  this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_condensation_impl() const noexcept { return { source_condensation_.data(), this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_growth_impl()       const noexcept { return { source_growth_.data(),       this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_oxidation_impl()    const noexcept { return { source_oxidation_.data(),    this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation_impl()   const noexcept { return { source_nucleation_.data(),   this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_coagulation_impl()  const noexcept { return { source_coagulation_.data(),  this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_condensation_impl() const noexcept { return { source_condensation_.data(), this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_growth_impl()       const noexcept { return { source_growth_.data(),       this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_oxidation_impl()    const noexcept { return { source_oxidation_.data(),    this->n_equations }; }
 
     /// Discrete coagulation breakdown (small+small, small+large, large+large)
     [[nodiscard]] std::span<const double> sources_coagulation_discrete()    const noexcept;

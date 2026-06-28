@@ -261,11 +261,11 @@ public:
     // ThreeEquations models: nucleation, coagulation, condensation, growth, oxidation.
     // NOT modelled: sintering → base class returns zero span automatically.
 
-    [[nodiscard]] std::span<const double> sources_nucleation_impl()   const noexcept { return { source_nucleation_.data(),   this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_coagulation_impl()  const noexcept { return { source_coagulation_.data(),  this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_condensation_impl() const noexcept { return { source_condensation_.data(), this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_growth_impl()       const noexcept { return { source_growth_.data(),       this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_oxidation_impl()    const noexcept { return { source_oxidation_.data(),    this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation_impl()   const noexcept { return { source_nucleation_.data(),   this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_coagulation_impl()  const noexcept { return { source_coagulation_.data(),  this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_condensation_impl() const noexcept { return { source_condensation_.data(), this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_growth_impl()       const noexcept { return { source_growth_.data(),       this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_oxidation_impl()    const noexcept { return { source_oxidation_.data(),    this->n_equations }; }
 
 	void WriteHeaderLine(MOM::OutputFileColumns& fOutput, const unsigned int precision);
 

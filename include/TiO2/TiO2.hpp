@@ -259,10 +259,10 @@ public:
     // TiO2 models: nucleation, coagulation, condensation, sintering.
     // NOT modelled: growth, oxidation → base class returns zero span for both.
 
-    [[nodiscard]] std::span<const double> sources_nucleation_impl()   const noexcept { return { source_nucleation_.data(),   this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_coagulation_impl()  const noexcept { return { source_coagulation_.data(),  this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_condensation_impl() const noexcept { return { source_condensation_.data(), this->n_equations }; }
-    [[nodiscard]] std::span<const double> sources_sintering_impl()    const noexcept { return { source_sintering_.data(),    this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation_impl()   const noexcept { return { source_nucleation_.data(),   this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_coagulation_impl()  const noexcept { return { source_coagulation_.data(),  this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_condensation_impl() const noexcept { return { source_condensation_.data(), this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_sintering_impl()    const noexcept { return { source_sintering_.data(),    this->n_equations }; }
 
 	void WriteHeaderLine(MOM::OutputFileColumns& fOutput, const unsigned int precision);
 
