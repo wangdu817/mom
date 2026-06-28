@@ -1,0 +1,195 @@
+/*-----------------------------------------------------------------------*\
+|    ___                   ____  __  __  ___  _  _______                  |
+|   / _ \ _ __   ___ _ __ / ___||  \/  |/ _ \| |/ / ____| _     _         |
+|  | | | | '_ \ / _ \ '_ \\___ \| |\/| | | | | ' /|  _| _| |_ _| |_       |
+|  | |_| | |_) |  __/ | | |___) | |  | | |_| | . \| |__|_   _|_   _|      |
+|   \___/| .__/ \___|_| |_|____/|_|  |_|\___/|_|\_\_____||_|   |_|        |
+|        |_|                                                              |
+|                                                                         |
+|   Author: Alberto Cuoci <alberto.cuoci@polimi.it>                       |
+|   CRECK Modeling Lab <https://www.creckmodeling.polimi.it>              |
+|   Department of Chemistry, Materials, and Chemical Engineering          |
+|   Politecnico di Milano                                                 |
+|   P.zza Leonardo da Vinci 32, 20133 Milano                              |
+|                                                                         |
+|-------------------------------------------------------------------------|
+|                                                                         |
+|   This file is part of the OpenSMOKEpp library.                         |
+|                                                                         |
+|   Copyright (C) 2026 Alberto Cuoci.                                     |
+|                                                                         |
+|   OpenSMOKEpp is free software: you can redistribute it and/or modify   |
+|   it under the terms of the GNU General Public License as published by  |
+|   the Free Software Foundation, either version 3 of the License, or     |
+|   (at your option) any later version.                                   |
+|                                                                         |
+|   OpenSMOKEpp is distributed in the hope that it will be useful,        |
+|   but WITHOUT ANY WARRANTY; without even the implied warranty of        |
+|   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         |
+|   GNU General Public License for more details.                          |
+|                                                                         |
+|   You should have received a copy of the GNU General Public License     |
+|   along with OpenSMOKEpp. If not, see <https://www.gnu.org/licenses/>.  |
+|                                                                         |
+\*-----------------------------------------------------------------------*/
+
+#pragma once
+
+#include <concepts>
+#include <span>
+
+namespace MOM {
+
+// ============================================================================
+// MomentMethod concept
+// ============================================================================
+//
+// This is the authoritative public contract for all moment method classes.
+// Any class M satisfying MomentMethod<M> can be used interchangeably by
+// a CFD solver without any modification to the solver code, beyond changing
+// a single type alias:
+//
+//   using ParticleModel = MOM::ThreeEquations<MyThermo>;   // ← change this line
+//   static_assert(MOM::MomentMethod<ParticleModel>);
+//
+// The concept is split into semantic groups for readability.
+//
+// --- Concept requirements summary ---
+//
+// Compile-time:
+//   M::n_equations         — unsigned, number of transported moment equations
+//
+// State injection (call before CalculateSourceMoments per cell/time-step):
+//   SetStatus(T, P, Y[])  — thermodynamic state
+//   SetMoments(span)       — current moment values
+//   SetViscosity(mu)       — mixture dynamic viscosity
+//
+// Core computation:
+//   CalculateSourceMoments()  — evaluates all source terms
+//   CalculateOmegaGas()       — evaluates gas-phase consumption terms only
+//
+// Source output (zero-copy spans into internal fixed-size storage):
+//   sources()              — total source vector [n_equations]
+//   sources_nucleation()   — nucleation contribution
+//   sources_coagulation()  — coagulation contribution
+//   sources_condensation() — condensation contribution (zero if not modelled)
+//   sources_growth()       — surface growth contribution (zero if not modelled)
+//   sources_oxidation()    — oxidation contribution (zero if not modelled)
+//   sources_sintering()    — sintering contribution (zero if not modelled)
+//   omega_gas()            — gas-phase source terms [n_species, kg/m3/s]
+//
+// Particle properties (derived from current moment values):
+//   VolumeFraction()       — particle volume fraction [-]
+//   ParticleDiameter()     — primary particle diameter [m]
+//   CollisionDiameter()    — collision (aggregate) diameter [m]
+//   ParticleNumberDensity()— number density [#/m3]
+//   MassFraction()         — particle mass fraction [-]
+//   ParticleDensity()      — material density [kg/m3]
+//   SpecificSurface()      — surface area per unit volume [m2/m3]
+//
+// Transport:
+//   schmidt_number()       — particle Schmidt number [-]
+//   DiffusionCoefficient() — effective diffusion coefficient [kg/m/s]
+//   thermophoretic_model() — thermophoretic model flag (int)
+//
+// Status / control:
+//   is_active()            — true if the method is configured and active
+//   GasConsumption()       — true if gas-phase consumption is enabled
+//   initial_moments()      — initialisation values for the moment vector
+//
+// Gas coupling:
+//   precursor_index()      — 0-based index of precursor species in thermo map
+//   precursor_concentration() — precursor molar concentration [kmol/m3]
+//   ClosureDummySpeciesIsActive() — true if a dummy closure species is set
+//   closure_dummy_index()  — 0-based index of dummy closure species
+//
+// Radiative heat transfer:
+//   radiative_heat_transfer() — true if particles contribute to radiation
+//   planck_coefficient(T, fv) — Planck mean absorption coefficient [1/m]
+//
+// Diagnostics:
+//   PrintSummary()         — prints model configuration to stdout
+// ============================================================================
+
+template <typename M>
+concept MomentMethod =
+
+    // Compile-time constant: number of transported equations
+    requires { { M::n_equations } -> std::convertible_to<unsigned>; }
+
+    && requires(
+        M       m,
+        const M cm,
+        double  scalar,
+        std::span<const double> moments_in )
+    {
+        // ── State injection ────────────────────────────────────────────────
+        { m.SetStatus(scalar, scalar,
+                      static_cast<const double*>(nullptr)) };  // T, P_Pa, Y[]
+        { m.SetMoments(moments_in) };
+        { m.SetViscosity(scalar) };
+
+        // ── Core computation ───────────────────────────────────────────────
+        { m.CalculateSourceMoments() };
+        { m.CalculateOmegaGas() };
+
+        // ── Source output (zero-copy spans) ────────────────────────────────
+        { cm.sources()              } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_nucleation()   } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_coagulation()  } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_condensation() } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_growth()       } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_oxidation()    } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_sintering()    } -> std::convertible_to<std::span<const double>>;
+        { cm.omega_gas()            } -> std::convertible_to<std::span<const double>>;
+
+        // ── Particle properties ────────────────────────────────────────────
+        { cm.VolumeFraction()        } -> std::same_as<double>;
+        { cm.ParticleDiameter()      } -> std::same_as<double>;
+        { cm.CollisionDiameter()     } -> std::same_as<double>;
+        { cm.ParticleNumberDensity() } -> std::same_as<double>;
+        { cm.MassFraction()          } -> std::same_as<double>;
+        { cm.ParticleDensity()       } -> std::same_as<double>;
+        { cm.SpecificSurface()       } -> std::same_as<double>;
+
+        // ── Transport ──────────────────────────────────────────────────────
+        { cm.schmidt_number()        } -> std::same_as<double>;
+        { cm.DiffusionCoefficient()  } -> std::same_as<double>;
+        { cm.thermophoretic_model()  } -> std::same_as<int>;
+
+        // ── Status / control ───────────────────────────────────────────────
+        { cm.is_active()             } -> std::same_as<bool>;
+        { cm.GasConsumption()        } -> std::same_as<bool>;
+        { cm.initial_moments()       } -> std::convertible_to<std::span<const double>>;
+
+        // ── Gas coupling ───────────────────────────────────────────────────
+        { cm.precursor_index()            } -> std::same_as<int>;
+        { cm.precursor_concentration()    } -> std::same_as<double>;
+        { cm.ClosureDummySpeciesIsActive()} -> std::same_as<bool>;
+        { cm.closure_dummy_index()        } -> std::same_as<int>;
+
+        // ── Radiative heat transfer ────────────────────────────────────────
+        { cm.radiative_heat_transfer()        } -> std::same_as<bool>;
+        { cm.planck_coefficient(scalar,scalar)} -> std::same_as<double>;
+
+        // ── Diagnostics ────────────────────────────────────────────────────
+        { cm.PrintSummary() };
+    };
+
+// ============================================================================
+// Helper alias: CFD adapter using a specific moment method
+// ============================================================================
+//
+// Illustrates the "one line to switch" idiom.
+// The static_assert fires at include time with a clear message if the
+// selected type no longer satisfies the concept (e.g. after a refactoring).
+//
+//   // In the CFD solver:
+//   #include "MOM/MOM.hpp"
+//   using ParticleModel = MOM::HMOM<MOM::Thermo>;
+//   static_assert(MOM::MomentMethod<ParticleModel>,
+//       "ParticleModel must satisfy MOM::MomentMethod");
+//
+// ============================================================================
+
+} // namespace MOM

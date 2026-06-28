@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Eigen3 is a public dependency — the consumer must have it available
+find_dependency(Eigen3 3.4 REQUIRED NO_MODULE)
+
+include("${CMAKE_CURRENT_LIST_DIR}/MOMTargets.cmake")
+
+check_required_components(MOM)
