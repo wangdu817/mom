@@ -118,16 +118,18 @@ concept MomentMethod =
     requires { { M::n_equations } -> std::convertible_to<unsigned>; }
 
     && requires(
-        M       m,
-        const M cm,
-        double  scalar,
+        M              m,
+        const M        cm,
+        double         scalar,
+        const double*  Y_ptr,
         std::span<const double> moments_in )
     {
         // ── State injection ────────────────────────────────────────────────
-        { m.SetStatus(scalar, scalar,
-                      static_cast<const double*>(nullptr)) };  // T, P_Pa, Y[]
-        { m.SetMoments(moments_in) };
-        { m.SetViscosity(scalar) };
+        // Y_ptr is a properly-typed local variable; no null-pointer cast needed.
+        // noexcept is required: these setters run every cell iteration.
+        { m.SetStatus(scalar, scalar, Y_ptr) } noexcept;  // T [K], P [Pa], Y[]
+        { m.SetMoments(moments_in) }           noexcept;
+        { m.SetViscosity(scalar) }             noexcept;
 
         // ── Core computation ───────────────────────────────────────────────
         // noexcept is part of the contract: these run in the CFD inner loop
