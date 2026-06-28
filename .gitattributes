@@ -1,0 +1,56 @@
+# -----------------------------------------------------------------------------
+# OpenSMOKEpp Git Attributes Configuration
+# -----------------------------------------------------------------------------
+
+# Set default behavior to automatically handle text normalization
+* text=auto
+
+# -----------------------------------------------------------------------------
+# C++ Source & Header Files
+# -----------------------------------------------------------------------------
+# Force LF (Linux/Unix) line endings on check-in. Prevents cryptic preprocessor
+# or parsing compiler errors on remote Linux cluster toolchains.
+*.cpp      text eol=lf diff=cpp
+*.h        text eol=lf diff=cpp
+*.hpp      text eol=lf diff=cpp
+*.tpp      text eol=lf diff=cpp
+
+# -----------------------------------------------------------------------------
+# Build System & Scripting
+# -----------------------------------------------------------------------------
+CMakeLists.txt   text eol=lf
+*.cmake          text eol=lf
+*.sh             text eol=lf input
+*.bat            text eol=crlf
+
+# -----------------------------------------------------------------------------
+# Project Documentation & Metadata
+# -----------------------------------------------------------------------------
+*.md             text eol=lf
+LICENSE          text eol=lf
+.gitignore       text eol=lf
+.gitattributes   text eol=lf
+
+# -----------------------------------------------------------------------------
+# Input Files & Test Examples
+# -----------------------------------------------------------------------------
+# Ensure your target .input files preserve their precise syntactic layout 
+# without unexpected line ending or carriage return translation.
+*.input          text eol=lf
+*.txt            text eol=lf
+*.json           text eol=lf
+*.xml            text eol=lf
+
+# -----------------------------------------------------------------------------
+# Strict Binary Protections
+# -----------------------------------------------------------------------------
+# Explicitly protect compiled libraries, archives, and images from Git's 
+# text-normalization filters, preventing byte-corruption.
+*.a              binary
+*.so             binary
+*.dylib          binary
+*.dll            binary
+*.png            binary
+*.jpg            binary
+*.jpeg           binary
+*.pdf            binary

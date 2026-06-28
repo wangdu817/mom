@@ -1,0 +1,116 @@
+# Build directories
+/build/
+/out/
+/cmake-build-*/
+/CMakeFiles/
+
+# CMake generated files
+CMakeCache.txt
+CTestTestfile.cmake
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+Testing/
+_CPack_Packages/
+*.cmake.user
+
+# Native build tool output
+Makefile
+NinjaDeps
+NinjaLog
+.ninja_deps
+.ninja_log
+*.ninja
+
+# Compiled objects and binaries
+*.a
+*.app
+*.bin
+*.d
+*.dSYM/
+*.dll
+*.dylib
+*.exe
+*.gcda
+*.gcno
+*.gcov
+*.idb
+*.ilk
+*.lib
+*.lo
+*.mod
+*.o
+*.obj
+*.pdb
+*.so
+*.suo
+*.tlog
+*.tmp
+a.out
+
+# Coverage and profiling
+coverage/
+*.profdata
+*.profraw
+lcov.info
+
+# Package managers and dependency build output
+_deps/
+conanbuild/
+conanfile.lock
+conaninfo.txt
+conan.lock
+vcpkg_installed/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+.vs/
+*.VC.db
+*.VC.opendb
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+
+# Editor swap and backup files
+*~
+*.bak
+*.orig
+*.rej
+*.sw?
+.#*
+\#*#
+
+# Operating system noise
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+Desktop.ini
+
+# Shell and local temporary files
+.zcompdump*
+.cache/
+.tmp/
+tmp/
+temp/
+
+# Environment and local machine configuration
+.env
+.env.*
+!.env.example
+
+# Keep project inputs and source artifacts visible
+!examples/
+!examples/**
+!include/
+!include/**
+!src/
+!src/**
+!tests/
+!tests/**
