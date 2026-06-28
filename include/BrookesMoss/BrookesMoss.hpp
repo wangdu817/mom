@@ -82,6 +82,9 @@ class BrookesMoss : public MomentMethodBase<BrookesMoss<Thermo>, 2>
 public:
     using typename Base::MomentVector;
 
+    /// Labels accepted by MOM::MakeAnyMomentMethod for runtime variant selection.
+    static constexpr std::array<std::string_view, 3> variant_labels { "BrookesMoss", "brookesmoss", "BM" };
+
     // ── Method-specific sub-model enums ─────────────────────────────────────
 
     enum class NucleationVariant : int

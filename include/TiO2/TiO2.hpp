@@ -84,6 +84,9 @@ class TiO2 : public MomentMethodBase<TiO2<Thermo>, 3>
 public:
     using typename Base::MomentVector;
 
+    /// Labels accepted by MOM::MakeAnyMomentMethod for runtime variant selection.
+    static constexpr std::array<std::string_view, 2> variant_labels { "TiO2", "tio2" };
+
     // ── Method-specific sub-model enums ─────────────────────────────────────
 
     enum class NucleationVariant : int

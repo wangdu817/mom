@@ -35,15 +35,15 @@
 
 #pragma once
 
-#include "MomentMethodConcept.hpp"
-#include "HMOM/HMOM.hpp"
-#include "BrookesMoss/BrookesMoss.hpp"
-#include "ThreeEquations/ThreeEquations.hpp"
-#include "TiO2/TiO2.hpp"
-#include <variant>
+// MomVariantList.hpp is the single authoritative registry of all variants.
+// It transitively provides: all variant headers, MomentMethodConcept.hpp,
+// detail::TypeList, AllVariants, and <variant>.
+#include "MomVariantList.hpp"
 #include <functional>
 #include <span>
 #include <string_view>
+#include <stdexcept>
+#include <string>
 
 namespace MOM {
 
@@ -77,23 +77,82 @@ namespace MOM {
 //
 // ============================================================================
 
+// ── AnyMomentMethod<Thermo> — derived automatically from AllVariants ──────────
+//
+// Expands to std::variant<HMOM<Thermo>, BrookesMoss<Thermo>, ...> with the
+// exact set of types registered in MomVariantList.hpp::AllVariants.
+// No manual edit required here when adding a new variant.
+
 template <ThermoMap Thermo>
-using AnyMomentMethod = std::variant<
-    HMOM<Thermo>,
-    BrookesMoss<Thermo>,
-    ThreeEquations<Thermo>,
-    TiO2<Thermo>
->;
+using AnyMomentMethod = typename AllVariants::template AsVariant<Thermo>;
+
+// ============================================================================
+// detail::FactoryHelper — compile-time recursive label dispatcher
+// ============================================================================
+//
+// Iterates the registered variants at compile time, checking each type's
+// variant_labels member against the runtime label string.  Falls through
+// recursively until a match is found or the list is exhausted.
+//
+// Derived from AllVariants in MakeAnyMomentMethod, so it automatically
+// covers every registered variant without manual if-chains.
+// ============================================================================
+
+namespace detail {
+
+// Base case: empty list — no variant matched the label.
+template <template<typename> class... Vs>
+struct FactoryHelper
+{
+    template <typename Thermo>
+    [[noreturn]] static AnyMomentMethod<Thermo>
+    make(const Thermo&, std::string_view label)
+    {
+        throw std::invalid_argument(
+            "MOM::MakeAnyMomentMethod: unknown method label '" +
+            std::string(label) +
+            "'. See MomVariantList.hpp for registered variants and their labels.");
+    }
+};
+
+// Recursive case: try First's labels, then recurse into Rest...
+template <template<typename> class First, template<typename> class... Rest>
+struct FactoryHelper<First, Rest...>
+{
+    template <typename Thermo>
+    static AnyMomentMethod<Thermo>
+    make(const Thermo& thermo, std::string_view label)
+    {
+        for (std::string_view lbl : First<Thermo>::variant_labels)
+            if (lbl == label)
+                return AnyMomentMethod<Thermo>{ std::in_place_type<First<Thermo>>, thermo };
+        return FactoryHelper<Rest...>::template make<Thermo>(thermo, label);
+    }
+};
+
+// Unpack TypeList<Vs...> → FactoryHelper<Vs...>::make
+// This allows MakeAnyMomentMethod to delegate to the correct FactoryHelper
+// specialisation without naming the individual variant types.
+template <template<typename> class... Vs, typename Thermo>
+inline AnyMomentMethod<Thermo>
+make_from_type_list(TypeList<Vs...>, const Thermo& thermo, std::string_view label)
+{
+    return FactoryHelper<Vs...>::template make<Thermo>(thermo, label);
+}
+
+} // namespace detail
 
 // ============================================================================
 // Factory function
 // ============================================================================
 //
-// Constructs an AnyMomentMethod holding the requested concrete type.
-// @param thermo  Thermodynamics object (must outlive the returned variant)
-// @param label   One of: "HMOM", "BrookesMoss", "ThreeEquations", "TiO2"
+// Constructs an AnyMomentMethod holding the concrete type whose variant_labels
+// contains @p label (exact, case-sensitive match).
 //
-// The returned variant holds an in-place-constructed concrete object.
+// @param thermo  Thermodynamics object (must outlive the returned variant)
+// @param label   Any label registered in a variant's variant_labels member.
+//                See MomVariantList.hpp for all registered variants.
+//
 // @throws std::invalid_argument if label is not recognised.
 // ============================================================================
 

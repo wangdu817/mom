@@ -37,32 +37,25 @@
 
 #pragma once
 
-#include <stdexcept>
-#include <string>
-
 namespace MOM {
 
+// ============================================================================
+// MakeAnyMomentMethod — factory implementation
+// ============================================================================
+//
+// Delegates to detail::make_from_type_list, which unpacks AllVariants
+// (the TypeList registered in MomVariantList.hpp) into FactoryHelper<Vs...>.
+// FactoryHelper iterates the registered types at compile time, matching the
+// runtime label against each type's variant_labels static member.
+//
+// No if-chain here: adding a new variant in MomVariantList.hpp is sufficient.
+// ============================================================================
+
 template <ThermoMap Thermo>
-AnyMomentMethod<Thermo> MakeAnyMomentMethod(const Thermo& thermo,
-                                             std::string_view label)
+AnyMomentMethod<Thermo>
+MakeAnyMomentMethod(const Thermo& thermo, std::string_view label)
 {
-    if (label == "HMOM"           || label == "hmom")
-        return AnyMomentMethod<Thermo>{ std::in_place_type<HMOM<Thermo>>, thermo };
-
-    if (label == "BrookesMoss"    || label == "brookesmoss" || label == "BM")
-        return AnyMomentMethod<Thermo>{ std::in_place_type<BrookesMoss<Thermo>>, thermo };
-
-    if (label == "ThreeEquations" || label == "threeequations" || label == "3Eq")
-        return AnyMomentMethod<Thermo>{ std::in_place_type<ThreeEquations<Thermo>>, thermo };
-
-    if (label == "TiO2"           || label == "tio2")
-        return AnyMomentMethod<Thermo>{ std::in_place_type<TiO2<Thermo>>, thermo };
-
-    throw std::invalid_argument(
-        std::string("MOM::MakeAnyMomentMethod: unknown method label '")
-        + std::string(label) + "'. "
-        "Valid options: HMOM, BrookesMoss, ThreeEquations, TiO2."
-    );
+    return detail::make_from_type_list(AllVariants{}, thermo, label);
 }
 
 } // namespace MOM

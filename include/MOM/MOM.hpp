@@ -63,38 +63,27 @@
 #include "MomentMethodBase.hpp"      // CRTP base: shared state, Planck, zero sources
 #include "MomentMethodConcept.hpp"   // MomentMethod C++20 concept (the contract)
 
-// ── Concrete method implementations ───────────────────────────────────────────
-#include "HMOM.hpp"                  // 4-moment Hybrid MOM (Mueller et al. 2009)
-#include "BrookesMoss.hpp"           // 2-equation Brookes-Moss soot model
-#include "ThreeEquations.hpp"        // 3-equation soot (Franzelli et al. 2019)
-#include "TiO2.hpp"                  // 3-equation TiO2 nanoparticle model
-
-// ── Runtime selection ─────────────────────────────────────────────────────────
-#include "AnyMomentMethod.hpp"       // std::variant wrapper + dispatch helpers
+// ── Variant registry + concrete implementations ───────────────────────────────
+//
+// AnyMomentMethod.hpp includes MomVariantList.hpp, which is the single
+// authoritative registry of all concrete variants.  Adding a new variant
+// requires only editing MomVariantList.hpp — no changes here.
+#include "AnyMomentMethod.hpp"       // AnyMomentMethod<T>, dispatch helpers, factory
 
 // ============================================================================
-// Compile-time concept satisfaction checks
+// Compile-time concept satisfaction check — auto-covers all registered variants
 // ============================================================================
 //
-// These static_asserts verify that every concrete class fully satisfies the
-// MomentMethod concept when instantiated with BasicThermoData. 
-// They fire at #include time, providing immediate
-// feedback if a refactoring accidentally removes a required method.
+// This explicit instantiation forces MOM::AllVariants::ConceptCheck to be
+// instantiated with BasicThermoData, triggering a static_assert fold over
+// every type registered in AllVariants (MomVariantList.hpp).
 //
-// The checks use BasicThermoData (the standalone test thermo) so that they
-// compile in any environment.
+// Effect: if any registered variant fails the MomentMethod concept, the build
+// fails here with a clear error pointing at the offending type.
+//
+// To see which variant broke the concept: the fold expression fires
+// individually for each type, so the compiler error includes the concrete
+// type name in the template instantiation backtrace.
 // ============================================================================
 
-static_assert(MOM::MomentMethod<MOM::HMOM<MOM::BasicThermoData>>,
-    "[MOM] HMOM does not satisfy the MomentMethod concept. "
-    "Check: SetMoments(span), CalculateSourceMoments(), CollisionDiameter(), "
-    "SpecificSurface(), DiffusionCoefficient(), PrintSummary().");
-
-static_assert(MOM::MomentMethod<MOM::BrookesMoss<MOM::BasicThermoData>>,
-    "[MOM] BrookesMoss does not satisfy the MomentMethod concept.");
-
-static_assert(MOM::MomentMethod<MOM::ThreeEquations<MOM::BasicThermoData>>,
-    "[MOM] ThreeEquations does not satisfy the MomentMethod concept.");
-
-static_assert(MOM::MomentMethod<MOM::TiO2<MOM::BasicThermoData>>,
-    "[MOM] TiO2 does not satisfy the MomentMethod concept.");
+template struct MOM::AllVariants::ConceptCheck<MOM::BasicThermoData>;

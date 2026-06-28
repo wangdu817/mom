@@ -80,6 +80,9 @@ class ThreeEquations : public MomentMethodBase<ThreeEquations<Thermo>, 3>
 public:
     using typename Base::MomentVector;
 
+    /// Labels accepted by MOM::MakeAnyMomentMethod for runtime variant selection.
+    static constexpr std::array<std::string_view, 3> variant_labels { "ThreeEquations", "threeequations", "3Eq" };
+
     // ── Method-specific sub-model enums ─────────────────────────────────────
 
     /// Surface chemistry model for HACA (surface growth + oxidation).
