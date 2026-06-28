@@ -150,8 +150,8 @@ public:
 
     // ── MomentMethod concept — core computation ───────────────────────────────
 
-    void CalculateSourceMoments();
-    void CalculateOmegaGas();
+    void CalculateSourceMoments() noexcept;
+    void CalculateOmegaGas() noexcept;
 
     // ── MomentMethod concept — particle properties ────────────────────────────
 

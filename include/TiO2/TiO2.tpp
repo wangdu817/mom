@@ -35,6 +35,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
@@ -772,7 +773,7 @@ double TiO2<Thermo>::SinteringDeferredUpdate(double dt_ode)
 // ============================================================================
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::CalculateSourceMoments()
+void TiO2<Thermo>::CalculateSourceMoments() noexcept
 {
     this->ZeroSources();
 
@@ -818,7 +819,7 @@ void TiO2<Thermo>::CalculateSourceMoments()
 // ============================================================================
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::CalculateOmegaGas()
+void TiO2<Thermo>::CalculateOmegaGas() noexcept
 {
     CalculateOmegaGas_internal();
 }
@@ -828,16 +829,16 @@ void TiO2<Thermo>::CalculateOmegaGas()
 // ============================================================================
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::CalculateOmegaGas_internal()
+void TiO2<Thermo>::CalculateOmegaGas_internal() noexcept
 {
     std::fill(this->omega_gas_.begin(), this->omega_gas_.end(), 0.);
 
     if (!this->gas_consumption_) return;
     if (precursor_index_ < 0)   return;
 
-    if (nti_precursor_ <= 0.)
-        throw std::runtime_error(
-            "[TiO2] CalculateOmegaGas_internal: precursor has zero Ti atoms.");
+    // nti_precursor_ must be positive — validated during SetPrecursor() setup.
+    assert(nti_precursor_ > 0. &&
+           "[TiO2] CalculateOmegaGas_internal: precursor has zero Ti atoms.");
 
     // Total TiO2 mass deposition rate from nucleation + condensation [kg/m3/s]
     const double omegaTiO2 = this->rho_

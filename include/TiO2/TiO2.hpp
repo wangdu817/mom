@@ -145,11 +145,9 @@ public:
     // ── MomentMethod concept — core computation ───────────────────────────────
 
     /// Computes all source terms for the current cell state.
-    void CalculateSourceMoments();
+    void CalculateSourceMoments() noexcept;
 
-
-
-    void CalculateOmegaGas();
+    void CalculateOmegaGas() noexcept;
 
     // ── Deferred sintering (operator-splitting compatible) ────────────────────
     //
@@ -270,7 +268,7 @@ private:
     void CoagulationSourceTerms();
     void CondensationSourceTerms();
     void SinteringSourceTerms();
-    void CalculateOmegaGas_internal();
+    void CalculateOmegaGas_internal() noexcept;
 
 private:
     // ── Thermodynamics reference ───────────────────────────────────────────────

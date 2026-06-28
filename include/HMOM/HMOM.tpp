@@ -910,7 +910,7 @@ void HMOM<Thermo>::SootCoagulationContinuousLargeLargeM4(double lambda)
 // ============================================================================
 
 template <ThermoMap Thermo>
-void HMOM<Thermo>::CalculateSourceMoments()
+void HMOM<Thermo>::CalculateSourceMoments() noexcept
 {
     this->ZeroSources();
     source_coagulation_discrete_   = MomentVector::Zero();
@@ -985,7 +985,7 @@ void HMOM<Thermo>::CalculateSourceMoments()
 // ============================================================================
 
 template <ThermoMap Thermo>
-void HMOM<Thermo>::CalculateOmegaGas()
+void HMOM<Thermo>::CalculateOmegaGas() noexcept
 {
     std::fill(this->omega_gas_.begin(), this->omega_gas_.end(), 0.);
     if (!this->gas_consumption_) return;

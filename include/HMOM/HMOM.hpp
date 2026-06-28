@@ -154,12 +154,12 @@ public:
     /// Computes all moment source terms and omega_gas for the current cell state.
     /// Updates source_all_, source_nucleation_, source_growth_, source_oxidation_,
     /// source_condensation_, source_coagulation_*, and omega_gas_.
-    void CalculateSourceMoments();
+    void CalculateSourceMoments() noexcept;
 
     /// Computes only gas-phase consumption terms (omega_gas_).
     /// Called internally by CalculateSourceMoments(); exposed for cases where
     /// source terms are already known and only gas coupling is needed.
-    void CalculateOmegaGas();
+    void CalculateOmegaGas() noexcept;
 
     // ── MomentMethod concept — particle properties ───────────────────────────
 

@@ -35,6 +35,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
@@ -947,7 +948,7 @@ void ThreeEquations<Thermo>::OxidationSourceTerms()
 // ============================================================================
 
 template <ThermoMap Thermo>
-void ThreeEquations<Thermo>::CalculateSourceMoments()
+void ThreeEquations<Thermo>::CalculateSourceMoments() noexcept
 {
     // Zero all source vectors (base helper) and gas sources
     this->ZeroSources();
@@ -984,7 +985,7 @@ void ThreeEquations<Thermo>::CalculateSourceMoments()
 // ============================================================================
 
 template <ThermoMap Thermo>
-void ThreeEquations<Thermo>::CalculateOmegaGas()
+void ThreeEquations<Thermo>::CalculateOmegaGas() noexcept
 {
     std::fill(this->omega_gas_.begin(), this->omega_gas_.end(), 0.);
     if (!this->gas_consumption_) return;
@@ -1036,9 +1037,9 @@ void ThreeEquations<Thermo>::CalculateOmegaGas()
 
     // 4. Dummy species closure (mass-fraction conservation)
     if (this->dummy_species_closure_) {
-        if (this->dummy_index_ < 0)
-            throw std::runtime_error(
-                "[ThreeEquations::CalculateOmegaGas] dummy_index_ not set.");
+        // dummy_index_ must be set during setup — a negative value is a programming error.
+        assert(this->dummy_index_ >= 0 &&
+               "[ThreeEquations::CalculateOmegaGas] dummy_index_ not set.");
         double sum = 0.;
         for (int i = 0; i < nsp; ++i)
             if (i != this->dummy_index_) sum += this->omega_gas_[i];

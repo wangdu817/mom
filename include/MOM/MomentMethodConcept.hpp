@@ -130,8 +130,10 @@ concept MomentMethod =
         { m.SetViscosity(scalar) };
 
         // ── Core computation ───────────────────────────────────────────────
-        { m.CalculateSourceMoments() };
-        { m.CalculateOmegaGas() };
+        // noexcept is part of the contract: these run in the CFD inner loop
+        // and must not carry exception-handling overhead or prevent hoisting.
+        { m.CalculateSourceMoments() } noexcept;
+        { m.CalculateOmegaGas() }      noexcept;
 
         // ── Source output (zero-copy spans) ────────────────────────────────
         { cm.sources()              } -> std::convertible_to<std::span<const double>>;

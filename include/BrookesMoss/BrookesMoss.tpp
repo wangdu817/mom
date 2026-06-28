@@ -35,6 +35,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
@@ -387,7 +388,7 @@ void BrookesMoss<Thermo>::CheckBrookesMossHallSpecies()
 // ============================================================================
 
 template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::CalculateSourceMoments()
+void BrookesMoss<Thermo>::CalculateSourceMoments() noexcept
 {
     // Reset all source vectors and gas sources
     this->ZeroSources();
@@ -661,7 +662,7 @@ void BrookesMoss<Thermo>::OxidationSourceTerms_BMH()
 // ============================================================================
 
 template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::CalculateOmegaGas()
+void BrookesMoss<Thermo>::CalculateOmegaGas() noexcept
 {
     std::fill(this->omega_gas_.begin(), this->omega_gas_.end(), 0.);
     if (!this->gas_consumption_) return;
@@ -762,9 +763,9 @@ void BrookesMoss<Thermo>::CalculateOmegaGas()
 
     // ── Dummy species closure (enforce mass conservation) ─────────────────
     if (this->dummy_species_closure_) {
-        if (this->dummy_index_ < 0)
-            throw std::runtime_error(
-                "[BrookesMoss::CalculateOmegaGas] dummy_index_ not set.");
+        // dummy_index_ must be set during setup — a negative value is a programming error.
+        assert(this->dummy_index_ >= 0 &&
+               "[BrookesMoss::CalculateOmegaGas] dummy_index_ not set.");
         double sum = 0.;
         for (int i = 0; i < nsp; ++i)
             if (i != this->dummy_index_) sum += this->omega_gas_[i];
