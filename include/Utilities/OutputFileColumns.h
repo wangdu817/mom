@@ -47,92 +47,91 @@
 
 namespace MOM
 {
-	class OutputFileColumns
-	{
-	public:
+class OutputFileColumns
+{
+public:
 
-		/**
+    /**
 		*@brief Default constructor
 		*/
-		OutputFileColumns();
+    OutputFileColumns();
 
-		/**
+    /**
 		*@brief Constructor
 		*@param file_name file name
 		*/
-		OutputFileColumns(const std::filesystem::path& file_name);
-	
-		/**
+    OutputFileColumns(const std::filesystem::path& file_name);
+
+    /**
 		*@brief Constructor
 		*@param file_name file name
 		*/
-		OutputFileColumns(const std::string& file_name);
-	
-		/**
-		*@brief Open the file
-		*@param file_name file name
-		*/
-		void Open(const std::filesystem::path& file_name);
-	
-		/**
-		*@brief Open the file
-		*@param file_name file name
-		*/
-		void Open(const std::string& file_name);
+    OutputFileColumns(const std::string& file_name);
 
-		/**
+    /**
+		*@brief Open the file
+		*@param file_name file name
+		*/
+    void Open(const std::filesystem::path& file_name);
+
+    /**
+		*@brief Open the file
+		*@param file_name file name
+		*/
+    void Open(const std::string& file_name);
+
+    /**
 		*@brief Close the file
 		*/
-		void Close();
-		
-		/**
+    void Close();
+
+    /**
 		*@brief Add a column
 		*@param label label of the column
 		*@param precision precision, i.e. number of significant digits
 		*/
-		void AddColumn(const std::string& label, const unsigned int precision);
+    void AddColumn(const std::string& label, const unsigned int precision);
 
-		/**
+    /**
 		*@brief Complete the column initialization
 		*/
-		void Complete();
+    void Complete();
 
-		/**
+    /**
 		*@brief New row of data
 		*/
-		void NewRow();
+    void NewRow();
 
-		/**
+    /**
 		*@brief Write a new numerical value
 		*@param number the value
 		*/
-		template<typename T>
-    	OutputFileColumns& operator<<(const T& number);
+    template <typename T> OutputFileColumns& operator<<(const T& number);
 
-	private:
+private:
 
-		/**
+    /**
 		*@brief Set the default values
 		*/
-		void Default();
+    void Default();
 
-	private:
+private:
 
-		std::ofstream fOut_;                         //!< the output stream
+    std::ofstream fOut_; //!< the output stream
 
-		unsigned int n_;                             //!< number of columns
-		unsigned int iterator_;                      //!< current iterator, from 0 to n_-1
+    unsigned int n_;        //!< number of columns
+    unsigned int iterator_; //!< current iterator, from 0 to n_-1
 
-		unsigned int tab_;                           //!< tab size
-		unsigned int minimum_;                       //!< minimum width
+    unsigned int tab_;     //!< tab size
+    unsigned int minimum_; //!< minimum width
 
-		std::vector<std::string> tag_;               //!< column tags
-		std::vector<unsigned int> width_;            //!< column widths
-		std::vector<unsigned int> precision_;        //!< column precisions	
+    std::vector<std::string> tag_;        //!< column tags
+    std::vector<unsigned int> width_;     //!< column widths
+    std::vector<unsigned int> precision_; //!< column precisions
 
-		bool status_completed_;                      //!< true if the declarations of columns has been completed
-		std::filesystem::path file_name_;            //!< file name
-	};
-}
+    bool status_completed_;           //!< true if the declarations of columns has been completed
+    std::filesystem::path file_name_; //!< file name
+};
+} // namespace MOM
 
-#endif	// MOM_OutputFileColumns_H
+#endif // MOM_OutputFileColumns_H

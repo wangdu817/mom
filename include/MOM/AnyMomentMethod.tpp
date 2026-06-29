@@ -37,7 +37,8 @@
 
 #pragma once
 
-namespace MOM {
+namespace MOM
+{
 
 // ============================================================================
 // MakeAnyMomentMethod — factory implementation
@@ -52,8 +53,7 @@ namespace MOM {
 // ============================================================================
 
 template <ThermoMap Thermo>
-AnyMomentMethod<Thermo>
-MakeAnyMomentMethod(const Thermo& thermo, std::string_view label)
+AnyMomentMethod<Thermo> MakeAnyMomentMethod(const Thermo& thermo, std::string_view label)
 {
     return detail::make_from_type_list(AllVariants{}, thermo, label);
 }

@@ -46,15 +46,14 @@
 #include "BrookesMoss_Grammar.h"
 #endif
 
-namespace MOM {
+namespace MOM
+{
 
 // ============================================================================
 // Constructor
 // ============================================================================
 
-template <ThermoMap Thermo>
-BrookesMoss<Thermo>::BrookesMoss(const Thermo& thermo)
-    : thermo_(thermo)
+template <ThermoMap Thermo> BrookesMoss<Thermo>::BrookesMoss(const Thermo& thermo) : thermo_(thermo)
 {
     // ── CRTP base state ───────────────────────────────────────────────────
     this->is_active_               = true;
@@ -64,9 +63,9 @@ BrookesMoss<Thermo>::BrookesMoss(const Thermo& thermo)
     this->rho_particle_            = 1800.;
     this->planck_model_            = PlanckCoeffModel::Smooke;
     this->SetThermophoreticModel(1);
-    this->dummy_species_           = "none";
-    this->dummy_index_             = -1;
-    this->dummy_species_closure_   = false;
+    this->dummy_species_         = "none";
+    this->dummy_index_           = -1;
+    this->dummy_species_closure_ = false;
 
     // ── Particle properties ───────────────────────────────────────────────
     dp_      = 1.e-9;
@@ -76,12 +75,17 @@ BrookesMoss<Thermo>::BrookesMoss(const Thermo& thermo)
     bs_min_  = 1.e-30;
 
     // ── Model constants ───────────────────────────────────────────────────
-    Calpha_  = 54.;        Talpha_ = 21000.;
+    Calpha_  = 54.;
+    Talpha_  = 21000.;
     Cbeta_   = 1.0;
-    Cgamma_  = 11700.;     Tgamma_ = 12100.;
-    Comega_  = 105.8125;   etaColl_= 0.04;
+    Cgamma_  = 11700.;
+    Tgamma_  = 12100.;
+    Comega_  = 105.8125;
+    etaColl_ = 0.04;
     Coxid_   = 0.015;
-    exp_l_   = 1.;  exp_m_ = 1.;  exp_n_ = 1.;
+    exp_l_   = 1.;
+    exp_m_   = 1.;
+    exp_n_   = 1.;
 
     // ── BM-Hall extended constants ─────────────────────────────────────────
     Calpha1_MBH_ = 127. * std::pow(10., 8.88);
@@ -107,12 +111,15 @@ BrookesMoss<Thermo>::BrookesMoss(const Thermo& thermo)
     // ── Default precursor: C2H2 ───────────────────────────────────────────
     prec_species_ = "C2H2";
     prec_index_   = thermo_.IndexOfSpecies("C2H2");
-    if (prec_index_ >= 0) {
-        prec_nc_ = static_cast<double>(
-            thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(prec_index_)));
-        prec_nh_ = static_cast<double>(
-            thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(prec_index_)));
-    } else {
+    if (prec_index_ >= 0)
+    {
+        prec_nc_ =
+            static_cast<double>(thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(prec_index_)));
+        prec_nh_ =
+            static_cast<double>(thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(prec_index_)));
+    }
+    else
+    {
         prec_nc_ = 2.;
         prec_nh_ = 2.;
     }
@@ -146,21 +153,19 @@ BrookesMoss<Thermo>::BrookesMoss(const Thermo& thermo)
 // MemoryAllocation
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::MemoryAllocation()
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::MemoryAllocation()
 {
-    this->ZeroSources();               // zeros source_all_, omega_gas_ (base class)
-    source_nucleation_.setZero();     // owned by BrookesMoss — zeroed explicitly
+    this->ZeroSources();          // zeros source_all_, omega_gas_ (base class)
+    source_nucleation_.setZero(); // owned by BrookesMoss — zeroed explicitly
     source_coagulation_.setZero();
     source_growth_.setZero();
     source_oxidation_.setZero();
 
-    this->omega_gas_ = Eigen::VectorXd::Zero(
-        static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
+    this->omega_gas_ = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
 
     // Default initial moment values
-    initial_moments_cache_(0) = 1.e-21;   // Ys_init [-]
-    initial_moments_cache_(1) = 1.e-12;   // bs_init [m3/kg]
+    initial_moments_cache_(0) = 1.e-21; // Ys_init [-]
+    initial_moments_cache_(1) = 1.e-12; // bs_init [m3/kg]
 }
 
 // ============================================================================
@@ -176,7 +181,7 @@ void BrookesMoss<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noex
     // Mixture molecular weight [kg/kmol]  (1/MW = sum Yi/MWi)
     {
         const unsigned nsp = thermo_.NumberOfSpecies();
-        double inv_MW = 0.;
+        double inv_MW      = 0.;
         for (unsigned k = 0; k < nsp; ++k)
             inv_MW += Y[k] / thermo_.MolecularWeight(k);
         this->MW_ = (inv_MW > 1.e-300) ? 1. / inv_MW : 1.;
@@ -187,23 +192,23 @@ void BrookesMoss<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noex
     this->rho_        = cTot * this->MW_;
 
     // Helper lambda: molar concentration of species idx [kmol/m3]
-    auto conc = [&](int idx) -> double {
-        if (idx < 0) return 0.;
-        return cTot * std::max(Y[idx], 0.) * this->MW_
-               / thermo_.MolecularWeight(static_cast<unsigned>(idx));
+    auto conc = [&](int idx) -> double
+    {
+        if (idx < 0)
+            return 0.;
+        return cTot * std::max(Y[idx], 0.) * this->MW_ /
+               thermo_.MolecularWeight(static_cast<unsigned>(idx));
     };
 
     // Precursor concentration [kmol/m3]
-    conc_prec_ = (prec_index_ >= 0)
-        ? cTot * std::max(Y[prec_index_], 0.) * this->MW_
-          / thermo_.MolecularWeight(static_cast<unsigned>(prec_index_))
-        : 0.;
+    conc_prec_ = (prec_index_ >= 0) ? cTot * std::max(Y[prec_index_], 0.) * this->MW_ /
+                                          thermo_.MolecularWeight(static_cast<unsigned>(prec_index_))
+                                    : 0.;
 
     // Surface growth species concentration [kmol/m3]
-    conc_sg_ = (sg_index_ >= 0)
-        ? cTot * std::max(Y[sg_index_], 0.) * this->MW_
-          / thermo_.MolecularWeight(static_cast<unsigned>(sg_index_))
-        : 0.;
+    conc_sg_ = (sg_index_ >= 0) ? cTot * std::max(Y[sg_index_], 0.) * this->MW_ /
+                                      thermo_.MolecularWeight(static_cast<unsigned>(sg_index_))
+                                : 0.;
 
     // Key species concentrations [kmol/m3]
     conc_H_    = conc(index_H_);
@@ -217,23 +222,21 @@ void BrookesMoss<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noex
     Y_C2H2_ = (index_C2H2_ >= 0) ? std::max(Y[index_C2H2_], 0.) : 0.;
     Y_C6H5_ = (index_C6H5_ >= 0) ? std::max(Y[index_C6H5_], 0.) : 0.;
     Y_C6H6_ = (index_C6H6_ >= 0) ? std::max(Y[index_C6H6_], 0.) : 0.;
-    Y_H2_   = (index_H2_   >= 0) ? std::max(Y[index_H2_],   0.) : 0.;
-    Y_OH_   = (index_OH_   >= 0) ? std::max(Y[index_OH_],   0.) : 0.;
-    Y_O2_   = (index_O2_   >= 0) ? std::max(Y[index_O2_],   0.) : 0.;
+    Y_H2_   = (index_H2_ >= 0) ? std::max(Y[index_H2_], 0.) : 0.;
+    Y_OH_   = (index_OH_ >= 0) ? std::max(Y[index_OH_], 0.) : 0.;
+    Y_O2_   = (index_O2_ >= 0) ? std::max(Y[index_O2_], 0.) : 0.;
 }
 
 // ============================================================================
 // SetMoments
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::SetMoments(std::span<const double> m) noexcept
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetMoments(std::span<const double> m) noexcept
 {
     SetMoments(m[0], m[1]);
 }
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::SetMoments(double Ys, double bs) noexcept
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetMoments(double Ys, double bs) noexcept
 {
     Ys_ = std::max(Ys, 0.);
     bs_ = std::max(bs, 0.);
@@ -243,48 +246,42 @@ void BrookesMoss<Thermo>::SetMoments(double Ys, double bs) noexcept
 // SetPrecursors
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::SetPrecursors(std::string_view name)
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetPrecursors(std::string_view name)
 {
     prec_species_ = std::string(name);
     prec_index_   = thermo_.IndexOfSpecies(prec_species_);
 
     if (prec_index_ < 0)
-        throw std::runtime_error("[BrookesMoss] Precursor species not found in mechanism: "
-                                 + prec_species_);
+        throw std::runtime_error("[BrookesMoss] Precursor species not found in mechanism: " +
+                                 prec_species_);
 
-    prec_nc_ = static_cast<double>(
-        thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(prec_index_)));
-    prec_nh_ = static_cast<double>(
-        thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(prec_index_)));
+    prec_nc_ = static_cast<double>(thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(prec_index_)));
+    prec_nh_ = static_cast<double>(thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(prec_index_)));
 
     if (prec_nc_ <= 0.)
-        throw std::runtime_error("[BrookesMoss] Precursor species has no carbon atoms: "
-                                 + prec_species_);
+        throw std::runtime_error("[BrookesMoss] Precursor species has no carbon atoms: " +
+                                 prec_species_);
 }
 
 // ============================================================================
 // SetSurfaceGrowthSpecies
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::SetSurfaceGrowthSpecies(std::string_view name)
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetSurfaceGrowthSpecies(std::string_view name)
 {
     sg_species_ = std::string(name);
     sg_index_   = thermo_.IndexOfSpecies(sg_species_);
 
     if (sg_index_ < 0)
-        throw std::runtime_error("[BrookesMoss] Surface growth species not found in mechanism: "
-                                 + sg_species_);
+        throw std::runtime_error("[BrookesMoss] Surface growth species not found in mechanism: " +
+                                 sg_species_);
 
-    sg_nc_ = static_cast<double>(
-        thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(sg_index_)));
-    sg_nh_ = static_cast<double>(
-        thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(sg_index_)));
+    sg_nc_ = static_cast<double>(thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(sg_index_)));
+    sg_nh_ = static_cast<double>(thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(sg_index_)));
 
     if (sg_nc_ <= 0.)
-        throw std::runtime_error("[BrookesMoss] Surface growth species has no carbon atoms: "
-                                 + sg_species_);
+        throw std::runtime_error("[BrookesMoss] Surface growth species has no carbon atoms: " +
+                                 sg_species_);
 }
 
 // ============================================================================
@@ -296,7 +293,8 @@ void BrookesMoss<Thermo>::SetGasClosureDummySpecies(std::string_view name)
 {
     this->dummy_species_ = std::string(name);
 
-    if (this->dummy_species_ == "none") {
+    if (this->dummy_species_ == "none")
+    {
         this->dummy_index_           = -1;
         this->dummy_species_closure_ = false;
         return;
@@ -305,8 +303,8 @@ void BrookesMoss<Thermo>::SetGasClosureDummySpecies(std::string_view name)
     this->dummy_index_ = thermo_.IndexOfSpecies(this->dummy_species_);
 
     if (this->dummy_index_ < 0)
-        throw std::runtime_error("[BrookesMoss] Dummy species not found in mechanism: "
-                                 + this->dummy_species_);
+        throw std::runtime_error("[BrookesMoss] Dummy species not found in mechanism: " +
+                                 this->dummy_species_);
 
     this->dummy_species_closure_ = true;
 }
@@ -315,25 +313,27 @@ void BrookesMoss<Thermo>::SetGasClosureDummySpecies(std::string_view name)
 // SetNucleation (string variant)
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::SetNucleation(std::string_view label)
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetNucleation(std::string_view label)
 {
-    if (label == "none") {
+    if (label == "none")
+    {
         nucleation_variant_ = NucleationVariant::Off;
     }
-    else if (label == "BrookesMoss") {
+    else if (label == "BrookesMoss")
+    {
         nucleation_variant_ = NucleationVariant::BrookesMoss;
         mwp_                = 144.;
     }
-    else if (label == "BrookesMossHall") {
+    else if (label == "BrookesMossHall")
+    {
         nucleation_variant_ = NucleationVariant::BrookesMossHall;
         mwp_                = 1200.;
         CheckBrookesMossHallSpecies();
     }
-    else {
-        throw std::runtime_error("[BrookesMoss] Unknown nucleation model: "
-                                 + std::string(label)
-                                 + ". Allowed: none | BrookesMoss | BrookesMossHall");
+    else
+    {
+        throw std::runtime_error("[BrookesMoss] Unknown nucleation model: " + std::string(label) +
+                                 ". Allowed: none | BrookesMoss | BrookesMossHall");
     }
 }
 
@@ -341,27 +341,29 @@ void BrookesMoss<Thermo>::SetNucleation(std::string_view label)
 // SetOxidation (string variant)
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::SetOxidation(std::string_view label)
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetOxidation(std::string_view label)
 {
-    if (label == "none") {
+    if (label == "none")
+    {
         oxidation_variant_ = OxidationVariant::Off;
     }
-    else if (label == "BrookesMoss") {
+    else if (label == "BrookesMoss")
+    {
         oxidation_variant_ = OxidationVariant::BrookesMoss;
         etaColl_           = 0.04;
         Coxid_             = 0.015;
     }
-    else if (label == "BrookesMossHall") {
+    else if (label == "BrookesMossHall")
+    {
         oxidation_variant_ = OxidationVariant::BrookesMossHall;
         etaColl_           = 0.13;
         Coxid_             = 0.015;
         CheckBrookesMossHallSpecies();
     }
-    else {
-        throw std::runtime_error("[BrookesMoss] Unknown oxidation model: "
-                                 + std::string(label)
-                                 + ". Allowed: none | BrookesMoss | BrookesMossHall");
+    else
+    {
+        throw std::runtime_error("[BrookesMoss] Unknown oxidation model: " + std::string(label) +
+                                 ". Allowed: none | BrookesMoss | BrookesMossHall");
     }
 }
 
@@ -369,21 +371,18 @@ void BrookesMoss<Thermo>::SetOxidation(std::string_view label)
 // CheckBrookesMossHallSpecies
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::CheckBrookesMossHallSpecies()
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::CheckBrookesMossHallSpecies()
 {
     // Update all BMH-relevant indices (0-based, no -1 subtraction)
     index_C6H5_ = thermo_.IndexOfSpecies("A1-");
     index_C6H6_ = thermo_.IndexOfSpecies("A1");
 
     if (index_C6H5_ < 0)
-        throw std::runtime_error(
-            "[BrookesMoss] BrookesMossHall requires species A1- "
-            "(phenyl radical) in the mechanism.");
+        throw std::runtime_error("[BrookesMoss] BrookesMossHall requires species A1- "
+                                 "(phenyl radical) in the mechanism.");
     if (index_C6H6_ < 0)
-        throw std::runtime_error(
-            "[BrookesMoss] BrookesMossHall requires species A1 "
-            "(benzene) in the mechanism.");
+        throw std::runtime_error("[BrookesMoss] BrookesMossHall requires species A1 "
+                                 "(benzene) in the mechanism.");
 
     // Adjust surface growth activation temperature for BMH
     Cgamma_ = 9000.6;
@@ -393,11 +392,10 @@ void BrookesMoss<Thermo>::CheckBrookesMossHallSpecies()
 // CalculateSourceMoments
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::CalculateSourceMoments() noexcept
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateSourceMoments() noexcept
 {
-    this->ZeroSources();               // zeros source_all_, omega_gas_ (base class)
-    source_nucleation_.setZero();     // owned by BrookesMoss — zeroed explicitly
+    this->ZeroSources();          // zeros source_all_, omega_gas_ (base class)
+    source_nucleation_.setZero(); // owned by BrookesMoss — zeroed explicitly
     source_coagulation_.setZero();
     source_growth_.setZero();
     source_oxidation_.setZero();
@@ -410,22 +408,29 @@ void BrookesMoss<Thermo>::CalculateSourceMoments() noexcept
     dMdt_oxidation_        = 0.;
 
     // Sub-process source terms
-    if (nucleation_variant_   != NucleationVariant::Off) NucleationSourceTerms();
-    if (surface_growth_model_ >  0)                      SurfaceGrowthSourceTerms();
-    if (oxidation_variant_    != OxidationVariant::Off)  OxidationSourceTerms();
-    if (coagulation_model_    >  0)                      CoagulationSourceTerms();
+    if (nucleation_variant_ != NucleationVariant::Off)
+        NucleationSourceTerms();
+    if (surface_growth_model_ > 0)
+        SurfaceGrowthSourceTerms();
+    if (oxidation_variant_ != OxidationVariant::Off)
+        OxidationSourceTerms();
+    if (coagulation_model_ > 0)
+        CoagulationSourceTerms();
 
     // Sanitise and accumulate total source
-    for (unsigned i = 0; i < 2u; ++i) {
-        if (!std::isfinite(this->source_nucleation_(i)))  this->source_nucleation_(i)  = 0.;
-        if (!std::isfinite(this->source_growth_(i)))      this->source_growth_(i)      = 0.;
-        if (!std::isfinite(this->source_oxidation_(i)))   this->source_oxidation_(i)   = 0.;
-        if (!std::isfinite(this->source_coagulation_(i))) this->source_coagulation_(i) = 0.;
+    for (unsigned i = 0; i < 2u; ++i)
+    {
+        if (!std::isfinite(this->source_nucleation_(i)))
+            this->source_nucleation_(i) = 0.;
+        if (!std::isfinite(this->source_growth_(i)))
+            this->source_growth_(i) = 0.;
+        if (!std::isfinite(this->source_oxidation_(i)))
+            this->source_oxidation_(i) = 0.;
+        if (!std::isfinite(this->source_coagulation_(i)))
+            this->source_coagulation_(i) = 0.;
 
-        this->source_all_(i) = this->source_nucleation_(i)
-                             + this->source_growth_(i)
-                             + this->source_oxidation_(i)
-                             + this->source_coagulation_(i);
+        this->source_all_(i) = this->source_nucleation_(i) + this->source_growth_(i) +
+                               this->source_oxidation_(i) + this->source_coagulation_(i);
     }
 
     CalculateOmegaGas();
@@ -435,8 +440,7 @@ void BrookesMoss<Thermo>::CalculateSourceMoments() noexcept
 // NucleationSourceTerms  (dispatcher)
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::NucleationSourceTerms()
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::NucleationSourceTerms()
 {
     if (nucleation_variant_ == NucleationVariant::BrookesMoss)
         NucleationSourceTerms_BM();
@@ -448,15 +452,14 @@ void BrookesMoss<Thermo>::NucleationSourceTerms()
 // NucleationSourceTerms_BM  — Brookes & Moss (1999)
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::NucleationSourceTerms_BM()
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::NucleationSourceTerms_BM()
 {
-    if (conc_prec_ <= 0.) return;
+    if (conc_prec_ <= 0.)
+        return;
 
     // Particle number formation rate [#/m3/s]
-    const double dNdt = Calpha_ * this->Nav_kmol_
-                      * std::pow(conc_prec_, exp_l_)
-                      * std::exp(-Talpha_ / this->T_);
+    const double dNdt =
+        Calpha_ * this->Nav_kmol_ * std::pow(conc_prec_, exp_l_) * std::exp(-Talpha_ / this->T_);
 
     // Soot mass formation rate [kg/m3/s]:  dMdt = mwp * dNdt / Nav
     const double dMdt = mwp_ * dNdt / this->Nav_kmol_;
@@ -474,36 +477,36 @@ void BrookesMoss<Thermo>::NucleationSourceTerms_BM()
 // Two-channel inception: C2H2 (channel 1) + A1/C6H6 (channel 2)
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::NucleationSourceTerms_BMH()
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::NucleationSourceTerms_BMH()
 {
     dMdt_nucleation_BMH_1_ = 0.;
     dMdt_nucleation_BMH_2_ = 0.;
 
     // Channel 1: C2H2-based inception
-    if (conc_C2H2_ > 0.) {
-        const double dNdt1 = Calpha1_MBH_
-                           * std::pow(conc_C2H2_, exp_l_)
-                           * std::exp(-Talpha1_MBH_ / this->T_);
+    if (conc_C2H2_ > 0.)
+    {
+        const double dNdt1 =
+            Calpha1_MBH_ * std::pow(conc_C2H2_, exp_l_) * std::exp(-Talpha1_MBH_ / this->T_);
         dMdt_nucleation_BMH_1_ = mwp_ * dNdt1 / this->Nav_kmol_;
     }
 
     // Channel 2: A1 (benzene / C6H6) based inception
-    if (index_C6H6_ >= 0) {
-        const double cTot   = this->P_Pa_ / (this->Rgas_ * this->T_);
-        const double conc_A1 = cTot * Y_C6H6_ * this->MW_
-                              / thermo_.MolecularWeight(static_cast<unsigned>(index_C6H6_));
-        if (conc_A1 > 0.) {
-            const double dNdt2 = Calpha2_MBH_
-                               * std::pow(conc_A1, exp_l_)
-                               * std::exp(-Talpha2_MBH_ / this->T_);
+    if (index_C6H6_ >= 0)
+    {
+        const double cTot = this->P_Pa_ / (this->Rgas_ * this->T_);
+        const double conc_A1 =
+            cTot * Y_C6H6_ * this->MW_ / thermo_.MolecularWeight(static_cast<unsigned>(index_C6H6_));
+        if (conc_A1 > 0.)
+        {
+            const double dNdt2 =
+                Calpha2_MBH_ * std::pow(conc_A1, exp_l_) * std::exp(-Talpha2_MBH_ / this->T_);
             dMdt_nucleation_BMH_2_ = mwp_ * dNdt2 / this->Nav_kmol_;
         }
     }
 
     // Total nucleation mass rate [kg/m3/s]
-    const double dMdt   = dMdt_nucleation_BMH_1_ + dMdt_nucleation_BMH_2_;
-    dMdt_nucleation_    = dMdt;
+    const double dMdt = dMdt_nucleation_BMH_1_ + dMdt_nucleation_BMH_2_;
+    dMdt_nucleation_  = dMdt;
 
     // Total number rate [#/m3/s]
     const double dNdt_total = (mwp_ > 0.) ? dMdt * this->Nav_kmol_ / mwp_ : 0.;
@@ -519,28 +522,26 @@ void BrookesMoss<Thermo>::NucleationSourceTerms_BMH()
 // SurfaceGrowthSourceTerms
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::SurfaceGrowthSourceTerms()
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::SurfaceGrowthSourceTerms()
 {
     // Soot mass and number concentrations
     const double M = std::max(Ys_, 0.) * this->rho_;            // [kg/m3]
     const double N = std::max(bs_, 0.) * this->rho_ * Ns_norm_; // [#/m3]
 
-    if (M <= 0. || N <= 0. || conc_sg_ <= 0.) {
+    if (M <= 0. || N <= 0. || conc_sg_ <= 0.)
+    {
         dMdt_surface_growth_ = 0.;
         return;
     }
 
     // Particle surface area per unit volume [m2/m3]:
     //   A = (pi * N)^(1/3) * (6 * M / rho_p)^(2/3)
-    const double A = std::pow(this->pi_ * N, 1. / 3.)
-                   * std::pow(6. * M / this->rho_particle_, 2. / 3.);
+    const double A =
+        std::pow(this->pi_ * N, 1. / 3.) * std::pow(6. * M / this->rho_particle_, 2. / 3.);
 
     // Surface growth mass rate [kg/m3/s]
-    const double dMdt = Cgamma_
-                      * std::pow(conc_sg_, exp_m_)
-                      * std::exp(-Tgamma_ / this->T_)
-                      * std::pow(A, exp_n_);
+    const double dMdt =
+        Cgamma_ * std::pow(conc_sg_, exp_m_) * std::exp(-Tgamma_ / this->T_) * std::pow(A, exp_n_);
 
     dMdt_surface_growth_ = dMdt;
 
@@ -555,21 +556,19 @@ void BrookesMoss<Thermo>::SurfaceGrowthSourceTerms()
 // CoagulationSourceTerms  — free-molecular regime
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::CoagulationSourceTerms()
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::CoagulationSourceTerms()
 {
     const double N  = std::max(bs_, 0.) * this->rho_ * Ns_norm_; // [#/m3]
-    const double dp = ParticleDiameter();                          // [m]
+    const double dp = ParticleDiameter();                        // [m]
 
-    if (N <= 0. || dp <= 0.) return;
+    if (N <= 0. || dp <= 0.)
+        return;
 
     // Free-molecular coagulation kernel:
     //   dNdt = Cbeta * sqrt(24 * R * T / rho_p / Nav) * sqrt(dp) * N^2
-    const double dNdt = Cbeta_
-                      * std::sqrt(24. * this->Rgas_ * this->T_
-                                  / this->rho_particle_ / this->Nav_kmol_)
-                      * std::sqrt(dp)
-                      * N * N;
+    const double dNdt =
+        Cbeta_ * std::sqrt(24. * this->Rgas_ * this->T_ / this->rho_particle_ / this->Nav_kmol_) *
+        std::sqrt(dp) * N * N;
 
     // No change in soot mass from coagulation
     this->source_coagulation_(0) = 0.;
@@ -582,8 +581,7 @@ void BrookesMoss<Thermo>::CoagulationSourceTerms()
 // OxidationSourceTerms  (dispatcher)
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::OxidationSourceTerms()
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::OxidationSourceTerms()
 {
     if (oxidation_variant_ == OxidationVariant::BrookesMoss)
         OxidationSourceTerms_BM();
@@ -595,24 +593,21 @@ void BrookesMoss<Thermo>::OxidationSourceTerms()
 // OxidationSourceTerms_BM  — Brookes & Moss (1999), OH attack
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::OxidationSourceTerms_BM()
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::OxidationSourceTerms_BM()
 {
     const double M = std::max(Ys_, 0.) * this->rho_;            // [kg/m3]
     const double N = std::max(bs_, 0.) * this->rho_ * Ns_norm_; // [#/m3]
 
-    if (M <= 0. || N <= 0. || conc_OH_ <= 0.) return;
+    if (M <= 0. || N <= 0. || conc_OH_ <= 0.)
+        return;
 
     // Particle surface area per unit volume [m2/m3]
-    const double A = std::pow(this->pi_ * N, 1. / 3.)
-                   * std::pow(6. * M / this->rho_particle_, 2. / 3.);
+    const double A =
+        std::pow(this->pi_ * N, 1. / 3.) * std::pow(6. * M / this->rho_particle_, 2. / 3.);
 
     // Oxidation mass rate [kg/m3/s]
     //   dMdt = Coxid * Comega * etaColl * [OH] * sqrt(T) * A
-    const double dMdt_oxid = Coxid_ * Comega_ * etaColl_
-                           * conc_OH_
-                           * std::sqrt(this->T_)
-                           * A;
+    const double dMdt_oxid = Coxid_ * Comega_ * etaColl_ * conc_OH_ * std::sqrt(this->T_) * A;
 
     dMdt_oxidation_ = dMdt_oxid;
 
@@ -627,34 +622,30 @@ void BrookesMoss<Thermo>::OxidationSourceTerms_BM()
 // OxidationSourceTerms_BMH  — Hall et al. (2016), OH + O2 channels
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::OxidationSourceTerms_BMH()
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::OxidationSourceTerms_BMH()
 {
     const double M = std::max(Ys_, 0.) * this->rho_;            // [kg/m3]
     const double N = std::max(bs_, 0.) * this->rho_ * Ns_norm_; // [#/m3]
 
-    if (M <= 0. || N <= 0.) return;
+    if (M <= 0. || N <= 0.)
+        return;
 
     // Particle surface area per unit volume [m2/m3]
-    const double A = std::pow(this->pi_ * N, 1. / 3.)
-                   * std::pow(6. * M / this->rho_particle_, 2. / 3.);
+    const double A =
+        std::pow(this->pi_ * N, 1. / 3.) * std::pow(6. * M / this->rho_particle_, 2. / 3.);
 
     double dMdt_oxid = 0.;
 
     // Channel 1: OH oxidation (BM form with BMH collision efficiency etaColl_=0.13)
-    if (conc_OH_ > 0.) {
-        dMdt_oxid += Coxid_ * Comega_ * etaColl_
-                   * conc_OH_
-                   * std::sqrt(this->T_)
-                   * A;
+    if (conc_OH_ > 0.)
+    {
+        dMdt_oxid += Coxid_ * Comega_ * etaColl_ * conc_OH_ * std::sqrt(this->T_) * A;
     }
 
     // Channel 2: O2 oxidation (Arrhenius-type with BMH constants)
-    if (conc_O2_ > 0.) {
-        dMdt_oxid += Comega2_MBH_
-                   * conc_O2_
-                   * std::exp(-Tomega2_MBH_ / this->T_)
-                   * A;
+    if (conc_O2_ > 0.)
+    {
+        dMdt_oxid += Comega2_MBH_ * conc_O2_ * std::exp(-Tomega2_MBH_ / this->T_) * A;
     }
 
     dMdt_oxidation_ = dMdt_oxid;
@@ -670,17 +661,19 @@ void BrookesMoss<Thermo>::OxidationSourceTerms_BMH()
 // CalculateOmegaGas
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::CalculateOmegaGas() noexcept
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexcept
 {
     this->omega_gas_.setZero();
-    if (!this->gas_consumption_) return;
+    if (!this->gas_consumption_)
+        return;
 
     const int nsp = static_cast<int>(thermo_.NumberOfSpecies());
 
     // Helper: add mass source [kg/m3/s] directly for species idx
-    auto AddMass = [&](int idx, double omega_kg_m3_s) {
-        if (idx < 0 || idx >= nsp || !std::isfinite(omega_kg_m3_s)) return;
+    auto AddMass = [&](int idx, double omega_kg_m3_s)
+    {
+        if (idx < 0 || idx >= nsp || !std::isfinite(omega_kg_m3_s))
+            return;
         this->omega_gas_[idx] += omega_kg_m3_s;
     };
 
@@ -692,59 +685,58 @@ void BrookesMoss<Thermo>::CalculateOmegaGas() noexcept
     //
     // [kg/m3/s] = [kg/m3/s] * [kmol_prec/kg_soot] * [kg/kmol_prec]
 
-    if (nucleation_variant_ == NucleationVariant::BrookesMoss) {
-        if (dMdt_nucleation_ > 0. && prec_index_ >= 0 && prec_nc_ > 0.) {
-            const double MW_prec          = thermo_.MolecularWeight(
-                                                static_cast<unsigned>(prec_index_));
+    if (nucleation_variant_ == NucleationVariant::BrookesMoss)
+    {
+        if (dMdt_nucleation_ > 0. && prec_index_ >= 0 && prec_nc_ > 0.)
+        {
+            const double MW_prec = thermo_.MolecularWeight(static_cast<unsigned>(prec_index_));
             const double prec_per_kg_soot = 1. / (prec_nc_ * this->WC_);
 
-            AddMass(prec_index_,
-                    -dMdt_nucleation_ * prec_per_kg_soot * MW_prec);
+            AddMass(prec_index_, -dMdt_nucleation_ * prec_per_kg_soot * MW_prec);
 
-            if (index_H2_ >= 0 && prec_nh_ > 0.) {
-                const double MW_H2 = thermo_.MolecularWeight(
-                                         static_cast<unsigned>(index_H2_));
-                AddMass(index_H2_,
-                        dMdt_nucleation_ * prec_per_kg_soot * (prec_nh_ / 2.) * MW_H2);
+            if (index_H2_ >= 0 && prec_nh_ > 0.)
+            {
+                const double MW_H2 = thermo_.MolecularWeight(static_cast<unsigned>(index_H2_));
+                AddMass(index_H2_, dMdt_nucleation_ * prec_per_kg_soot * (prec_nh_ / 2.) * MW_H2);
             }
         }
     }
-    else if (nucleation_variant_ == NucleationVariant::BrookesMossHall) {
+    else if (nucleation_variant_ == NucleationVariant::BrookesMossHall)
+    {
         // Channel 1: C2H2-based
-        if (dMdt_nucleation_BMH_1_ > 0. && prec_index_ >= 0 && prec_nc_ > 0.) {
-            const double MW_prec          = thermo_.MolecularWeight(
-                                                static_cast<unsigned>(prec_index_));
+        if (dMdt_nucleation_BMH_1_ > 0. && prec_index_ >= 0 && prec_nc_ > 0.)
+        {
+            const double MW_prec = thermo_.MolecularWeight(static_cast<unsigned>(prec_index_));
             const double prec_per_kg_soot = 1. / (prec_nc_ * this->WC_);
 
-            AddMass(prec_index_,
-                    -dMdt_nucleation_BMH_1_ * prec_per_kg_soot * MW_prec);
+            AddMass(prec_index_, -dMdt_nucleation_BMH_1_ * prec_per_kg_soot * MW_prec);
 
-            if (index_H2_ >= 0 && prec_nh_ > 0.) {
-                const double MW_H2 = thermo_.MolecularWeight(
-                                         static_cast<unsigned>(index_H2_));
+            if (index_H2_ >= 0 && prec_nh_ > 0.)
+            {
+                const double MW_H2 = thermo_.MolecularWeight(static_cast<unsigned>(index_H2_));
                 AddMass(index_H2_,
                         dMdt_nucleation_BMH_1_ * prec_per_kg_soot * (prec_nh_ / 2.) * MW_H2);
             }
         }
 
         // Channel 2: A1 (benzene)-based
-        if (dMdt_nucleation_BMH_2_ > 0. && index_C6H6_ >= 0) {
-            const double nc_A1 = static_cast<double>(
-                thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(index_C6H6_)));
+        if (dMdt_nucleation_BMH_2_ > 0. && index_C6H6_ >= 0)
+        {
+            const double nc_A1 =
+                static_cast<double>(thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(index_C6H6_)));
             const double nh_A1 = static_cast<double>(
                 thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(index_C6H6_)));
 
-            if (nc_A1 > 0.) {
-                const double MW_A1          = thermo_.MolecularWeight(
-                                                  static_cast<unsigned>(index_C6H6_));
+            if (nc_A1 > 0.)
+            {
+                const double MW_A1 = thermo_.MolecularWeight(static_cast<unsigned>(index_C6H6_));
                 const double A1_per_kg_soot = 1. / (nc_A1 * this->WC_);
 
-                AddMass(index_C6H6_,
-                        -dMdt_nucleation_BMH_2_ * A1_per_kg_soot * MW_A1);
+                AddMass(index_C6H6_, -dMdt_nucleation_BMH_2_ * A1_per_kg_soot * MW_A1);
 
-                if (index_H2_ >= 0 && nh_A1 > 0.) {
-                    const double MW_H2 = thermo_.MolecularWeight(
-                                             static_cast<unsigned>(index_H2_));
+                if (index_H2_ >= 0 && nh_A1 > 0.)
+                {
+                    const double MW_H2 = thermo_.MolecularWeight(static_cast<unsigned>(index_H2_));
                     AddMass(index_H2_,
                             dMdt_nucleation_BMH_2_ * A1_per_kg_soot * (nh_A1 / 2.) * MW_H2);
                 }
@@ -753,31 +745,30 @@ void BrookesMoss<Thermo>::CalculateOmegaGas() noexcept
     }
 
     // ── Surface growth coupling ───────────────────────────────────────────
-    if (dMdt_surface_growth_ > 0. && sg_index_ >= 0 && sg_nc_ > 0.) {
-        const double MW_sg          = thermo_.MolecularWeight(
-                                          static_cast<unsigned>(sg_index_));
+    if (dMdt_surface_growth_ > 0. && sg_index_ >= 0 && sg_nc_ > 0.)
+    {
+        const double MW_sg          = thermo_.MolecularWeight(static_cast<unsigned>(sg_index_));
         const double sg_per_kg_soot = 1. / (sg_nc_ * this->WC_);
 
-        AddMass(sg_index_,
-                -dMdt_surface_growth_ * sg_per_kg_soot * MW_sg);
+        AddMass(sg_index_, -dMdt_surface_growth_ * sg_per_kg_soot * MW_sg);
 
         // H2 production from H atoms in surface growth species
-        if (index_H2_ >= 0 && sg_nh_ > 0.) {
-            const double MW_H2 = thermo_.MolecularWeight(
-                                     static_cast<unsigned>(index_H2_));
-            AddMass(index_H2_,
-                    dMdt_surface_growth_ * sg_per_kg_soot * (sg_nh_ / 2.) * MW_H2);
+        if (index_H2_ >= 0 && sg_nh_ > 0.)
+        {
+            const double MW_H2 = thermo_.MolecularWeight(static_cast<unsigned>(index_H2_));
+            AddMass(index_H2_, dMdt_surface_growth_ * sg_per_kg_soot * (sg_nh_ / 2.) * MW_H2);
         }
     }
 
     // ── Dummy species closure (enforce mass conservation) ─────────────────
-    if (this->dummy_species_closure_) {
+    if (this->dummy_species_closure_)
+    {
         // dummy_index_ must be set during setup — a negative value is a programming error.
-        assert(this->dummy_index_ >= 0 &&
-               "[BrookesMoss::CalculateOmegaGas] dummy_index_ not set.");
+        assert(this->dummy_index_ >= 0 && "[BrookesMoss::CalculateOmegaGas] dummy_index_ not set.");
         double sum = 0.;
         for (int i = 0; i < nsp; ++i)
-            if (i != this->dummy_index_) sum += this->omega_gas_[i];
+            if (i != this->dummy_index_)
+                sum += this->omega_gas_[i];
         this->omega_gas_[this->dummy_index_] = -sum;
     }
 }
@@ -786,52 +777,46 @@ void BrookesMoss<Thermo>::CalculateOmegaGas() noexcept
 // Property methods
 // ============================================================================
 
-template <ThermoMap Thermo>
-double BrookesMoss<Thermo>::VolumeFraction() const noexcept
+template <ThermoMap Thermo> double BrookesMoss<Thermo>::VolumeFraction() const noexcept
 {
     return this->rho_ / this->rho_particle_ * std::max(Ys_, 0.);
 }
 
-template <ThermoMap Thermo>
-double BrookesMoss<Thermo>::MassFraction() const noexcept
+template <ThermoMap Thermo> double BrookesMoss<Thermo>::MassFraction() const noexcept
 {
     return std::max(Ys_, 0.);
 }
 
-template <ThermoMap Thermo>
-double BrookesMoss<Thermo>::ParticleNumberDensity() const noexcept
+template <ThermoMap Thermo> double BrookesMoss<Thermo>::ParticleNumberDensity() const noexcept
 {
     return std::max(bs_, 0.) * this->rho_ * Ns_norm_;
 }
 
-template <ThermoMap Thermo>
-double BrookesMoss<Thermo>::ParticleDiameter() const noexcept
+template <ThermoMap Thermo> double BrookesMoss<Thermo>::ParticleDiameter() const noexcept
 {
     const double M = std::max(Ys_, 0.) * this->rho_;            // [kg/m3]
     const double N = std::max(bs_, 0.) * this->rho_ * Ns_norm_; // [#/m3]
 
-    if (N <= 0. || M <= 0.) return 0.;
+    if (N <= 0. || M <= 0.)
+        return 0.;
 
     return std::pow(6. * M / (this->pi_ * this->rho_particle_ * N), 1. / 3.);
 }
 
-template <ThermoMap Thermo>
-double BrookesMoss<Thermo>::CollisionDiameter() const noexcept
+template <ThermoMap Thermo> double BrookesMoss<Thermo>::CollisionDiameter() const noexcept
 {
     // For BrookesMoss the collision diameter equals the mean particle diameter
     return ParticleDiameter();
 }
 
-template <ThermoMap Thermo>
-double BrookesMoss<Thermo>::SpecificSurface() const noexcept
+template <ThermoMap Thermo> double BrookesMoss<Thermo>::SpecificSurface() const noexcept
 {
     const double dp = ParticleDiameter();
     const double N  = ParticleNumberDensity();
     return this->pi_ * dp * dp * N;
 }
 
-template <ThermoMap Thermo>
-double BrookesMoss<Thermo>::DiffusionCoefficient() const noexcept
+template <ThermoMap Thermo> double BrookesMoss<Thermo>::DiffusionCoefficient() const noexcept
 {
     return this->mu_ / this->schmidt_number_;
 }
@@ -840,299 +825,327 @@ double BrookesMoss<Thermo>::DiffusionCoefficient() const noexcept
 // PrintSummary
 // ============================================================================
 
-template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::PrintSummary() const
+template <ThermoMap Thermo> void BrookesMoss<Thermo>::PrintSummary() const
 {
-    std::cout << "\n"
-              << "------------------------------------------------------------------------------------------\n"
-              << "                        Brookes-Moss Soot Model Summary\n"
-              << "------------------------------------------------------------------------------------------\n"
-              << " * Soot density (kg/m3):      " << this->rho_particle_     << "\n"
-              << " * Schmidt number (-):         " << this->schmidt_number_   << "\n"
-              << " * Ns normalisation (#/m3):    " << Ns_norm_                << "\n"
-              << " * Soot particle MW (kg/kmol): " << mwp_                    << "\n"
-              << "\n"
-              << " * Processes\n"
-              << "    + Nucleation:     " << static_cast<int>(nucleation_variant_) << "\n"
-              << "    + Surface growth: " << surface_growth_model_                 << "\n"
-              << "    + Oxidation:      " << static_cast<int>(oxidation_variant_)  << "\n"
-              << "    + Coagulation:    " << coagulation_model_                    << "\n"
-              << "\n"
-              << " * Precursor species:          " << prec_species_
-              << "  (nC=" << prec_nc_ << ", nH=" << prec_nh_ << ")\n"
-              << " * Surface growth species:     " << sg_species_
-              << "  (nC=" << sg_nc_   << ", nH=" << sg_nh_   << ")\n"
-              << "\n"
-              << " * Nucleation constants\n"
-              << "    + Calpha  = " << Calpha_  << "\n"
-              << "    + Talpha  = " << Talpha_  << " [K]\n"
-              << "\n"
-              << " * Surface growth constants\n"
-              << "    + Cgamma  = " << Cgamma_  << "\n"
-              << "    + Tgamma  = " << Tgamma_  << " [K]\n"
-              << "    + exp_m   = " << exp_m_   << "\n"
-              << "    + exp_n   = " << exp_n_   << "\n"
-              << "\n"
-              << " * Coagulation constants\n"
-              << "    + Cbeta   = " << Cbeta_   << "\n"
-              << "\n"
-              << " * Oxidation constants\n"
-              << "    + Comega  = " << Comega_  << "\n"
-              << "    + etaColl = " << etaColl_ << "\n"
-              << "    + Coxid   = " << Coxid_   << "\n"
-              << "\n"
-              << " * BM-Hall extended constants\n"
-              << "    + Calpha1_MBH = " << Calpha1_MBH_ << "\n"
-              << "    + Calpha2_MBH = " << Calpha2_MBH_ << "\n"
-              << "    + Talpha1_MBH = " << Talpha1_MBH_ << " [K]\n"
-              << "    + Talpha2_MBH = " << Talpha2_MBH_ << " [K]\n"
-              << "    + Comega2_MBH = " << Comega2_MBH_ << "\n"
-              << "    + Tomega2_MBH = " << Tomega2_MBH_ << " [K]\n"
-              << "\n"
-              << " * Numerical floors\n"
-              << "    + Ys_min (-):    " << Ys_min_ << "\n"
-              << "    + bs_min (-):    " << bs_min_ << "\n"
-              << "\n"
-              << " * Gas consumption:  " << (this->gas_consumption_         ? "yes" : "no") << "\n"
-              << " * Radiative HT:     " << (this->radiative_heat_transfer_ ? "yes" : "no") << "\n"
-              << "------------------------------------------------------------------------------------------\n";
+    std::cout
+        << "\n"
+        << "------------------------------------------------------------------------------------------\n"
+        << "                        Brookes-Moss Soot Model Summary\n"
+        << "------------------------------------------------------------------------------------------\n"
+        << " * Soot density (kg/m3):      " << this->rho_particle_ << "\n"
+        << " * Schmidt number (-):         " << this->schmidt_number_ << "\n"
+        << " * Ns normalisation (#/m3):    " << Ns_norm_ << "\n"
+        << " * Soot particle MW (kg/kmol): " << mwp_ << "\n"
+        << "\n"
+        << " * Processes\n"
+        << "    + Nucleation:     " << static_cast<int>(nucleation_variant_) << "\n"
+        << "    + Surface growth: " << surface_growth_model_ << "\n"
+        << "    + Oxidation:      " << static_cast<int>(oxidation_variant_) << "\n"
+        << "    + Coagulation:    " << coagulation_model_ << "\n"
+        << "\n"
+        << " * Precursor species:          " << prec_species_ << "  (nC=" << prec_nc_
+        << ", nH=" << prec_nh_ << ")\n"
+        << " * Surface growth species:     " << sg_species_ << "  (nC=" << sg_nc_
+        << ", nH=" << sg_nh_ << ")\n"
+        << "\n"
+        << " * Nucleation constants\n"
+        << "    + Calpha  = " << Calpha_ << "\n"
+        << "    + Talpha  = " << Talpha_ << " [K]\n"
+        << "\n"
+        << " * Surface growth constants\n"
+        << "    + Cgamma  = " << Cgamma_ << "\n"
+        << "    + Tgamma  = " << Tgamma_ << " [K]\n"
+        << "    + exp_m   = " << exp_m_ << "\n"
+        << "    + exp_n   = " << exp_n_ << "\n"
+        << "\n"
+        << " * Coagulation constants\n"
+        << "    + Cbeta   = " << Cbeta_ << "\n"
+        << "\n"
+        << " * Oxidation constants\n"
+        << "    + Comega  = " << Comega_ << "\n"
+        << "    + etaColl = " << etaColl_ << "\n"
+        << "    + Coxid   = " << Coxid_ << "\n"
+        << "\n"
+        << " * BM-Hall extended constants\n"
+        << "    + Calpha1_MBH = " << Calpha1_MBH_ << "\n"
+        << "    + Calpha2_MBH = " << Calpha2_MBH_ << "\n"
+        << "    + Talpha1_MBH = " << Talpha1_MBH_ << " [K]\n"
+        << "    + Talpha2_MBH = " << Talpha2_MBH_ << " [K]\n"
+        << "    + Comega2_MBH = " << Comega2_MBH_ << "\n"
+        << "    + Tomega2_MBH = " << Tomega2_MBH_ << " [K]\n"
+        << "\n"
+        << " * Numerical floors\n"
+        << "    + Ys_min (-):    " << Ys_min_ << "\n"
+        << "    + bs_min (-):    " << bs_min_ << "\n"
+        << "\n"
+        << " * Gas consumption:  " << (this->gas_consumption_ ? "yes" : "no") << "\n"
+        << " * Radiative HT:     " << (this->radiative_heat_transfer_ ? "yes" : "no") << "\n"
+        << "------------------------------------------------------------------------------------------\n";
 }
 
-
-
-
 // ============================================================================
-// SetupFromDictionary 
+// SetupFromDictionary
 // ============================================================================
 
 #if defined(MOM_USE_DICTIONARY)
 
 template <ThermoMap Thermo>
 template <typename Dictionary>
-std::expected<void, std::string>
-BrookesMoss<Thermo>::SetupFromDictionary(Dictionary& dict)
+std::expected<void, std::string> BrookesMoss<Thermo>::SetupFromDictionary(Dictionary& dict)
 {
-	BrookesMoss_Grammar grammar;
-	dict.SetGrammar(grammar);
+    BrookesMoss_Grammar grammar;
+    dict.SetGrammar(grammar);
 
-	if (dict.CheckOption("@BrookesMoss") == true)
-		dict.ReadBool("@BrookesMoss", this->is_active_);
+    if (dict.CheckOption("@BrookesMoss") == true)
+        dict.ReadBool("@BrookesMoss", this->is_active_);
 
-	if (dict.CheckOption("@NucleationModel") == true)
-	{
-		std::string name;
-		dict.ReadString("@NucleationModel", name);
-		if (name == "0" || name == "none")
-			this->SetNucleation(0);
-		else if (name == "1" || name == "BrookesMoss")
-			this->SetNucleation(1);
-		else if (name == "2" || name == "BrookesMossHall")
-			this->SetNucleation(2);
-		else return std::unexpected("@NucleationModel: allowed options: 0=none, 1=BrookesMoss, 2=BrookesMossHall");
-	}
+    if (dict.CheckOption("@NucleationModel") == true)
+    {
+        std::string name;
+        dict.ReadString("@NucleationModel", name);
+        if (name == "0" || name == "none")
+            this->SetNucleation(0);
+        else if (name == "1" || name == "BrookesMoss")
+            this->SetNucleation(1);
+        else if (name == "2" || name == "BrookesMossHall")
+            this->SetNucleation(2);
+        else
+            return std::unexpected(
+                "@NucleationModel: allowed options: 0=none, 1=BrookesMoss, 2=BrookesMossHall");
+    }
 
-	if (dict.CheckOption("@SurfaceGrowthModel") == true)
-	{
-		int flag;
-		dict.ReadInt("@SurfaceGrowthModel", flag);
-		this->SetSurfaceGrowth(flag);
-	}
+    if (dict.CheckOption("@SurfaceGrowthModel") == true)
+    {
+        int flag;
+        dict.ReadInt("@SurfaceGrowthModel", flag);
+        this->SetSurfaceGrowth(flag);
+    }
 
-	if (dict.CheckOption("@OxidationModel") == true)
-	{
-		std::string name;
-		dict.ReadString("@OxidationModel", name);
-		if (name == "0" || name == "none")
-			this->SetOxidation(0);
-		else if (name == "1" || name == "BrookesMoss")
-			this->SetOxidation(1);
-		else if (name == "2" || name == "BrookesMossHall")
-			this->SetOxidation(2);
-		else return std::unexpected("@OxidationModel: allowed options: 0=none, 1=BrookesMoss, 2=BrookesMossHall");
-	}
+    if (dict.CheckOption("@OxidationModel") == true)
+    {
+        std::string name;
+        dict.ReadString("@OxidationModel", name);
+        if (name == "0" || name == "none")
+            this->SetOxidation(0);
+        else if (name == "1" || name == "BrookesMoss")
+            this->SetOxidation(1);
+        else if (name == "2" || name == "BrookesMossHall")
+            this->SetOxidation(2);
+        else
+            return std::unexpected(
+                "@OxidationModel: allowed options: 0=none, 1=BrookesMoss, 2=BrookesMossHall");
+    }
 
-	if (dict.CheckOption("@CoagulationModel") == true)
-	{
-		int flag;
-		dict.ReadInt("@CoagulationModel", flag);
-		SetCoagulation(flag);
-	}
+    if (dict.CheckOption("@CoagulationModel") == true)
+    {
+        int flag;
+        dict.ReadInt("@CoagulationModel", flag);
+        SetCoagulation(flag);
+    }
 
-	if (dict.CheckOption("@ThermophoreticModel") == true)
-	{
-		int flag;
-		dict.ReadInt("@ThermophoreticModel", flag);
-		this->SetThermophoreticModel(flag);
-	}
+    if (dict.CheckOption("@ThermophoreticModel") == true)
+    {
+        int flag;
+        dict.ReadInt("@ThermophoreticModel", flag);
+        this->SetThermophoreticModel(flag);
+    }
 
-	if (dict.CheckOption("@Precursors") == true)
-	{
-		dict.ReadString("@Precursors", prec_species_);
-		this->SetPrecursors(prec_species_);
-	}
+    if (dict.CheckOption("@Precursors") == true)
+    {
+        dict.ReadString("@Precursors", prec_species_);
+        this->SetPrecursors(prec_species_);
+    }
 
-	if (dict.CheckOption("@SurfaceGrowthSpecies") == true)
-	{
-		dict.ReadString("@SurfaceGrowthSpecies", sg_species_);
-		this->SetSurfaceGrowthSpecies(sg_species_);
-	}
+    if (dict.CheckOption("@SurfaceGrowthSpecies") == true)
+    {
+        dict.ReadString("@SurfaceGrowthSpecies", sg_species_);
+        this->SetSurfaceGrowthSpecies(sg_species_);
+    }
 
-	if (dict.CheckOption("@GasClosureDummySpecies") == true)
-	{
-		std::string species;
-		dict.ReadString("@GasClosureDummySpecies", species);
-		this->SetGasClosureDummySpecies(species);
-	}		
+    if (dict.CheckOption("@GasClosureDummySpecies") == true)
+    {
+        std::string species;
+        dict.ReadString("@GasClosureDummySpecies", species);
+        this->SetGasClosureDummySpecies(species);
+    }
 
-	if (dict.CheckOption("@GasConsumption") == true)
-	{
-		bool flag;
-		dict.ReadBool("@GasConsumption", flag);
-		this->SetGasConsumption(flag);
-	}
+    if (dict.CheckOption("@GasConsumption") == true)
+    {
+        bool flag;
+        dict.ReadBool("@GasConsumption", flag);
+        this->SetGasConsumption(flag);
+    }
 
-	if (dict.CheckOption("@SootDensity") == true)
-	{
-		double value;
-		std::string units;
-		dict.ReadMeasure("@SootDensity", value, units);
+    if (dict.CheckOption("@SootDensity") == true)
+    {
+        double value;
+        std::string units;
+        dict.ReadMeasure("@SootDensity", value, units);
 
-		if (units == "kg/m3")		value = value;
-		else if (units == "g/cm3")	value *= 1000.;
-		else return std::unexpected("@SootDensity: allowed units: kg/m3 | g/cm3");
+        if (units == "kg/m3")
+            value = value;
+        else if (units == "g/cm3")
+            value *= 1000.;
+        else
+            return std::unexpected("@SootDensity: allowed units: kg/m3 | g/cm3");
 
-		this->SetSootDensity(value);
-	}
+        this->SetSootDensity(value);
+    }
 
-	if (dict.CheckOption("@SootParticleDiameter") == true)
-	{
-		double value;
-		std::string units;
-		dict.ReadMeasure("@SootParticleDiameter", value, units);
+    if (dict.CheckOption("@SootParticleDiameter") == true)
+    {
+        double value;
+        std::string units;
+        dict.ReadMeasure("@SootParticleDiameter", value, units);
 
-		if (units == "m")		value = value;
-		else if (units == "mm")	value /= 1.e3;
-		else if (units == "nm")	value /= 1.e9;
-		else return std::unexpected("@SootParticleDiameter: allowed units: m | mm | nm");
+        if (units == "m")
+            value = value;
+        else if (units == "mm")
+            value /= 1.e3;
+        else if (units == "nm")
+            value /= 1.e9;
+        else
+            return std::unexpected("@SootParticleDiameter: allowed units: m | mm | nm");
 
-		this->SetDp(value);
-	}
-	
-	if (dict.CheckOption("@SootParticleMolecularWeight") == true)
-	{
-		double value;
-		std::string units;
-		dict.ReadMeasure("@SootParticleMolecularWeight", value, units);
+        this->SetDp(value);
+    }
 
-		if (units == "kg/kmol")		value = value;
-		else if (units == "g/mol")	value = value;
-		else return std::unexpected("@SootParticleMolecularWeight: allowed units: kg/kmol | g/mol");
+    if (dict.CheckOption("@SootParticleMolecularWeight") == true)
+    {
+        double value;
+        std::string units;
+        dict.ReadMeasure("@SootParticleMolecularWeight", value, units);
 
-		this->SetMWp(value);
-	}			
+        if (units == "kg/kmol")
+            value = value;
+        else if (units == "g/mol")
+            value = value;
+        else
+            return std::unexpected("@SootParticleMolecularWeight: allowed units: kg/kmol | g/mol");
 
-	if (dict.CheckOption("@RadiativeHeatTransfer") == true)
-		dict.ReadBool("@RadiativeHeatTransfer", this->radiative_heat_transfer_);
+        this->SetMWp(value);
+    }
 
-	if (dict.CheckOption("@PlanckCoefficient") == true)
-	{
-		std::string flag;
-		dict.ReadString("@PlanckCoefficient", flag);
-		this->SetPlanckAbsorptionCoefficient(flag);
-	}
+    if (dict.CheckOption("@RadiativeHeatTransfer") == true)
+        dict.ReadBool("@RadiativeHeatTransfer", this->radiative_heat_transfer_);
 
-	if (dict.CheckOption("@SchmidtNumber") == true)
-	{
-		double value;
-		dict.ReadDouble("@SchmidtNumber", value);
-		this->SetSchmidtNumber(value);
-	}
+    if (dict.CheckOption("@PlanckCoefficient") == true)
+    {
+        std::string flag;
+        dict.ReadString("@PlanckCoefficient", flag);
+        this->SetPlanckAbsorptionCoefficient(flag);
+    }
 
-	// Normalization values for properties calculation 
-	if ( dict.CheckOption("@NsNorm") == true )
-	{
-		double value;
-		std::string units;
+    if (dict.CheckOption("@SchmidtNumber") == true)
+    {
+        double value;
+        dict.ReadDouble("@SchmidtNumber", value);
+        this->SetSchmidtNumber(value);
+    }
 
-		dict.ReadMeasure("@NsNorm", value, units);
-		if (units == "#/m3")		value = value;
-		else if (units == "#/cm3")	value *= 1.e6;
-		else return std::unexpected("Allowed units for @NsNorm: #/m3 | #/cm3");
+    // Normalization values for properties calculation
+    if (dict.CheckOption("@NsNorm") == true)
+    {
+        double value;
+        std::string units;
 
-		this->SetNsNorm(value);
-	}
+        dict.ReadMeasure("@NsNorm", value, units);
+        if (units == "#/m3")
+            value = value;
+        else if (units == "#/cm3")
+            value *= 1.e6;
+        else
+            return std::unexpected("Allowed units for @NsNorm: #/m3 | #/cm3");
 
-	if ( dict.CheckOption("@Calpha") == true )
-	{
-		double value; std::string units;
-		dict.ReadMeasure("@Calpha", value, units);
-		if (units == "1/s")		value = value;
-		else return std::unexpected("Allowed units for @Calpha: 1/s");
+        this->SetNsNorm(value);
+    }
 
-		this->Calpha_ = value;
-	}
+    if (dict.CheckOption("@Calpha") == true)
+    {
+        double value;
+        std::string units;
+        dict.ReadMeasure("@Calpha", value, units);
+        if (units == "1/s")
+            value = value;
+        else
+            return std::unexpected("Allowed units for @Calpha: 1/s");
 
-	if ( dict.CheckOption("@Talpha") == true )
-	{
-		double value; std::string units;
-		dict.ReadMeasure("@Talpha", value, units);
-		if (units == "K")		value = value;
-		else return std::unexpected("Allowed units for @Talpha: 1/s");
+        this->Calpha_ = value;
+    }
 
-		this->Talpha_ = value;
-	}
+    if (dict.CheckOption("@Talpha") == true)
+    {
+        double value;
+        std::string units;
+        dict.ReadMeasure("@Talpha", value, units);
+        if (units == "K")
+            value = value;
+        else
+            return std::unexpected("Allowed units for @Talpha: 1/s");
 
-	if ( dict.CheckOption("@Cbeta") == true )
-		dict.ReadDouble("@Cbeta", Cbeta_);
+        this->Talpha_ = value;
+    }
 
-	if ( dict.CheckOption("@Cgamma") == true )
-	{
-		double value; std::string units;
-		dict.ReadMeasure("@Cgamma", value, units);
-		if (units == "kg.m/kmol/s")		value = value;
-		else return std::unexpected("Allowed units for @Cgamma: kg.m/kmol/s");
+    if (dict.CheckOption("@Cbeta") == true)
+        dict.ReadDouble("@Cbeta", Cbeta_);
 
-		this->Cgamma_ = value;
-	}
+    if (dict.CheckOption("@Cgamma") == true)
+    {
+        double value;
+        std::string units;
+        dict.ReadMeasure("@Cgamma", value, units);
+        if (units == "kg.m/kmol/s")
+            value = value;
+        else
+            return std::unexpected("Allowed units for @Cgamma: kg.m/kmol/s");
 
-	if ( dict.CheckOption("@Tgamma") == true )
-	{
-		double value; std::string units;
-		dict.ReadMeasure("@Tgamma", value, units);
-		if (units == "K")		value = value;
-		else return std::unexpected("Allowed units for @Tgamma: 1/s");
+        this->Cgamma_ = value;
+    }
 
-		this->Tgamma_ = value;
-	}	
+    if (dict.CheckOption("@Tgamma") == true)
+    {
+        double value;
+        std::string units;
+        dict.ReadMeasure("@Tgamma", value, units);
+        if (units == "K")
+            value = value;
+        else
+            return std::unexpected("Allowed units for @Tgamma: 1/s");
 
-	if ( dict.CheckOption("@Comega") == true )
-	{
-		double value; std::string units;
-		dict.ReadMeasure("@Comega", value, units);
-		if (units == "kg.m/kmol/sqrt(K)/s")	value = value;
-		else return std::unexpected("Allowed units for @Comega: kg.m/kmol/sqrt(K)/s");
+        this->Tgamma_ = value;
+    }
 
-		this->Comega_ = value;
-	}		
+    if (dict.CheckOption("@Comega") == true)
+    {
+        double value;
+        std::string units;
+        dict.ReadMeasure("@Comega", value, units);
+        if (units == "kg.m/kmol/sqrt(K)/s")
+            value = value;
+        else
+            return std::unexpected("Allowed units for @Comega: kg.m/kmol/sqrt(K)/s");
 
-	if ( dict.CheckOption("@EtaColl") == true )
-		dict.ReadDouble("@EtaColl", this->etaColl_);
+        this->Comega_ = value;
+    }
 
-	if ( dict.CheckOption("@Coxid") == true )
-		dict.ReadDouble("@Coxid", this->Coxid_);
+    if (dict.CheckOption("@EtaColl") == true)
+        dict.ReadDouble("@EtaColl", this->etaColl_);
 
-	if ( dict.CheckOption("@NucleationExponent") == true )
-		dict.ReadDouble("@NucleationExponent", this->exp_l_);
+    if (dict.CheckOption("@Coxid") == true)
+        dict.ReadDouble("@Coxid", this->Coxid_);
 
-	if ( dict.CheckOption("@SurfaceGrowthExponent1") == true )
-		dict.ReadDouble("@SurfaceGrowthExponent1", this->exp_m_);	
-	
-	if ( dict.CheckOption("@SurfaceGrowthExponent2") == true )
-		dict.ReadDouble("@SurfaceGrowthExponent2", this->exp_n_);	
+    if (dict.CheckOption("@NucleationExponent") == true)
+        dict.ReadDouble("@NucleationExponent", this->exp_l_);
+
+    if (dict.CheckOption("@SurfaceGrowthExponent1") == true)
+        dict.ReadDouble("@SurfaceGrowthExponent1", this->exp_m_);
+
+    if (dict.CheckOption("@SurfaceGrowthExponent2") == true)
+        dict.ReadDouble("@SurfaceGrowthExponent2", this->exp_n_);
 
     PrintSummary();
     return {};
 }
-#endif  // MOM_USE_DICTIONARY expected
+#endif // MOM_USE_DICTIONARY expected
 
 } // namespace MOM

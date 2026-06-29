@@ -38,7 +38,8 @@
 #include <concepts>
 #include <span>
 
-namespace MOM {
+namespace MOM
+{
 
 // ============================================================================
 // MomentMethod concept
@@ -115,66 +116,63 @@ template <typename M>
 concept MomentMethod =
 
     // Compile-time constant: number of transported equations
-    requires { { M::n_equations } -> std::convertible_to<unsigned>; }
+    requires {
+        { M::n_equations } -> std::convertible_to<unsigned>;
+    }
 
-    && requires(
-        M              m,
-        const M        cm,
-        double         scalar,
-        const double*  Y_ptr,
-        std::span<const double> moments_in )
-    {
+    &&
+    requires(M m, const M cm, double scalar, const double* Y_ptr, std::span<const double> moments_in) {
         // ── State injection ────────────────────────────────────────────────
         // Y_ptr is a properly-typed local variable; no null-pointer cast needed.
         // noexcept is required: these setters run every cell iteration.
-        { m.SetStatus(scalar, scalar, Y_ptr) } noexcept;  // T [K], P [Pa], Y[]
-        { m.SetMoments(moments_in) }           noexcept;
-        { m.SetViscosity(scalar) }             noexcept;
+        { m.SetStatus(scalar, scalar, Y_ptr) } noexcept; // T [K], P [Pa], Y[]
+        { m.SetMoments(moments_in) } noexcept;
+        { m.SetViscosity(scalar) } noexcept;
 
         // ── Core computation ───────────────────────────────────────────────
         // noexcept is part of the contract: these run in the CFD inner loop
         // and must not carry exception-handling overhead or prevent hoisting.
         { m.CalculateSourceMoments() } noexcept;
-        { m.CalculateOmegaGas() }      noexcept;
+        { m.CalculateOmegaGas() } noexcept;
 
         // ── Source output (zero-copy spans) ────────────────────────────────
-        { cm.sources()              } -> std::convertible_to<std::span<const double>>;
-        { cm.sources_nucleation()   } -> std::convertible_to<std::span<const double>>;
-        { cm.sources_coagulation()  } -> std::convertible_to<std::span<const double>>;
+        { cm.sources() } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_nucleation() } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_coagulation() } -> std::convertible_to<std::span<const double>>;
         { cm.sources_condensation() } -> std::convertible_to<std::span<const double>>;
-        { cm.sources_growth()       } -> std::convertible_to<std::span<const double>>;
-        { cm.sources_oxidation()    } -> std::convertible_to<std::span<const double>>;
-        { cm.sources_sintering()    } -> std::convertible_to<std::span<const double>>;
-        { cm.omega_gas()            } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_growth() } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_oxidation() } -> std::convertible_to<std::span<const double>>;
+        { cm.sources_sintering() } -> std::convertible_to<std::span<const double>>;
+        { cm.omega_gas() } -> std::convertible_to<std::span<const double>>;
 
         // ── Particle properties ────────────────────────────────────────────
-        { cm.VolumeFraction()        } -> std::same_as<double>;
-        { cm.ParticleDiameter()      } -> std::same_as<double>;
-        { cm.CollisionDiameter()     } -> std::same_as<double>;
+        { cm.VolumeFraction() } -> std::same_as<double>;
+        { cm.ParticleDiameter() } -> std::same_as<double>;
+        { cm.CollisionDiameter() } -> std::same_as<double>;
         { cm.ParticleNumberDensity() } -> std::same_as<double>;
-        { cm.MassFraction()          } -> std::same_as<double>;
-        { cm.ParticleDensity()       } -> std::same_as<double>;
-        { cm.SpecificSurface()       } -> std::same_as<double>;
+        { cm.MassFraction() } -> std::same_as<double>;
+        { cm.ParticleDensity() } -> std::same_as<double>;
+        { cm.SpecificSurface() } -> std::same_as<double>;
 
         // ── Transport ──────────────────────────────────────────────────────
-        { cm.schmidt_number()        } -> std::same_as<double>;
-        { cm.DiffusionCoefficient()  } -> std::same_as<double>;
-        { cm.thermophoretic_model()  } -> std::same_as<int>;
+        { cm.schmidt_number() } -> std::same_as<double>;
+        { cm.DiffusionCoefficient() } -> std::same_as<double>;
+        { cm.thermophoretic_model() } -> std::same_as<int>;
 
         // ── Status / control ───────────────────────────────────────────────
-        { cm.is_active()             } -> std::same_as<bool>;
-        { cm.GasConsumption()        } -> std::same_as<bool>;
-        { cm.initial_moments()       } -> std::convertible_to<std::span<const double>>;
+        { cm.is_active() } -> std::same_as<bool>;
+        { cm.GasConsumption() } -> std::same_as<bool>;
+        { cm.initial_moments() } -> std::convertible_to<std::span<const double>>;
 
         // ── Gas coupling ───────────────────────────────────────────────────
-        { cm.precursor_index()            } -> std::same_as<int>;
-        { cm.precursor_concentration()    } -> std::same_as<double>;
-        { cm.ClosureDummySpeciesIsActive()} -> std::same_as<bool>;
-        { cm.closure_dummy_index()        } -> std::same_as<int>;
+        { cm.precursor_index() } -> std::same_as<int>;
+        { cm.precursor_concentration() } -> std::same_as<double>;
+        { cm.ClosureDummySpeciesIsActive() } -> std::same_as<bool>;
+        { cm.closure_dummy_index() } -> std::same_as<int>;
 
         // ── Radiative heat transfer ────────────────────────────────────────
-        { cm.radiative_heat_transfer()        } -> std::same_as<bool>;
-        { cm.planck_coefficient(scalar,scalar)} -> std::same_as<double>;
+        { cm.radiative_heat_transfer() } -> std::same_as<bool>;
+        { cm.planck_coefficient(scalar, scalar) } -> std::same_as<double>;
 
         // ── Diagnostics ────────────────────────────────────────────────────
         { cm.PrintSummary() };
@@ -225,12 +223,8 @@ concept MomentMethod =
 // ============================================================================
 
 template <MomentMethod M>
-inline void ComputeCell(M&                      model,
-                        double                  T,
-                        double                  P_Pa,
-                        const double*           Y,
-                        double                  mu,
-                        std::span<const double> moments) noexcept
+inline void ComputeCell(
+    M& model, double T, double P_Pa, const double* Y, double mu, std::span<const double> moments) noexcept
 {
     model.SetStatus(T, P_Pa, Y);
     model.SetMoments(moments);

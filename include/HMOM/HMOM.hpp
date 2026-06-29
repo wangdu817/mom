@@ -44,10 +44,11 @@
 #include <string>
 #include <string_view>
 #if defined(MOM_USE_DICTIONARY)
-#  include <expected>
+#include <expected>
 #endif
 
-namespace MOM {
+namespace MOM
+{
 
 // ============================================================================
 // HMOM<Thermo> — Hybrid Method of Moments, 4 transported equations
@@ -74,27 +75,35 @@ namespace MOM {
 // @tparam Thermo  Must satisfy MOM::ThermoMap.
 // ============================================================================
 
-template <ThermoMap Thermo>
-class HMOM : public MomentMethodBase<HMOM<Thermo>, 4>
+template <ThermoMap Thermo> class HMOM : public MomentMethodBase<HMOM<Thermo>, 4>
 {
     using Base = MomentMethodBase<HMOM<Thermo>, 4>;
 
 public:
+
     using typename Base::MomentVector;
 
     /// Labels accepted by MOM::MakeAnyMomentMethod for runtime variant selection.
-    static constexpr std::array<std::string_view, 2> variant_labels { "HMOM", "hmom" };
+    static constexpr std::array<std::string_view, 2> variant_labels{"HMOM", "hmom"};
 
     // ── Method-specific sub-model enums ─────────────────────────────────────
 
     enum class StickingModel : int
     {
-        Constant = 0,   //!< Fixed sticking coefficient (default: 2e-3)
-        PAH4     = 1    //!< Sticking model based on PAH 4-ring collision cross-section
+        Constant = 0, //!< Fixed sticking coefficient (default: 2e-3)
+        PAH4     = 1  //!< Sticking model based on PAH 4-ring collision cross-section
     };
 
-    enum class FractalDiameterModel : int { Model0 = 0, Model1 = 1 };
-    enum class CollisionDiameterModel : int { Model1 = 1, Model2 = 2 };
+    enum class FractalDiameterModel : int
+    {
+        Model0 = 0,
+        Model1 = 1
+    };
+    enum class CollisionDiameterModel : int
+    {
+        Model1 = 1,
+        Model2 = 2
+    };
 
     // ── NDF two-node reconstruction ─────────────────────────────────────────
     //
@@ -104,7 +113,8 @@ public:
     //
     // Mueller et al. (2009), Sec. 3.2.
 
-    struct NDFNode {
+    struct NDFNode
+    {
         double number_density;     //!< N  [#/m3]
         double volume;             //!< V  [m3/#]  mean particle volume
         double surface;            //!< S  [m2/#]  mean particle surface
@@ -131,8 +141,7 @@ public:
 
 #if defined(MOM_USE_DICTIONARY)
     template <typename Dictionary>
-    [[nodiscard]] std::expected<void, std::string>
-        SetupFromDictionary(Dictionary& dict);
+    [[nodiscard]] std::expected<void, std::string> SetupFromDictionary(Dictionary& dict);
 #endif
 
     // ── MomentMethod concept — state injection ───────────────────────────────
@@ -149,8 +158,7 @@ public:
     void SetMoments(std::span<const double> m) noexcept;
 
     /// HMOM-specific named setter (preferred in HMOM-aware code).
-    void SetNormalizedMoments(double M00_norm, double M10_norm,
-                               double M01_norm, double N0_norm) noexcept;
+    void SetNormalizedMoments(double M00_norm, double M10_norm, double M01_norm, double N0_norm) noexcept;
 
     // ── MomentMethod concept — core computation ──────────────────────────────
 
@@ -166,28 +174,31 @@ public:
 
     // ── MomentMethod concept — particle properties ───────────────────────────
 
-    [[nodiscard]] double VolumeFraction()        const noexcept;
-    [[nodiscard]] double ParticleDiameter()      const noexcept;  //!< mean primary diameter [m]
-    [[nodiscard]] double CollisionDiameter()     const noexcept;  //!< aggregate collision diameter [m]
-    [[nodiscard]] double ParticleNumberDensity() const noexcept;  //!< total N = N0 + NL [#/m3]
-    [[nodiscard]] double MassFraction()          const noexcept;
-    [[nodiscard]] double SpecificSurface()       const noexcept;  //!< [m2/m3]
-    [[nodiscard]] double NumberOfPrimaryParticles()const noexcept;
-    [[nodiscard]] double DiffusionCoefficient()  const noexcept;  //!< [kg/m/s]
+    [[nodiscard]] double VolumeFraction() const noexcept;
+    [[nodiscard]] double ParticleDiameter() const noexcept;  //!< mean primary diameter [m]
+    [[nodiscard]] double CollisionDiameter() const noexcept; //!< aggregate collision diameter [m]
+    [[nodiscard]] double ParticleNumberDensity() const noexcept; //!< total N = N0 + NL [#/m3]
+    [[nodiscard]] double MassFraction() const noexcept;
+    [[nodiscard]] double SpecificSurface() const noexcept; //!< [m2/m3]
+    [[nodiscard]] double NumberOfPrimaryParticles() const noexcept;
+    [[nodiscard]] double DiffusionCoefficient() const noexcept; //!< [kg/m/s]
 
     // ── MomentMethod concept — initial conditions ────────────────────────────
 
     /// Returns the initial (near-zero) moment values for solver initialisation.
     /// Computed once during setup and cached; no allocation on repeated calls.
-    [[nodiscard]] std::span<const double> initial_moments() const noexcept {
-        return { initial_moments_cache_.data(), 4u };
+    [[nodiscard]] std::span<const double> initial_moments() const noexcept
+    {
+        return {initial_moments_cache_.data(), 4u};
     }
 
     // ── MomentMethod concept — precursor ─────────────────────────────────────
 
-    [[nodiscard]] int         precursor_index()         const noexcept { return pah_index_; }
-    [[nodiscard]] double      precursor_concentration() const noexcept { return conc_PAH_; }
-    [[nodiscard]] const std::string& precursor_species()const noexcept { return pah_species_; }
+    [[nodiscard]] int precursor_index() const noexcept { return pah_index_; }
+
+    [[nodiscard]] double precursor_concentration() const noexcept { return conc_PAH_; }
+
+    [[nodiscard]] const std::string& precursor_species() const noexcept { return pah_species_; }
 
     // ── MomentMethod concept — diagnostics ───────────────────────────────────
 
@@ -201,20 +212,39 @@ public:
     // zero overhead. No `sources_sintering_impl()` is declared: HMOM does not
     // model sintering, so `sources_sintering()` returns a zero span automatically.
 
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation_impl()   const noexcept { return { source_nucleation_.data(),   this->n_equations }; }
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_coagulation_impl()  const noexcept { return { source_coagulation_.data(),  this->n_equations }; }
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_condensation_impl() const noexcept { return { source_condensation_.data(), this->n_equations }; }
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_growth_impl()       const noexcept { return { source_growth_.data(),       this->n_equations }; }
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_oxidation_impl()    const noexcept { return { source_oxidation_.data(),    this->n_equations }; }
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation_impl() const noexcept
+    {
+        return {source_nucleation_.data(), this->n_equations};
+    }
+
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_coagulation_impl() const noexcept
+    {
+        return {source_coagulation_.data(), this->n_equations};
+    }
+
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_condensation_impl() const noexcept
+    {
+        return {source_condensation_.data(), this->n_equations};
+    }
+
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_growth_impl() const noexcept
+    {
+        return {source_growth_.data(), this->n_equations};
+    }
+
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_oxidation_impl() const noexcept
+    {
+        return {source_oxidation_.data(), this->n_equations};
+    }
 
     /// Discrete coagulation breakdown (small+small, small+large, large+large)
-    [[nodiscard]] std::span<const double> sources_coagulation_discrete()    const noexcept;
+    [[nodiscard]] std::span<const double> sources_coagulation_discrete() const noexcept;
     [[nodiscard]] std::span<const double> sources_coagulation_discrete_ss() const noexcept;
     [[nodiscard]] std::span<const double> sources_coagulation_discrete_sl() const noexcept;
     [[nodiscard]] std::span<const double> sources_coagulation_discrete_ll() const noexcept;
 
     /// Continuous coagulation breakdown
-    [[nodiscard]] std::span<const double> sources_coagulation_continuous()    const noexcept;
+    [[nodiscard]] std::span<const double> sources_coagulation_continuous() const noexcept;
     [[nodiscard]] std::span<const double> sources_coagulation_continuous_ss() const noexcept;
     [[nodiscard]] std::span<const double> sources_coagulation_continuous_sl() const noexcept;
     [[nodiscard]] std::span<const double> sources_coagulation_continuous_ll() const noexcept;
@@ -224,29 +254,28 @@ public:
     /// Two-node NDF reconstruction: node[0]=small mode, node[1]=large mode.
     [[nodiscard]] std::array<NDFNode, 2> NumberDensityFunctionNodes() const;
 
-    [[nodiscard]] double SootSmallParticleNumberDensity()   const noexcept;  //!< N0 [#/m3]
-    [[nodiscard]] double SootLargeParticleNumberDensity()   const noexcept;  //!< NL [#/m3]
-    [[nodiscard]] double SootLargeParticleFraction()        const noexcept;  //!< NL/(N0+NL) [-]
-    [[nodiscard]] double SootSmallParticleFraction()        const noexcept;  //!< N0/(N0+NL) [-]
-    [[nodiscard]] double SootLargeMeanParticleVolume()      const noexcept;  //!< VL [m3/#]
-    [[nodiscard]] double SootLargeMeanParticleSurface()     const noexcept;  //!< SL [m2/#]
+    [[nodiscard]] double SootSmallParticleNumberDensity() const noexcept;    //!< N0 [#/m3]
+    [[nodiscard]] double SootLargeParticleNumberDensity() const noexcept;    //!< NL [#/m3]
+    [[nodiscard]] double SootLargeParticleFraction() const noexcept;         //!< NL/(N0+NL) [-]
+    [[nodiscard]] double SootSmallParticleFraction() const noexcept;         //!< N0/(N0+NL) [-]
+    [[nodiscard]] double SootLargeMeanParticleVolume() const noexcept;       //!< VL [m3/#]
+    [[nodiscard]] double SootLargeMeanParticleSurface() const noexcept;      //!< SL [m2/#]
     [[nodiscard]] double SootLargePrimaryParticleDiameter() const noexcept;  //!< [m]
-    [[nodiscard]] double SootLargeNumberOfPrimaryParticles()const noexcept;  //!< [-]
-	[[nodiscard]] double SootMeanParticleVolume() 			const noexcept;  //!< [m3/#]
-	[[nodiscard]] double SootMeanParticleSurface() 			const noexcept;  //!< [m2/#]
+    [[nodiscard]] double SootLargeNumberOfPrimaryParticles() const noexcept; //!< [-]
+    [[nodiscard]] double SootMeanParticleVolume() const noexcept;            //!< [m3/#]
+    [[nodiscard]] double SootMeanParticleSurface() const noexcept;           //!< [m2/#]
 
     /// Log geometric std dev of primary particle diameter (Mueller 2009, Eq. 44).
     [[nodiscard]] double SootLogGeometricStdDevPrimaryParticleDiameter() const noexcept;
     /// Log geometric std dev of primary particle number (Mueller 2009, Eq. 45).
-    [[nodiscard]] double SootLogGeometricStdDevPrimaryParticleNumber()   const noexcept;
+    [[nodiscard]] double SootLogGeometricStdDevPrimaryParticleNumber() const noexcept;
     /// Scattering effective diameter d63 = 6*(M_{4,-3}/M_{1,0})^{1/3} (Mueller 2009, Eq. 46).
     [[nodiscard]] double SootD63() const noexcept;
-	[[nodiscard]] double SootLargeLogGeometricStdDevPrimaryParticleDiameter() const noexcept;
-	[[nodiscard]] double SootLargeLogGeometricStdDevPrimaryParticleNumber() const noexcept;
+    [[nodiscard]] double SootLargeLogGeometricStdDevPrimaryParticleDiameter() const noexcept;
+    [[nodiscard]] double SootLargeLogGeometricStdDevPrimaryParticleNumber() const noexcept;
 
     /// Aggregated properties struct (convenience wrapper over individual accessors).
-    void Properties(double& fv, double& dp, double& dc,
-                    double& np, double& ss, double& vs) const noexcept;
+    void Properties(double& fv, double& dp, double& dc, double& np, double& ss, double& vs) const noexcept;
 
     // ── Coagulation sub-breakdown (reporter/diagnostics access) ──────────────
     //
@@ -256,7 +285,8 @@ public:
     // detailed coagulation column block without friendship or private access.
 
     /// Read-only bundle of all HMOM coagulation sub-vector spans.
-    struct CoagulationDetail {
+    struct CoagulationDetail
+    {
         std::span<const double> all;        //!< discrete + continuous total
         std::span<const double> discrete;   //!< discrete sub-total
         std::span<const double> disc_ss;    //!< discrete small–small
@@ -270,17 +300,18 @@ public:
 
     /// Returns zero-copy spans into all HMOM coagulation sub-vectors.
     /// Valid after CalculateSourceMoments(); all spans have size == n_equations.
-    [[nodiscard]] CoagulationDetail coagulation_detail() const noexcept {
+    [[nodiscard]] CoagulationDetail coagulation_detail() const noexcept
+    {
         return {
-            { source_coagulation_all_.data(),        this->n_equations },
-            { source_coagulation_discrete_.data(),   this->n_equations },
-            { source_coagulation_ss_.data(),         this->n_equations },
-            { source_coagulation_sl_.data(),         this->n_equations },
-            { source_coagulation_ll_.data(),         this->n_equations },
-            { source_coagulation_continuous_.data(), this->n_equations },
-            { source_coagulation_cont_ss_.data(),    this->n_equations },
-            { source_coagulation_cont_sl_.data(),    this->n_equations },
-            { source_coagulation_cont_ll_.data(),    this->n_equations },
+            {source_coagulation_all_.data(), this->n_equations},
+            {source_coagulation_discrete_.data(), this->n_equations},
+            {source_coagulation_ss_.data(), this->n_equations},
+            {source_coagulation_sl_.data(), this->n_equations},
+            {source_coagulation_ll_.data(), this->n_equations},
+            {source_coagulation_continuous_.data(), this->n_equations},
+            {source_coagulation_cont_ss_.data(), this->n_equations},
+            {source_coagulation_cont_sl_.data(), this->n_equations},
+            {source_coagulation_cont_ll_.data(), this->n_equations},
         };
     }
 
@@ -299,62 +330,93 @@ public:
     // To remove or add columns: edit only this class — reporter unchanged.
 
     /// HMOM-specific prefix columns: np, ss, vs, bimodal statistics.
-    template <typename CB>
-    void variant_prefix_output(CB&& cb) const {
-        cb("np[-]",          NumberOfPrimaryParticles());
-        cb("ss[m2/#]",       SootMeanParticleSurface());
-        cb("vs[m3/#]",       SootMeanParticleVolume());
-        cb("N0[#/m3]",       SootSmallParticleNumberDensity());
-        cb("NL[#/m3]",       SootLargeParticleNumberDensity());
-        cb("alphaL[-]",      SootLargeParticleFraction());
-        cb("dpL[nm]",        SootLargePrimaryParticleDiameter() * 1.e9);
-        cb("npL[-]",         SootLargeNumberOfPrimaryParticles());
-        cb("d63[nm]",        SootD63() * 1.e9);
-        cb("sigma_dp[-]",    SootLogGeometricStdDevPrimaryParticleDiameter());
-        cb("sigma_np[-]",    SootLogGeometricStdDevPrimaryParticleNumber());
-        cb("sigma_dp_L[-]",  SootLargeLogGeometricStdDevPrimaryParticleDiameter());
-        cb("sigma_np_L[-]",  SootLargeLogGeometricStdDevPrimaryParticleNumber());
-        cb("gsd_dp[-]",      std::exp(SootLogGeometricStdDevPrimaryParticleDiameter()));
-        cb("gsd_np[-]",      std::exp(SootLogGeometricStdDevPrimaryParticleNumber()));
-        cb("gsd_dp_L[-]",    std::exp(SootLargeLogGeometricStdDevPrimaryParticleDiameter()));
-        cb("gsd_np_L[-]",    std::exp(SootLargeLogGeometricStdDevPrimaryParticleNumber()));
+    template <typename CB> void variant_prefix_output(CB&& cb) const
+    {
+        cb("np[-]", NumberOfPrimaryParticles());
+        cb("ss[m2/#]", SootMeanParticleSurface());
+        cb("vs[m3/#]", SootMeanParticleVolume());
+        cb("N0[#/m3]", SootSmallParticleNumberDensity());
+        cb("NL[#/m3]", SootLargeParticleNumberDensity());
+        cb("alphaL[-]", SootLargeParticleFraction());
+        cb("dpL[nm]", SootLargePrimaryParticleDiameter() * 1.e9);
+        cb("npL[-]", SootLargeNumberOfPrimaryParticles());
+        cb("d63[nm]", SootD63() * 1.e9);
+        cb("sigma_dp[-]", SootLogGeometricStdDevPrimaryParticleDiameter());
+        cb("sigma_np[-]", SootLogGeometricStdDevPrimaryParticleNumber());
+        cb("sigma_dp_L[-]", SootLargeLogGeometricStdDevPrimaryParticleDiameter());
+        cb("sigma_np_L[-]", SootLargeLogGeometricStdDevPrimaryParticleNumber());
+        cb("gsd_dp[-]", std::exp(SootLogGeometricStdDevPrimaryParticleDiameter()));
+        cb("gsd_np[-]", std::exp(SootLogGeometricStdDevPrimaryParticleNumber()));
+        cb("gsd_dp_L[-]", std::exp(SootLargeLogGeometricStdDevPrimaryParticleDiameter()));
+        cb("gsd_np_L[-]", std::exp(SootLargeLogGeometricStdDevPrimaryParticleNumber()));
     }
 
     /// HMOM-specific suffix columns: detailed coagulation sub-breakdown.
-    template <typename CB>
-    void variant_suffix_output(CB&& cb) const {
-        const auto cd = coagulation_detail();
+    template <typename CB> void variant_suffix_output(CB&& cb) const
+    {
+        const auto cd    = coagulation_detail();
         const unsigned N = this->n_equations;
-        for (unsigned j = 0; j < N; ++j) cb("ScoaTot("   + std::to_string(j) + ")[mol/m3/s]", cd.all[j]);
-        for (unsigned j = 0; j < N; ++j) cb("ScoaDis("   + std::to_string(j) + ")[mol/m3/s]", cd.discrete[j]);
-        for (unsigned j = 0; j < N; ++j) cb("ScoaDisSS(" + std::to_string(j) + ")[mol/m3/s]", cd.disc_ss[j]);
-        for (unsigned j = 0; j < N; ++j) cb("ScoaDisSL(" + std::to_string(j) + ")[mol/m3/s]", cd.disc_sl[j]);
-        for (unsigned j = 0; j < N; ++j) cb("ScoaDisLL(" + std::to_string(j) + ")[mol/m3/s]", cd.disc_ll[j]);
-        for (unsigned j = 0; j < N; ++j) cb("ScoaCon("   + std::to_string(j) + ")[mol/m3/s]", cd.continuous[j]);
-        for (unsigned j = 0; j < N; ++j) cb("ScoaConSS(" + std::to_string(j) + ")[mol/m3/s]", cd.cont_ss[j]);
-        for (unsigned j = 0; j < N; ++j) cb("ScoaConSL(" + std::to_string(j) + ")[mol/m3/s]", cd.cont_sl[j]);
-        for (unsigned j = 0; j < N; ++j) cb("ScoaConLL(" + std::to_string(j) + ")[mol/m3/s]", cd.cont_ll[j]);
+        for (unsigned j = 0; j < N; ++j)
+            cb("ScoaTot(" + std::to_string(j) + ")[mol/m3/s]", cd.all[j]);
+        for (unsigned j = 0; j < N; ++j)
+            cb("ScoaDis(" + std::to_string(j) + ")[mol/m3/s]", cd.discrete[j]);
+        for (unsigned j = 0; j < N; ++j)
+            cb("ScoaDisSS(" + std::to_string(j) + ")[mol/m3/s]", cd.disc_ss[j]);
+        for (unsigned j = 0; j < N; ++j)
+            cb("ScoaDisSL(" + std::to_string(j) + ")[mol/m3/s]", cd.disc_sl[j]);
+        for (unsigned j = 0; j < N; ++j)
+            cb("ScoaDisLL(" + std::to_string(j) + ")[mol/m3/s]", cd.disc_ll[j]);
+        for (unsigned j = 0; j < N; ++j)
+            cb("ScoaCon(" + std::to_string(j) + ")[mol/m3/s]", cd.continuous[j]);
+        for (unsigned j = 0; j < N; ++j)
+            cb("ScoaConSS(" + std::to_string(j) + ")[mol/m3/s]", cd.cont_ss[j]);
+        for (unsigned j = 0; j < N; ++j)
+            cb("ScoaConSL(" + std::to_string(j) + ")[mol/m3/s]", cd.cont_sl[j]);
+        for (unsigned j = 0; j < N; ++j)
+            cb("ScoaConLL(" + std::to_string(j) + ")[mol/m3/s]", cd.cont_ll[j]);
     }
 
     // ── Model switches ────────────────────────────────────────────────────────
 
-    void SetNucleation(int flag) noexcept                { nucleation_model_              = flag; }
-    void SetSurfaceGrowth(int flag) noexcept             { surface_growth_model_          = flag; }
-    void SetCondensation(int flag) noexcept              { condensation_model_            = flag; }
-    void SetOxidation(int flag) noexcept                 { oxidation_model_               = flag; }
-    void SetCoagulation(int flag) noexcept               { coagulation_model_             = flag; }
-    void SetCoagulationContinuous(int flag) noexcept     { coagulation_continuous_model_  = flag; }
-    void SetFractalDiameterModel(int m) noexcept         { fractal_diameter_model_        = static_cast<FractalDiameterModel>(m); }
-    void SetCollisionDiameterModel(int m) noexcept       { collision_diameter_model_      = static_cast<CollisionDiameterModel>(m); }
+    void SetNucleation(int flag) noexcept { nucleation_model_ = flag; }
+
+    void SetSurfaceGrowth(int flag) noexcept { surface_growth_model_ = flag; }
+
+    void SetCondensation(int flag) noexcept { condensation_model_ = flag; }
+
+    void SetOxidation(int flag) noexcept { oxidation_model_ = flag; }
+
+    void SetCoagulation(int flag) noexcept { coagulation_model_ = flag; }
+
+    void SetCoagulationContinuous(int flag) noexcept { coagulation_continuous_model_ = flag; }
+
+    void SetFractalDiameterModel(int m) noexcept
+    {
+        fractal_diameter_model_ = static_cast<FractalDiameterModel>(m);
+    }
+
+    void SetCollisionDiameterModel(int m) noexcept
+    {
+        collision_diameter_model_ = static_cast<CollisionDiameterModel>(m);
+    }
 
     void SetStickingCoefficientModel(std::string_view label);
+
     void SetStickingCoefficientConstant(double value) noexcept { sticking_coeff_constant_ = value; }
 
-    void SetSurfaceDensity(double value) noexcept        { surface_density_ = value; }
-    void SetSurfaceDensityCorrectionCoefficient(bool on) noexcept { surface_density_correction_ = on; }
+    void SetSurfaceDensity(double value) noexcept { surface_density_ = value; }
+
+    void SetSurfaceDensityCorrectionCoefficient(bool on) noexcept
+    {
+        surface_density_correction_ = on;
+    }
+
     void SetSurfaceDensityCorrectionCoefficientA1(double v) noexcept { surf_dens_a1_ = v; }
+
     void SetSurfaceDensityCorrectionCoefficientA2(double v) noexcept { surf_dens_a2_ = v; }
+
     void SetSurfaceDensityCorrectionCoefficientB1(double v) noexcept { surf_dens_b1_ = v; }
+
     void SetSurfaceDensityCorrectionCoefficientB2(double v) noexcept { surf_dens_b2_ = v; }
 
     /// Sets the PAH precursor species by name (must be present in the thermo map).
@@ -374,40 +436,60 @@ public:
     //
     // Units: A [cm3, mol, s]; E [kJ/mol] (converted internally to [K]); n [-].
 
-    void SetA1f(double v) noexcept; void SetA1b(double v) noexcept;
-    void SetA2f(double v) noexcept; void SetA2b(double v) noexcept;
-    void SetA3f(double v) noexcept; void SetA3b(double v) noexcept;
-    void SetA4 (double v) noexcept;
-    void SetA5 (double v) noexcept;
+    void SetA1f(double v) noexcept;
+    void SetA1b(double v) noexcept;
+    void SetA2f(double v) noexcept;
+    void SetA2b(double v) noexcept;
+    void SetA3f(double v) noexcept;
+    void SetA3b(double v) noexcept;
+    void SetA4(double v) noexcept;
+    void SetA5(double v) noexcept;
 
-    void SetE1f(double kJ) noexcept; void SetE1b(double kJ) noexcept;
-    void SetE2f(double kJ) noexcept; void SetE2b(double kJ) noexcept;
-    void SetE3f(double kJ) noexcept; void SetE3b(double kJ) noexcept;
-    void SetE4 (double kJ) noexcept;
-    void SetE5 (double kJ) noexcept;
+    void SetE1f(double kJ) noexcept;
+    void SetE1b(double kJ) noexcept;
+    void SetE2f(double kJ) noexcept;
+    void SetE2b(double kJ) noexcept;
+    void SetE3f(double kJ) noexcept;
+    void SetE3b(double kJ) noexcept;
+    void SetE4(double kJ) noexcept;
+    void SetE5(double kJ) noexcept;
 
-    void Setn1f(double v) noexcept; void Setn1b(double v) noexcept;
-    void Setn2f(double v) noexcept; void Setn2b(double v) noexcept;
-    void Setn3f(double v) noexcept; void Setn3b(double v) noexcept;
-    void Setn4 (double v) noexcept;
-    void Setn5 (double v) noexcept;
+    void Setn1f(double v) noexcept;
+    void Setn1b(double v) noexcept;
+    void Setn2f(double v) noexcept;
+    void Setn2b(double v) noexcept;
+    void Setn3f(double v) noexcept;
+    void Setn3b(double v) noexcept;
+    void Setn4(double v) noexcept;
+    void Setn5(double v) noexcept;
+
     void SetEfficiency6(double v) noexcept { eff6_ = v; }
 
     // ── Model state queries ───────────────────────────────────────────────────
 
-    [[nodiscard]] int    nucleation_model()              const noexcept { return nucleation_model_; }
-    [[nodiscard]] int    surface_growth_model()          const noexcept { return surface_growth_model_; }
-    [[nodiscard]] int    condensation_model()            const noexcept { return condensation_model_; }
-    [[nodiscard]] int    oxidation_model()               const noexcept { return oxidation_model_; }
-    [[nodiscard]] int    coagulation_model()             const noexcept { return coagulation_model_; }
-    [[nodiscard]] int    continuous_coagulation_model()  const noexcept { return coagulation_continuous_model_; }
-    [[nodiscard]] double dimerization_rate()             const noexcept { return dimerization_rate_; }
-    [[nodiscard]] double V0()                            const noexcept { return V0_; }
-    [[nodiscard]] double S0()                            const noexcept { return S0_; }
+    [[nodiscard]] int nucleation_model() const noexcept { return nucleation_model_; }
 
+    [[nodiscard]] int surface_growth_model() const noexcept { return surface_growth_model_; }
 
+    [[nodiscard]] int condensation_model() const noexcept { return condensation_model_; }
+
+    [[nodiscard]] int oxidation_model() const noexcept { return oxidation_model_; }
+
+    [[nodiscard]] int coagulation_model() const noexcept { return coagulation_model_; }
+
+    [[nodiscard]] int continuous_coagulation_model() const noexcept
+    {
+        return coagulation_continuous_model_;
+    }
+
+    [[nodiscard]] double dimerization_rate() const noexcept { return dimerization_rate_; }
+
+    [[nodiscard]] double V0() const noexcept { return V0_; }
+
+    [[nodiscard]] double S0() const noexcept { return S0_; }
 
 private:
+
     // ── Private computational methods ─────────────────────────────────────────
 
     void MemoryAllocation();
@@ -429,44 +511,44 @@ private:
     void SootCoagulationContinuousLargeLargeM4(double lambda);
     void CalculateAlphaCoefficient();
 
-    [[nodiscard]] double GetMoment(double i, double j)        const noexcept;
+    [[nodiscard]] double GetMoment(double i, double j) const noexcept;
     [[nodiscard]] double GetMissingMoment(double i, double j) const noexcept;
-    [[nodiscard]] double GetBetaC()                           const noexcept;
-    [[nodiscard]] double PAHDimerizationRate()                const noexcept;
-    [[nodiscard]] bool   HasSoot()                            const noexcept;
-    [[nodiscard]] double SafePowPositive(double x, double a)  const noexcept;
-    [[nodiscard]] double LogGeomStdDevFromMoments(
-                             double M0, double M1, double M2) const noexcept;
+    [[nodiscard]] double GetBetaC() const noexcept;
+    [[nodiscard]] double PAHDimerizationRate() const noexcept;
+    [[nodiscard]] bool HasSoot() const noexcept;
+    [[nodiscard]] double SafePowPositive(double x, double a) const noexcept;
+    [[nodiscard]] double LogGeomStdDevFromMoments(double M0, double M1, double M2) const noexcept;
 
 private:
+
     // ── Thermodynamics reference ──────────────────────────────────────────────
     const Thermo& thermo_;
 
     // ── Transported (normalised) moments ─────────────────────────────────────
-    double M00_normalized_ = 0.;   //!< [mol/m3]
-    double M10_normalized_ = 0.;   //!< [mol/m3]
-    double M01_normalized_ = 0.;   //!< [mol/m3]
-    double N0_normalized_  = 0.;   //!< [mol/m3]
+    double M00_normalized_ = 0.; //!< [mol/m3]
+    double M10_normalized_ = 0.; //!< [mol/m3]
+    double M01_normalized_ = 0.; //!< [mol/m3]
+    double N0_normalized_  = 0.; //!< [mol/m3]
 
     // ── Reconstructed physical moments ───────────────────────────────────────
-    double M00_ = 0.;   //!< [#/m3]
-    double M10_ = 0.;   //!< [#]
-    double M01_ = 0.;   //!< [#/m]
-    double N0_  = 0.;   //!< [#/m3]   small-particle number density
+    double M00_ = 0.; //!< [#/m3]
+    double M10_ = 0.; //!< [#]
+    double M01_ = 0.; //!< [#/m]
+    double N0_  = 0.; //!< [#/m3]   small-particle number density
 
     // Large-particle mode quantities (reconstructed from M00, M10, M01, N0)
-    double NL_   = 0.;  //!< large-particle number density [#/m3]
-    double NLVL_ = 0.;  //!< NL * mean volume of large particles [#]
-    double NLSL_ = 0.;  //!< NL * mean surface of large particles [#/m]
+    double NL_   = 0.; //!< large-particle number density [#/m3]
+    double NLVL_ = 0.; //!< NL * mean volume of large particles [#]
+    double NLSL_ = 0.; //!< NL * mean surface of large particles [#/m]
 
     // ── Species concentrations [kmol/m3] ──────────────────────────────────────
-    double conc_OH_   = 0., conc_H_    = 0., conc_H2O_  = 0.;
-    double conc_H2_   = 0., conc_C2H2_ = 0., conc_O2_   = 0.;
-    double conc_PAH_  = 0., conc_DIMER_= 0.;
+    double conc_OH_ = 0., conc_H_ = 0., conc_H2O_ = 0.;
+    double conc_H2_ = 0., conc_C2H2_ = 0., conc_O2_ = 0.;
+    double conc_PAH_ = 0., conc_DIMER_ = 0.;
 
     // 0-based species indices (-1 if absent in mechanism)
-    int index_H_    = -1, index_OH_   = -1, index_O2_   = -1;
-    int index_H2_   = -1, index_H2O_  = -1, index_C2H2_ = -1;
+    int index_H_ = -1, index_OH_ = -1, index_O2_ = -1;
+    int index_H2_ = -1, index_H2O_ = -1, index_C2H2_ = -1;
 
     // Mass fractions (needed for some surface rate expressions)
     double mass_fraction_H_  = 0.;
@@ -474,61 +556,60 @@ private:
 
     // ── PAH (precursor) properties ─────────────────────────────────────────────
     std::string pah_species_;
-    int    pah_index_ = -1;
-    double vpah_  = 0.;   //!< PAH molecule volume [m3]
-    double spah_  = 0.;   //!< PAH molecule surface [m2]
-    double dpah_  = 0.;   //!< PAH molecule diameter [m]
-    double mpah_  = 0.;   //!< PAH molecule mass [kg]
-    double mwpah_ = 0.;   //!< PAH molecular weight [kg/kmol]
-    double ncpah_ = 0.;   //!< number of C atoms per PAH molecule
-    double nhpah_ = 0.;   //!< number of H atoms per PAH molecule
+    int pah_index_ = -1;
+    double vpah_   = 0.; //!< PAH molecule volume [m3]
+    double spah_   = 0.; //!< PAH molecule surface [m2]
+    double dpah_   = 0.; //!< PAH molecule diameter [m]
+    double mpah_   = 0.; //!< PAH molecule mass [kg]
+    double mwpah_  = 0.; //!< PAH molecular weight [kg/kmol]
+    double ncpah_  = 0.; //!< number of C atoms per PAH molecule
+    double nhpah_  = 0.; //!< number of H atoms per PAH molecule
 
     // ── Nucleated particle geometry ────────────────────────────────────────────
-    double V0_ = 0.;    //!< nucleated particle volume [m3]
-    double S0_ = 0.;    //!< nucleated particle surface [m2]
-    double VC2_= 0.;    //!< volume of 2 C atoms [m3]
+    double V0_  = 0.; //!< nucleated particle volume [m3]
+    double S0_  = 0.; //!< nucleated particle surface [m2]
+    double VC2_ = 0.; //!< volume of 2 C atoms [m3]
 
     // ── Dimer properties ───────────────────────────────────────────────────────
-    double dimer_volume_       = 0.;
-    double dimer_surface_      = 0.;
-    double dimerization_rate_  = 0.;   //!< [mol/m3/s]
+    double dimer_volume_      = 0.;
+    double dimer_surface_     = 0.;
+    double dimerization_rate_ = 0.; //!< [mol/m3/s]
 
     // ── Kinetic intermediate quantities ───────────────────────────────────────
-    double kox_     = 0.;    //!< total oxidation rate constant [1/s]
-    double kox_O2_  = 0.;    //!< O2 contribution [1/s]
-    double kox_OH_  = 0.;    //!< OH contribution [1/s]
-    double ksg_     = 0.;    //!< surface growth rate constant
-    double betaN_   = 0.;
-    double Cfm_     = 0.;
-    double betaN_TV_= 0.;
+    double kox_      = 0.; //!< total oxidation rate constant [1/s]
+    double kox_O2_   = 0.; //!< O2 contribution [1/s]
+    double kox_OH_   = 0.; //!< OH contribution [1/s]
+    double ksg_      = 0.; //!< surface growth rate constant
+    double betaN_    = 0.;
+    double Cfm_      = 0.;
+    double betaN_TV_ = 0.;
 
     // ── Fractal/collision geometry pre-factors ─────────────────────────────────
-    double Av_fractal_    = 0., As_fractal_    = 0., K_fractal_    = 0.;
-    double D_collisional_ = 0., Av_collisional_= 0.,
-           As_collisional_= 0., K_collisional_ = 0.;
+    double Av_fractal_ = 0., As_fractal_ = 0., K_fractal_ = 0.;
+    double D_collisional_ = 0., Av_collisional_ = 0., As_collisional_ = 0., K_collisional_ = 0.;
 
     // ── Surface density correction ─────────────────────────────────────────────
-    bool   surface_density_correction_ = false;
-    double surface_density_ = 1.7e19;  //!< [#/m2]
+    bool surface_density_correction_ = false;
+    double surface_density_          = 1.7e19; //!< [#/m2]
     double surf_dens_a1_ = 0., surf_dens_a2_ = 0.;
     double surf_dens_b1_ = 0., surf_dens_b2_ = 0.;
-    double alpha_        = 1.;           //!< correction factor α
+    double alpha_ = 1.; //!< correction factor α
 
     // ── Model flags ────────────────────────────────────────────────────────────
-    int nucleation_model_              = 0;
-    int condensation_model_            = 0;
-    int surface_growth_model_          = 0;
-    int oxidation_model_               = 0;
-    int coagulation_model_             = 0;
-    int coagulation_continuous_model_  = 0;
+    int nucleation_model_             = 0;
+    int condensation_model_           = 0;
+    int surface_growth_model_         = 0;
+    int oxidation_model_              = 0;
+    int coagulation_model_            = 0;
+    int coagulation_continuous_model_ = 0;
 
-    FractalDiameterModel   fractal_diameter_model_   = FractalDiameterModel::Model1;
+    FractalDiameterModel fractal_diameter_model_     = FractalDiameterModel::Model1;
     CollisionDiameterModel collision_diameter_model_ = CollisionDiameterModel::Model2;
-    StickingModel          sticking_model_           = StickingModel::Constant;
-    double                 sticking_coeff_constant_  = 2.e-3;
+    StickingModel sticking_model_                    = StickingModel::Constant;
+    double sticking_coeff_constant_                  = 2.e-3;
 
-	bool is_debug_mode_              = false;  //!< enable verbose diagnostic output
-    bool is_simplified_pah_mass_     = false;  //!< use Nc*WC instead of full PAH MW
+    bool is_debug_mode_          = false; //!< enable verbose diagnostic output
+    bool is_simplified_pah_mass_ = false; //!< use Nc*WC instead of full PAH MW
 
     // ── Per-process source storage (owned by HMOM, not inherited from base) ───
     //
@@ -551,43 +632,43 @@ private:
     // Coagulation in HMOM has discrete and continuous parts.
     // These are HMOM-specific vectors not present in other variants.
 
-    MomentVector source_coagulation_discrete_    = MomentVector::Zero();
-    MomentVector source_coagulation_ss_          = MomentVector::Zero();
-    MomentVector source_coagulation_sl_          = MomentVector::Zero();
-    MomentVector source_coagulation_ll_          = MomentVector::Zero();
-    MomentVector source_coagulation_continuous_  = MomentVector::Zero();
-    MomentVector source_coagulation_cont_ss_     = MomentVector::Zero();
-    MomentVector source_coagulation_cont_sl_     = MomentVector::Zero();
-    MomentVector source_coagulation_cont_ll_     = MomentVector::Zero();
-    MomentVector source_coagulation_all_         = MomentVector::Zero();
+    MomentVector source_coagulation_discrete_   = MomentVector::Zero();
+    MomentVector source_coagulation_ss_         = MomentVector::Zero();
+    MomentVector source_coagulation_sl_         = MomentVector::Zero();
+    MomentVector source_coagulation_ll_         = MomentVector::Zero();
+    MomentVector source_coagulation_continuous_ = MomentVector::Zero();
+    MomentVector source_coagulation_cont_ss_    = MomentVector::Zero();
+    MomentVector source_coagulation_cont_sl_    = MomentVector::Zero();
+    MomentVector source_coagulation_cont_ll_    = MomentVector::Zero();
+    MomentVector source_coagulation_all_        = MomentVector::Zero();
 
     // ── Initial moments cache ──────────────────────────────────────────────────
     MomentVector initial_moments_cache_ = MomentVector::Zero();
 
     // ── HACA kinetics parameters ───────────────────────────────────────────────
     // Stored in [1/s], [cm3/mol/s] as appropriate; conversions in Set* methods.
-    double A1f_=0., n1f_=0., E1f_=0.,  A1b_=0., n1b_=0., E1b_=0.;
-    double A2f_=0., n2f_=0., E2f_=0.,  A2b_=0., n2b_=0., E2b_=0.;
-    double A3f_=0., n3f_=0., E3f_=0.,  A3b_=0., n3b_=0., E3b_=0.;
-    double A4_ =0., n4_ =0., E4_ =0.;
-    double A5_ =0., n5_ =0., E5_ =0.;
-    double eff6_= 0.;
+    double A1f_ = 0., n1f_ = 0., E1f_ = 0., A1b_ = 0., n1b_ = 0., E1b_ = 0.;
+    double A2f_ = 0., n2f_ = 0., E2f_ = 0., A2b_ = 0., n2b_ = 0., E2b_ = 0.;
+    double A3f_ = 0., n3f_ = 0., E3f_ = 0., A3b_ = 0., n3b_ = 0., E3b_ = 0.;
+    double A4_ = 0., n4_ = 0., E4_ = 0.;
+    double A5_ = 0., n5_ = 0., E5_ = 0.;
+    double eff6_ = 0.;
 
     // ── Numerical floors (constexpr — zero cost) ───────────────────────────────
-    static constexpr double kTinyNumberDensity = 1.e-30;   //!< [#/m3]
-    static constexpr double kSootNumberFloor   = 1.e3;     //!< [#/m3]
-    static constexpr double kSootVolumeFloor   = 1.e-40;   //!< [-]
-    static constexpr double kSootSurfaceFloor  = 1.e-30;   //!< [m2/m3]
+    static constexpr double kTinyNumberDensity = 1.e-30; //!< [#/m3]
+    static constexpr double kSootNumberFloor   = 1.e3;   //!< [#/m3]
+    static constexpr double kSootVolumeFloor   = 1.e-40; //!< [-]
+    static constexpr double kSootSurfaceFloor  = 1.e-30; //!< [m2/m3]
     static constexpr double kMomentEps         = 1.e-300;
 };
 
 } // namespace MOM
 
 #if !defined(MOM_COMPILED_LIBRARY)
-#  include "HMOM.tpp"
+#include "HMOM.tpp"
 #else
-namespace MOM 
+namespace MOM
 {
-    extern template class HMOM<BasicThermoData>;
+extern template class HMOM<BasicThermoData>;
 }
 #endif

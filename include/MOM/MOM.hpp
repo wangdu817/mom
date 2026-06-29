@@ -58,18 +58,18 @@
 #pragma once
 
 // ── Core infrastructure ───────────────────────────────────────────────────────
-#include "ThermoProxy.hpp"           // ThermoMap concept + Thermo adapter
-#include "ProcessFlags.hpp"          // Shared process model enum classes
-#include "MomentMethodBase.hpp"      // CRTP base: shared state, Planck, zero sources
-#include "MomentMethodConcept.hpp"   // MomentMethod C++20 concept (the contract)
+#include "ThermoProxy.hpp"         // ThermoMap concept + Thermo adapter
+#include "ProcessFlags.hpp"        // Shared process model enum classes
+#include "MomentMethodBase.hpp"    // CRTP base: shared state, Planck, zero sources
+#include "MomentMethodConcept.hpp" // MomentMethod C++20 concept (the contract)
 
 // ── Variant registry + concrete implementations ───────────────────────────────
 //
 // AnyMomentMethod.hpp includes MomVariantList.hpp, which is the single
 // authoritative registry of all concrete variants.  Adding a new variant
 // requires only editing MomVariantList.hpp — no changes here.
-#include "AnyMomentMethod.hpp"       // AnyMomentMethod<T>, dispatch helpers, factory
-#include "MomentMethodReporter.hpp"  // Observer: formats output via concept interface only
+#include "AnyMomentMethod.hpp"      // AnyMomentMethod<T>, dispatch helpers, factory
+#include "MomentMethodReporter.hpp" // Observer: formats output via concept interface only
 
 // ============================================================================
 // Compile-time concept satisfaction check — auto-covers all registered variants

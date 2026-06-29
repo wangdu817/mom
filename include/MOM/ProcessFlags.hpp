@@ -38,7 +38,8 @@
 #include <cstdint>
 #include <string_view>
 
-namespace MOM {
+namespace MOM
+{
 
 // ============================================================================
 // Process model flags
@@ -61,45 +62,45 @@ namespace MOM {
 enum class NucleationModel : int
 {
     Off      = 0,
-    Standard = 1,   //!< Default nucleation model for each method
-    Extended = 2    //!< Alternative nucleation model (e.g. BrookesMoss-Hall)
+    Standard = 1, //!< Default nucleation model for each method
+    Extended = 2  //!< Alternative nucleation model (e.g. BrookesMoss-Hall)
 };
 
 enum class CoagulationModel : int
 {
     Off      = 0,
-    Standard = 1    //!< Free-molecular + continuum coagulation
+    Standard = 1 //!< Free-molecular + continuum coagulation
 };
 
 enum class SurfaceGrowthModel : int
 {
     Off      = 0,
-    Standard = 1    //!< HACA-based surface growth
+    Standard = 1 //!< HACA-based surface growth
 };
 
 enum class OxidationModel : int
 {
     Off      = 0,
-    Standard = 1,   //!< OH + O2 oxidation
-    Extended = 2    //!< Alternative oxidation model (e.g. BrookesMoss-Hall)
+    Standard = 1, //!< OH + O2 oxidation
+    Extended = 2  //!< Alternative oxidation model (e.g. BrookesMoss-Hall)
 };
 
 enum class CondensationModel : int
 {
     Off      = 0,
-    Standard = 1    //!< PAH condensation on soot
+    Standard = 1 //!< PAH condensation on soot
 };
 
 enum class SinteringModel : int
 {
     Off      = 0,
-    Standard = 1    //!< Viscous flow sintering (TiO2)
+    Standard = 1 //!< Viscous flow sintering (TiO2)
 };
 
 enum class ThermophoreticModel : int
 {
     Off      = 0,
-    Standard = 1    //!< Thermophoretic drift in diffusion coefficient
+    Standard = 1 //!< Thermophoretic drift in diffusion coefficient
 };
 
 // ============================================================================
@@ -108,10 +109,10 @@ enum class ThermophoreticModel : int
 
 enum class PlanckCoeffModel : int
 {
-    None   = 0,   //!< No radiative contribution from particles
-    Smooke = 1,   //!< Smooke et al. correlation (default for soot)
-    Kent   = 2,   //!< Kent & Honnery correlation
-    Sazhin = 3    //!< Sazhin et al. correlation
+    None   = 0, //!< No radiative contribution from particles
+    Smooke = 1, //!< Smooke et al. correlation (default for soot)
+    Kent   = 2, //!< Kent & Honnery correlation
+    Sazhin = 3  //!< Sazhin et al. correlation
 };
 
 // ============================================================================
@@ -124,24 +125,32 @@ enum class PlanckCoeffModel : int
 
 [[nodiscard]] constexpr PlanckCoeffModel PlanckCoeffModelFromString(std::string_view s) noexcept
 {
-    if (s == "Smooke" || s == "smooke" || s == "SMOOKE") return PlanckCoeffModel::Smooke;
-    if (s == "Kent"   || s == "kent"   || s == "KENT"  ) return PlanckCoeffModel::Kent;
-    if (s == "Sazhin" || s == "sazhin" || s == "SAZHIN") return PlanckCoeffModel::Sazhin;
-    if (s == "None"   || s == "none"   || s == "NONE"  ) return PlanckCoeffModel::None;
+    if (s == "Smooke" || s == "smooke" || s == "SMOOKE")
+        return PlanckCoeffModel::Smooke;
+    if (s == "Kent" || s == "kent" || s == "KENT")
+        return PlanckCoeffModel::Kent;
+    if (s == "Sazhin" || s == "sazhin" || s == "SAZHIN")
+        return PlanckCoeffModel::Sazhin;
+    if (s == "None" || s == "none" || s == "NONE")
+        return PlanckCoeffModel::None;
     return PlanckCoeffModel::None;
 }
 
 [[nodiscard]] constexpr NucleationModel NucleationModelFromString(std::string_view s) noexcept
 {
-    if (s == "Standard" || s == "standard" || s == "1") return NucleationModel::Standard;
-    if (s == "Extended" || s == "extended" || s == "2") return NucleationModel::Extended;
+    if (s == "Standard" || s == "standard" || s == "1")
+        return NucleationModel::Standard;
+    if (s == "Extended" || s == "extended" || s == "2")
+        return NucleationModel::Extended;
     return NucleationModel::Off;
 }
 
 [[nodiscard]] constexpr OxidationModel OxidationModelFromString(std::string_view s) noexcept
 {
-    if (s == "Standard" || s == "standard" || s == "1") return OxidationModel::Standard;
-    if (s == "Extended" || s == "extended" || s == "2") return OxidationModel::Extended;
+    if (s == "Standard" || s == "standard" || s == "1")
+        return OxidationModel::Standard;
+    if (s == "Extended" || s == "extended" || s == "2")
+        return OxidationModel::Extended;
     return OxidationModel::Off;
 }
 

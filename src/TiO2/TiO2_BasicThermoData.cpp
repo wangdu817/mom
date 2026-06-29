@@ -34,16 +34,15 @@
 \*-----------------------------------------------------------------------*/
 
 #if defined(MOM_COMPILED_LIBRARY)
-#  error "Do not define MOM_COMPILED_LIBRARY when compiling library sources"
+#error "Do not define MOM_COMPILED_LIBRARY when compiling library sources"
 #endif
 
 #include "TiO2/TiO2.hpp"
 
-namespace MOM 
+namespace MOM
 {
-    template class TiO2<BasicThermoData>;
+template class TiO2<BasicThermoData>;
 }
-
 
 #if defined(MOM_USE_DICTIONARY)
 
@@ -54,8 +53,8 @@ namespace MOM
 
 namespace MOM
 {
-	template std::expected<void, std::string> 
-			 TiO2<BasicThermoData>::SetupFromDictionary<OpenSMOKEpp::Dictionary>(OpenSMOKEpp::Dictionary& dict);
+template std::expected<void, std::string>
+TiO2<BasicThermoData>::SetupFromDictionary<OpenSMOKEpp::Dictionary>(OpenSMOKEpp::Dictionary& dict);
 }
 
-#endif	// MOM_USE_DICTIONARY expected
+#endif // MOM_USE_DICTIONARY expected

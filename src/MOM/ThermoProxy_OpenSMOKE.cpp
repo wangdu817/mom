@@ -37,12 +37,10 @@
 #include <iostream>
 #include <numeric>
 
-
 //MOM adapter declaration
 #include "MOM/ThermoProxy.hpp"
 
-namespace MOM 
+namespace MOM
 {
 
 } // namespace MOM
-

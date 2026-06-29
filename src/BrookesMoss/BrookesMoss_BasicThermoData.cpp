@@ -4,16 +4,15 @@
 \*-----------------------------------------------------------------------*/
 
 #if defined(MOM_COMPILED_LIBRARY)
-#  error "Do not define MOM_COMPILED_LIBRARY when compiling library sources"
+#error "Do not define MOM_COMPILED_LIBRARY when compiling library sources"
 #endif
 
 #include "BrookesMoss/BrookesMoss.hpp"
 
-namespace MOM 
+namespace MOM
 {
-    template class BrookesMoss<BasicThermoData>;
+template class BrookesMoss<BasicThermoData>;
 }
-
 
 #if defined(MOM_USE_DICTIONARY)
 
@@ -24,8 +23,8 @@ namespace MOM
 
 namespace MOM
 {
-	template std::expected<void, std::string> 
-			 BrookesMoss<BasicThermoData>::SetupFromDictionary<OpenSMOKEpp::Dictionary>(OpenSMOKEpp::Dictionary& dict);
+template std::expected<void, std::string> BrookesMoss<BasicThermoData>::SetupFromDictionary<
+    OpenSMOKEpp::Dictionary>(OpenSMOKEpp::Dictionary& dict);
 }
 
-#endif	// MOM_USE_DICTIONARY expected
+#endif // MOM_USE_DICTIONARY expected

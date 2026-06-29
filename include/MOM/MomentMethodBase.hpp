@@ -45,7 +45,8 @@
 #include <vector>
 #include <cmath>
 
-namespace MOM {
+namespace MOM
+{
 
 // ============================================================================
 // MomentMethodBase<Derived, NEq>
@@ -84,11 +85,11 @@ namespace MOM {
 //   NEq      — Number of transported moment equations (compile-time constant)
 // ============================================================================
 
-template <class Derived, unsigned NEq>
-class MomentMethodBase
+template <class Derived, unsigned NEq> class MomentMethodBase
 {
 public:
-    // ── Compile-time interface ─────────────────────────────────────────────
+
+    // -- Compile-time interface ---------------------------------------------
 
     /// Number of transported equations. Satisfies the MomentMethod concept.
     static constexpr unsigned n_equations = NEq;
@@ -96,58 +97,83 @@ public:
     /// Eigen type for a moment vector; used by derived classes.
     using MomentVector = Eigen::Matrix<double, static_cast<int>(NEq), 1>;
 
-    // ── Common setters ─────────────────────────────────────────────────────
+    // -- Common setters -----------------------------------------------------
 
     /// Sets the soot/particle Schmidt number (default: 0.7).
-    void SetSchmidtNumber(double value) noexcept         { schmidt_number_ = value; }
+    void SetSchmidtNumber(double value) noexcept { schmidt_number_ = value; }
 
     /// Sets the particle material density [kg/m3] (default: 1800 for soot).
-    void SetParticleDensity(double value) noexcept       { rho_particle_ = value; }
+    void SetParticleDensity(double value) noexcept { rho_particle_ = value; }
 
     /// Alias retained for backward compatibility with existing codes.
-    void SetSootDensity(double value) noexcept           { rho_particle_ = value; }
+    void SetSootDensity(double value) noexcept { rho_particle_ = value; }
 
     /// Sets the mixture dynamic viscosity [kg/m/s] (call before CalculateSourceMoments).
-    void SetViscosity(double mu) noexcept                { mu_ = mu; }
+    void SetViscosity(double mu) noexcept { mu_ = mu; }
 
     /// Enables/disables consumption of gas-phase precursor (default: true).
-    void SetGasConsumption(bool flag) noexcept           { gas_consumption_ = flag; }
+    void SetGasConsumption(bool flag) noexcept { gas_consumption_ = flag; }
 
     /// Enables/disables particle contribution to radiative heat transfer.
-    void SetRadiativeHeatTransfer(bool flag) noexcept    { radiative_heat_transfer_ = flag; }
+    void SetRadiativeHeatTransfer(bool flag) noexcept { radiative_heat_transfer_ = flag; }
 
     /// Sets the thermophoretic drift model (0 = off, 1 = standard).
-    void SetThermophoreticModel(int flag) noexcept       { thermophoretic_model_ = static_cast<ThermophoreticModel>(flag); }
+    void SetThermophoreticModel(int flag) noexcept
+    {
+        thermophoretic_model_ = static_cast<ThermophoreticModel>(flag);
+    }
+
     void SetThermophoreticModel(ThermophoreticModel m) noexcept { thermophoretic_model_ = m; }
 
     /// Selects the Planck mean absorption coefficient correlation.
     void SetPlanckAbsorptionCoefficient(PlanckCoeffModel model) noexcept { planck_model_ = model; }
-    void SetPlanckAbsorptionCoefficient(std::string_view label) noexcept {
+
+    void SetPlanckAbsorptionCoefficient(std::string_view label) noexcept
+    {
         planck_model_ = PlanckCoeffModelFromString(label);
     }
 
-    // ── Common getters ─────────────────────────────────────────────────────
+    // -- Common getters -----------------------------------------------------
 
-    [[nodiscard]] constexpr unsigned n_moments()             const noexcept { return NEq; }
-    [[nodiscard]] bool   is_active()                         const noexcept { return is_active_; }
-    [[nodiscard]] bool   GasConsumption()                    const noexcept { return gas_consumption_; }
-    [[nodiscard]] double schmidt_number()                    const noexcept { return schmidt_number_; }
-    [[nodiscard]] double ParticleDensity()                   const noexcept { return rho_particle_; }
-    [[nodiscard]] bool   radiative_heat_transfer()           const noexcept { return radiative_heat_transfer_; }
-    [[nodiscard]] int    thermophoretic_model()              const noexcept { return static_cast<int>(thermophoretic_model_); }
-    [[nodiscard]] bool   ClosureDummySpeciesIsActive()       const noexcept { return dummy_species_closure_; }
-    [[nodiscard]] const std::string& closure_dummy_species() const noexcept { return dummy_species_; }
-    [[nodiscard]] int    closure_dummy_index()               const noexcept { return dummy_index_; }
+    [[nodiscard]] constexpr unsigned n_moments() const noexcept { return NEq; }
 
-    // ── Source term access — span-based for zero-copy CFD interop ──────────
+    [[nodiscard]] bool is_active() const noexcept { return is_active_; }
+
+    [[nodiscard]] bool GasConsumption() const noexcept { return gas_consumption_; }
+
+    [[nodiscard]] double schmidt_number() const noexcept { return schmidt_number_; }
+
+    [[nodiscard]] double ParticleDensity() const noexcept { return rho_particle_; }
+
+    [[nodiscard]] bool radiative_heat_transfer() const noexcept { return radiative_heat_transfer_; }
+
+    [[nodiscard]] int thermophoretic_model() const noexcept
+    {
+        return static_cast<int>(thermophoretic_model_);
+    }
+
+    [[nodiscard]] bool ClosureDummySpeciesIsActive() const noexcept
+    {
+        return dummy_species_closure_;
+    }
+
+    [[nodiscard]] const std::string& closure_dummy_species() const noexcept
+    {
+        return dummy_species_;
+    }
+
+    [[nodiscard]] int closure_dummy_index() const noexcept { return dummy_index_; }
+
+    // -- Source term access — span-based for zero-copy CFD interop ----------
 
     /// Total source vector summed over all active processes [method-dependent units].
     /// Returns a non-owning view into the internal fixed-size storage.
-    [[nodiscard]] std::span<const double> sources() const noexcept {
-        return { source_all_.data(), NEq };
+    [[nodiscard]] std::span<const double> sources() const noexcept
+    {
+        return {source_all_.data(), NEq};
     }
 
-    // ── Per-process source span getters — CRTP dispatch with zero fallback ────
+    // -- Per-process source span getters — CRTP dispatch with zero fallback ----
     //
     // If Derived implements sources_X_impl() (the opt-in extension point),
     // the call is forwarded to Derived at compile time with zero overhead.
@@ -167,44 +193,62 @@ public:
     // In release builds (-O2 / -O3) the compiler would inline anyway;
     // the attribute makes the contract explicit and enforced.
 
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation() const noexcept {
-        if constexpr (requires (const Derived& d) { d.sources_nucleation_impl(); })
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation() const noexcept
+    {
+        if constexpr (requires(const Derived& d) { d.sources_nucleation_impl(); })
             return derived().sources_nucleation_impl();
-        else return { kZeroData, NEq };
+        else
+            return {kZeroData, NEq};
     }
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_coagulation() const noexcept {
-        if constexpr (requires (const Derived& d) { d.sources_coagulation_impl(); })
+
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_coagulation() const noexcept
+    {
+        if constexpr (requires(const Derived& d) { d.sources_coagulation_impl(); })
             return derived().sources_coagulation_impl();
-        else return { kZeroData, NEq };
+        else
+            return {kZeroData, NEq};
     }
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_condensation() const noexcept {
-        if constexpr (requires (const Derived& d) { d.sources_condensation_impl(); })
+
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_condensation() const noexcept
+    {
+        if constexpr (requires(const Derived& d) { d.sources_condensation_impl(); })
             return derived().sources_condensation_impl();
-        else return { kZeroData, NEq };
+        else
+            return {kZeroData, NEq};
     }
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_growth() const noexcept {
-        if constexpr (requires (const Derived& d) { d.sources_growth_impl(); })
+
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_growth() const noexcept
+    {
+        if constexpr (requires(const Derived& d) { d.sources_growth_impl(); })
             return derived().sources_growth_impl();
-        else return { kZeroData, NEq };
+        else
+            return {kZeroData, NEq};
     }
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_oxidation() const noexcept {
-        if constexpr (requires (const Derived& d) { d.sources_oxidation_impl(); })
+
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_oxidation() const noexcept
+    {
+        if constexpr (requires(const Derived& d) { d.sources_oxidation_impl(); })
             return derived().sources_oxidation_impl();
-        else return { kZeroData, NEq };
+        else
+            return {kZeroData, NEq};
     }
-    [[nodiscard, gnu::always_inline]] std::span<const double> sources_sintering() const noexcept {
-        if constexpr (requires (const Derived& d) { d.sources_sintering_impl(); })
+
+    [[nodiscard, gnu::always_inline]] std::span<const double> sources_sintering() const noexcept
+    {
+        if constexpr (requires(const Derived& d) { d.sources_sintering_impl(); })
             return derived().sources_sintering_impl();
-        else return { kZeroData, NEq };
+        else
+            return {kZeroData, NEq};
     }
 
     /// Gas-phase consumption source terms [kg/m3/s].
     /// Size = n_species; allocated once during setup.
-    [[nodiscard]] std::span<const double> omega_gas() const noexcept {
-        return { omega_gas_.data(), static_cast<std::size_t>(omega_gas_.size()) };
+    [[nodiscard]] std::span<const double> omega_gas() const noexcept
+    {
+        return {omega_gas_.data(), static_cast<std::size_t>(omega_gas_.size())};
     }
 
-    // ── Radiative properties ───────────────────────────────────────────────
+    // -- Radiative properties -----------------------------------------------
 
     /// Planck mean absorption coefficient [1/m].
     /// Returns 0.0 when planck_model_ == PlanckCoeffModel::None (e.g. TiO2).
@@ -213,9 +257,10 @@ public:
     [[nodiscard]] double planck_coefficient(double T, double fv) const noexcept;
 
 protected:
-    // ── Protected constructor — only accessible through derived classes ─────
 
-    MomentMethodBase() = default;
+    // -- Protected constructor — only accessible through derived classes -----
+
+    MomentMethodBase()  = default;
     ~MomentMethodBase() = default;
 
     // Non-copyable: moment method objects hold external thermo references
@@ -225,39 +270,39 @@ protected:
     MomentMethodBase(MomentMethodBase&&)                 = default;
     MomentMethodBase& operator=(MomentMethodBase&&)      = default;
 
-    // ── Shared thermodynamic state ─────────────────────────────────────────
+    // -- Shared thermodynamic state -----------------------------------------
     // Updated by each concrete class's SetStatus() implementation.
 
-    double T_    = 0.;   //!< temperature [K]
-    double P_Pa_ = 0.;   //!< pressure [Pa]
-    double rho_  = 0.;   //!< mixture density [kg/m3]
-    double MW_   = 0.;   //!< mixture molecular weight [kg/kmol]
-    double mu_   = 0.;   //!< dynamic viscosity [kg/m/s]
+    double T_    = 0.; //!< temperature [K]
+    double P_Pa_ = 0.; //!< pressure [Pa]
+    double rho_  = 0.; //!< mixture density [kg/m3]
+    double MW_   = 0.; //!< mixture molecular weight [kg/kmol]
+    double mu_   = 0.; //!< dynamic viscosity [kg/m/s]
 
-    // ── Common control flags ───────────────────────────────────────────────
+    // -- Common control flags -----------------------------------------------
 
     bool is_active_               = false;
     bool gas_consumption_         = true;
     bool radiative_heat_transfer_ = false;
     bool dummy_species_closure_   = false;
 
-    double schmidt_number_        = 0.7;
-    double rho_particle_          = 1800.;   //!< [kg/m3] — soot default; TiO2 overrides
+    double schmidt_number_ = 0.7;
+    double rho_particle_   = 1800.; //!< [kg/m3] — soot default; TiO2 overrides
 
     ThermophoreticModel thermophoretic_model_ = ThermophoreticModel::Off;
-    PlanckCoeffModel    planck_model_         = PlanckCoeffModel::Smooke;
+    PlanckCoeffModel planck_model_            = PlanckCoeffModel::Smooke;
 
     std::string dummy_species_;
-    int         dummy_index_ = -1;
+    int dummy_index_ = -1;
 
-    // ── Fixed-size source storage (stack-allocated) ────────────────────────
+    // -- Fixed-size source storage (stack-allocated) ------------------------
     //
     // Only the total source vector is stored here; per-process vectors are
     // owned by the Derived class (see class comment above).
 
     MomentVector source_all_ = MomentVector::Zero();
 
-    // ── Compile-time zero span for unmodelled processes ────────────────────
+    // -- Compile-time zero span for unmodelled processes --------------------
     //
     // A static constexpr zero array of length NEq. Used by the sources_X()
     // CRTP dispatch methods above as the fallback when Derived does not
@@ -265,28 +310,33 @@ protected:
     // the array is placed in read-only data, not stack or heap.
     static constexpr double kZeroData[NEq] = {};
 
-    // ── Gas-phase source terms (sized at setup, not in hot loop) ──────────
+    // -- Gas-phase source terms (sized at setup, not in hot loop) ----------
     //
     // Size = n_species. Allocated once in each variant's MemoryAllocation().
     // Eigen::VectorXd gives aligned storage and a uniform API (setZero, .data,
     // .sum) consistent with the fixed-size MomentVector members above.
     Eigen::VectorXd omega_gas_;
 
-    // ── Helpers for zero-initialising source vectors between time steps ─────
+    // -- Helpers for zero-initialising source vectors between time steps -----
 
     // Zeroes the base-class-owned accumulators. Each Derived class must zero
     // its own process vectors (source_X_) immediately after calling this.
-    void ZeroSources() noexcept {
+    void ZeroSources() noexcept
+    {
         source_all_.setZero();
         omega_gas_.setZero();
     }
 
-    // ── CRTP down-cast helpers ─────────────────────────────────────────────
+    // -- CRTP down-cast helpers ---------------------------------------------
 
-    [[nodiscard]] Derived&       derived()       noexcept { return static_cast<Derived&>(*this); }
-    [[nodiscard]] const Derived& derived() const noexcept { return static_cast<const Derived&>(*this); }
+    [[nodiscard]] Derived& derived() noexcept { return static_cast<Derived&>(*this); }
 
-    // ── Mathematical constants (from <numbers>, full double precision) ────────
+    [[nodiscard]] const Derived& derived() const noexcept
+    {
+        return static_cast<const Derived&>(*this);
+    }
+
+    // -- Mathematical constants (from <numbers>, full double precision) --------
     //
     // std::numbers::pi_v<double> and sqrt2_v<double> carry the maximum
     // representable precision for double — no manual digit counting required.
@@ -294,22 +344,23 @@ protected:
     static constexpr double pi_    = std::numbers::pi_v<double>;    //!< π
     static constexpr double sqrt2_ = std::numbers::sqrt2_v<double>; //!< √2
 
-    // ── Physical constants (CODATA 2018 exact values, SI units) ───────────
+    // -- Physical constants (CODATA 2018 exact values, SI units) -----------
     //
     // kB and Nav are exact by SI 2019 redefinition.
     // Rgas = kB * Nav (exact). WC is the standard atomic weight (IUPAC 2021).
 
-    static constexpr double kB_       = 1.380649e-23;            //!< Boltzmann [J/K]
-    static constexpr double Nav_mol_  = 6.02214076e23;           //!< Avogadro [#/mol]
-    static constexpr double Nav_kmol_ = 6.02214076e26;           //!< Avogadro [#/kmol]
-    static constexpr double Rgas_     = 8314.46261815324;        //!< Gas constant [J/kmol/K]
-    static constexpr double WC_       = 12.011;                  //!< C atomic weight [kg/kmol]
+    static constexpr double kB_       = 1.380649e-23;     //!< Boltzmann [J/K]
+    static constexpr double Nav_mol_  = 6.02214076e23;    //!< Avogadro [#/mol]
+    static constexpr double Nav_kmol_ = 6.02214076e26;    //!< Avogadro [#/kmol]
+    static constexpr double Rgas_     = 8314.46261815324; //!< Gas constant [J/kmol/K]
+    static constexpr double WC_       = 12.011;           //!< C atomic weight [kg/kmol]
 
 private:
-    // ── Planck coefficient model implementations ───────────────────────────
+
+    // -- Planck coefficient model implementations ---------------------------
 
     [[nodiscard]] double PlanckSmooke(double T, double fv) const noexcept;
-    [[nodiscard]] double PlanckKent  (double T, double fv) const noexcept;
+    [[nodiscard]] double PlanckKent(double T, double fv) const noexcept;
     [[nodiscard]] double PlanckSazhin(double T, double fv) const noexcept;
 };
 
@@ -321,15 +372,20 @@ private:
 // ============================================================================
 
 template <class Derived, unsigned NEq>
-inline double MomentMethodBase<Derived, NEq>::planck_coefficient(
-    double T, double fv) const noexcept
+inline double MomentMethodBase<Derived, NEq>::planck_coefficient(double T, double fv) const noexcept
 {
-    switch (planck_model_) {
-        case PlanckCoeffModel::Smooke: return PlanckSmooke(T, fv);
-        case PlanckCoeffModel::Kent:   return PlanckKent  (T, fv);
-        case PlanckCoeffModel::Sazhin: return PlanckSazhin(T, fv);
-        case PlanckCoeffModel::None:   return 0.;
-        default:                       return 0.;
+    switch (planck_model_)
+    {
+        case PlanckCoeffModel::Smooke:
+            return PlanckSmooke(T, fv);
+        case PlanckCoeffModel::Kent:
+            return PlanckKent(T, fv);
+        case PlanckCoeffModel::Sazhin:
+            return PlanckSazhin(T, fv);
+        case PlanckCoeffModel::None:
+            return 0.;
+        default:
+            return 0.;
     }
 }
 
@@ -339,5 +395,5 @@ inline double MomentMethodBase<Derived, NEq>::planck_coefficient(
 // The explicit template instantiations in src/*.cpp implicitly cover the base.
 // No extern template declarations needed here.
 #if !defined(MOM_COMPILED_LIBRARY)
-#  include "MomentMethodBase.tpp"
+#include "MomentMethodBase.tpp"
 #endif

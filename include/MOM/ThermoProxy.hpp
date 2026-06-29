@@ -42,7 +42,8 @@
 #include <vector>
 #include <functional>
 
-namespace MOM {
+namespace MOM
+{
 
 // ============================================================================
 // ThermoMap concept
@@ -59,25 +60,23 @@ namespace MOM {
 // ============================================================================
 
 template <typename T>
-concept ThermoMap = requires(const T& t, unsigned i, std::string_view name)
-{
+concept ThermoMap = requires(const T& t, unsigned i, std::string_view name) {
     // Total number of species in the kinetic mechanism
-    { t.NumberOfSpecies()        } -> std::convertible_to<unsigned>;
+    { t.NumberOfSpecies() } -> std::convertible_to<unsigned>;
 
     // 0-based species index; returns -1 if species is absent in the mechanism
-    { t.IndexOfSpecies(name)     } -> std::convertible_to<int>;
+    { t.IndexOfSpecies(name) } -> std::convertible_to<int>;
 
     // Molecular weight of species i [kg/kmol]
-    { t.MolecularWeight(i)       } -> std::same_as<double>;
+    { t.MolecularWeight(i) } -> std::same_as<double>;
 
     // Atom counts per molecule of species i
-    { t.NumberOfCarbonAtoms(i)   } -> std::same_as<double>;
+    { t.NumberOfCarbonAtoms(i) } -> std::same_as<double>;
     { t.NumberOfHydrogenAtoms(i) } -> std::same_as<double>;
-    { t.NumberOfOxygenAtoms(i)   } -> std::same_as<double>;
+    { t.NumberOfOxygenAtoms(i) } -> std::same_as<double>;
     { t.NumberOfNitrogenAtoms(i) } -> std::same_as<double>;
-    { t.NumberOfTitaniumAtoms(i) } -> std::same_as<double>;  // returns 0.0 for non-Ti species
+    { t.NumberOfTitaniumAtoms(i) } -> std::same_as<double>; // returns 0.0 for non-Ti species
 };
-
 
 // ============================================================================
 // BasicThermoData
@@ -99,24 +98,32 @@ struct BasicThermoData
     std::vector<double> nti;
 
     [[nodiscard]] unsigned NumberOfSpecies() const noexcept
-        { return static_cast<unsigned>(names.size()); }
+    {
+        return static_cast<unsigned>(names.size());
+    }
 
-    [[nodiscard]] int IndexOfSpecies(std::string_view name) const noexcept {
+    [[nodiscard]] int IndexOfSpecies(std::string_view name) const noexcept
+    {
         for (unsigned i = 0; i < names.size(); ++i)
-            if (names[i] == name) return static_cast<int>(i);
+            if (names[i] == name)
+                return static_cast<int>(i);
         return -1;
     }
 
-    [[nodiscard]] double MolecularWeight      (unsigned i) const noexcept { return mw[i];  }
-    [[nodiscard]] double NumberOfCarbonAtoms  (unsigned i) const noexcept { return nc[i];  }
-    [[nodiscard]] double NumberOfHydrogenAtoms(unsigned i) const noexcept { return nh[i];  }
-    [[nodiscard]] double NumberOfOxygenAtoms  (unsigned i) const noexcept { return no[i];  }
-    [[nodiscard]] double NumberOfNitrogenAtoms(unsigned i) const noexcept { return nn[i];  }
+    [[nodiscard]] double MolecularWeight(unsigned i) const noexcept { return mw[i]; }
+
+    [[nodiscard]] double NumberOfCarbonAtoms(unsigned i) const noexcept { return nc[i]; }
+
+    [[nodiscard]] double NumberOfHydrogenAtoms(unsigned i) const noexcept { return nh[i]; }
+
+    [[nodiscard]] double NumberOfOxygenAtoms(unsigned i) const noexcept { return no[i]; }
+
+    [[nodiscard]] double NumberOfNitrogenAtoms(unsigned i) const noexcept { return nn[i]; }
+
     [[nodiscard]] double NumberOfTitaniumAtoms(unsigned i) const noexcept { return nti[i]; }
 };
 
 static_assert(ThermoMap<BasicThermoData>, "BasicThermoData must satisfy ThermoMap");
-
 
 // ============================================================================
 // Additional thermo adapters
@@ -136,6 +143,5 @@ static_assert(ThermoMap<BasicThermoData>, "BasicThermoData must satisfy ThermoMa
 //
 // The implementation of each method is in ThermoProxy.cpp
 // ============================================================================
-
 
 } // namespace MOM

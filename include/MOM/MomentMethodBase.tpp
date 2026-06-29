@@ -40,7 +40,8 @@
 
 #include <cmath>
 
-namespace MOM {
+namespace MOM
+{
 
 // ============================================================================
 // Planck mean absorption coefficient correlations
@@ -61,7 +62,7 @@ double MomentMethodBase<Derived, NEq>::PlanckSmooke(double T, double fv) const n
     // Smooke et al. (2005), Combust. Flame 143, 613-628.
     // kP = C1 * fv * T   [1/m],  C1 = 1232.4 K^{-1} m^{-1}  (approx.)
     // Reference values: C1 = 1232.4 from the original paper.
-    constexpr double C1 = 1232.4;    // [1/m/K]
+    constexpr double C1 = 1232.4; // [1/m/K]
     return C1 * fv * T;
 }
 
@@ -70,8 +71,8 @@ double MomentMethodBase<Derived, NEq>::PlanckKent(double T, double fv) const noe
 {
     // Kent & Honnery (1990), Combust. Sci. Tech. 75, 167-177.
     // kP = C1 * fv * (C2 + T)   where C2 is a temperature offset.
-    constexpr double C1 =  1.3e5;    // [1/m]  (approximate, check original paper)
-    constexpr double C2 =  0.;       // [K]    (some formulations include an offset)
+    constexpr double C1 = 1.3e5; // [1/m]  (approximate, check original paper)
+    constexpr double C2 = 0.;    // [K]    (some formulations include an offset)
     return C1 * fv * (C2 + T);
 }
 
@@ -80,12 +81,12 @@ double MomentMethodBase<Derived, NEq>::PlanckSazhin(double T, double fv) const n
 {
     // Sazhin (1994), Prog. Energy Combust. Sci. 20, 297-318.
     // kP = fv * (C0 + C1*T + C2*T^2 + C3*T^3)  [1/m]
-    constexpr double C0 =  6.3e2;
-    constexpr double C1 =  6.3e-1;
+    constexpr double C0 = 6.3e2;
+    constexpr double C1 = 6.3e-1;
     constexpr double C2 = -1.0e-4;
-    constexpr double C3 =  0.;       // cubic term (set to 0 if not available)
-    const double T2 = T * T;
-    return fv * (C0 + C1*T + C2*T2 + C3*T2*T);
+    constexpr double C3 = 0.; // cubic term (set to 0 if not available)
+    const double T2     = T * T;
+    return fv * (C0 + C1 * T + C2 * T2 + C3 * T2 * T);
 }
 
 } // namespace MOM

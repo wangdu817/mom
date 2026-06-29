@@ -1,0 +1,214 @@
+---
+# =============================================================================
+# .clang-format — MOM Library (CRECK Modeling Lab, Politecnico di Milano)
+# =============================================================================
+#
+# Baseline : LLVM
+# Minimum clang-format version required: 14
+#   (SeparateDefinitionBlocks was added in v14)
+#
+# IMPORTANT: AlignTrailingComments uses the boolean form (not the sub-key
+# object form) so the file parses correctly on clang-format 14 and 15.
+# The object form { Kind, OverEmptyLines } requires clang-format >= 16 and
+# causes a silent parse failure on older versions — which makes the entire
+# config file be ignored and the formatter fall back to built-in LLVM style
+# (same-line braces, 2-space indent).  If you are on v16+ you may switch to
+# the object form.
+#
+# Apply to a single file (preview only, no in-place edit):
+#   clang-format --style=file <file>
+#
+# Apply in-place to all C++ sources:
+#   find include src tests \( -name '*.hpp' -o -name '*.h' -o \
+#        -name '*.tpp' -o -name '*.cpp' \) | xargs clang-format -i
+#
+# =============================================================================
+
+Language:     Cpp
+Standard:     Latest        # C++20 / C++23 constructs handled correctly
+BasedOnStyle: LLVM
+
+# =============================================================================
+# Layout & Indentation
+# =============================================================================
+
+IndentWidth:             4
+ContinuationIndentWidth: 4
+ColumnLimit:             100   # breathing room for mathematical expressions
+UseTab:                  Never
+TabWidth:                4
+
+# =============================================================================
+# Brace Placement (Allman style)
+# =============================================================================
+#
+# Every opening brace moves to its own line:
+#
+#   Before:  void foo() {        After:  void foo()
+#                ...                     {
+#            }                               ...
+#                                        }
+#
+# Exception: short functions/lambdas defined *inside a class body*
+# (getters, setters, one-liner forwarders) may remain on a single line.
+# Set AllowShortFunctionsOnASingleLine to None to enforce braces everywhere.
+
+BreakBeforeBraces:               Allman
+
+AllowShortFunctionsOnASingleLine: InlineOnly  # inline getters/setters stay compact
+AllowShortLambdasOnASingleLine:   Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine:     false
+AllowShortBlocksOnASingleLine:    Empty       # allow bare `{}` on one line
+
+# =============================================================================
+# Access Modifiers
+# =============================================================================
+#
+# AccessModifierOffset: -4 keeps public/private/protected at the class-body
+# indent level (not indented an extra level relative to the class members).
+#
+# EmptyLineAfterAccessModifier ensures there is always a blank line between
+# the keyword and the first declaration in that section:
+#
+#   public:
+#
+#       void foo();   <-- blank line inserted here
+#
+
+AccessModifierOffset:          -4
+EmptyLineAfterAccessModifier:  Always
+EmptyLineBeforeAccessModifier: LogicalBlock
+
+# =============================================================================
+# Alignment & Aesthetics
+# =============================================================================
+
+# Arguments wrap to align under the opening parenthesis.
+AlignAfterOpenBracket: Align
+
+# Align consecutive `=` in variable initialisations (same block only):
+#   double alpha    = 1.0;
+#   double rho_soot = 1800.0;
+#   int    nSpecies = 7;
+AlignConsecutiveAssignments:
+  Enabled:          true
+  AcrossEmptyLines: false
+  AcrossComments:   false
+
+# Consecutive declarations are NOT column-aligned. Type names vary too widely
+# in a template-heavy scientific library and forced alignment often makes
+# template declarations illegible.
+AlignConsecutiveDeclarations:
+  Enabled: false
+
+# Align consecutive macro definitions in the same block:
+#   #define MOM_PI      3.14159265358979
+#   #define MOM_KBOLTZ  1.38064852e-23
+AlignConsecutiveMacros:
+  Enabled:          true
+  AcrossEmptyLines: false
+  AcrossComments:   false
+
+# Align trailing // comments on consecutive lines.
+# Boolean form — compatible with all clang-format versions.
+AlignTrailingComments: true
+
+# Backslash continuations in macros are left-aligned.
+AlignEscapedNewlines: Left
+
+# Pointer and reference declarators attach to the type (modern C++ convention):
+#   double* ptr    not    double *ptr
+#   double& ref    not    double &ref
+PointerAlignment:   Left
+ReferenceAlignment: Left
+
+# =============================================================================
+# Spacing
+# =============================================================================
+
+# Space before parenthesis for control-flow keywords only:
+#   if (cond)   for (...)   while (...)
+#   computeSourceTerms()  <-- no space for function calls
+SpaceBeforeParens: ControlStatements
+
+SpacesInAngles:                    Never   # template<typename T>, not template< T >
+SpaceAfterTemplateKeyword:         true    # template <typename T>  (LLVM convention)
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses:           false
+SpacesInCStyleCastParentheses:     false
+SpaceAfterCStyleCast:              false
+
+# =============================================================================
+# Include Sorting
+# =============================================================================
+#
+# Disabled. Scientific / HPC headers often carry a mandatory include order
+# (e.g. Eigen before anything that uses it, thermo proxy before variant
+# headers). Automatic resorting can silently break those dependencies.
+
+SortIncludes:  Never
+IncludeBlocks: Preserve
+
+# =============================================================================
+# Modern C++ / Namespace Handling
+# =============================================================================
+
+FixNamespaceComments: true   # auto-adds `// namespace MOM` at closing `}`
+NamespaceIndentation: None   # namespace body is not indented
+
+# =============================================================================
+# Definition Block Separation
+# =============================================================================
+#
+# Inserts a blank line between consecutive top-level definitions
+# (functions, classes, variables).  Requires clang-format >= 14.
+SeparateDefinitionBlocks: Always
+
+# Protect your section dividers from being broken or wrapped by the formatter.
+# This regex matches any comment line that contains 4 or more '=' or '-' characters.
+CommentPragmas: '^ (=+|-+)$'
+
+# =============================================================================
+# Switch / Case Labels
+# =============================================================================
+
+IndentCaseLabels:  true    # `case X:` is indented relative to `switch`
+IndentCaseBlocks:  false
+
+# =============================================================================
+# Line Breaking
+# =============================================================================
+
+BreakConstructorInitializers:   BeforeColon
+BreakInheritanceList:           BeforeColon
+BreakBeforeConceptDeclarations: Always
+BreakStringLiterals:            false   # never split string literals
+
+# Do not pack multiple parameters/arguments onto the first line when
+# wrapping — each argument goes on its own aligned line.
+BinPackParameters: false
+BinPackArguments:  false
+
+# =============================================================================
+# Comment Handling
+# =============================================================================
+#
+# ReflowComments is DISABLED.  The ASCII-art banner headers and the
+# hand-formatted section dividers (// ===...) must not be reflowed or
+# word-wrapped by the formatter.
+
+ReflowComments: false
+
+# =============================================================================
+# Penalty Tuning
+# =============================================================================
+#
+# Higher value = clang-format tries harder to avoid that particular break.
+
+PenaltyBreakBeforeFirstCallParameter: 100
+PenaltyBreakComment:                  300
+PenaltyBreakString:                   1000
+PenaltyExcessCharacter:               10
+PenaltyReturnTypeOnItsOwnLine:        200
+...

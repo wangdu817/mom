@@ -72,25 +72,26 @@
 static MOM::BasicThermoData buildThermo()
 {
     MOM::BasicThermoData th;
-    th.names = { "H",    "OH",   "O2",   "H2",   "H2O",   "C2H2",  "N2"  };
-    th.mw    = { 1.008,  17.008, 31.999, 2.016,  18.015,  26.038,  28.014 };
-    th.nc    = { 0,      0,      0,      0,      0,       2,       0      };
-    th.nh    = { 1,      1,      0,      2,      2,       2,       0      };
-    th.no    = { 0,      1,      2,      0,      1,       0,       0      };
-    th.nn    = { 0,      0,      0,      0,      0,       0,       2      };
-    th.nti   = { 0,      0,      0,      0,      0,       0,       0      };
+    th.names = {"H", "OH", "O2", "H2", "H2O", "C2H2", "N2"};
+    th.mw    = {1.008, 17.008, 31.999, 2.016, 18.015, 26.038, 28.014};
+    th.nc    = {0, 0, 0, 0, 0, 2, 0};
+    th.nh    = {1, 1, 0, 2, 2, 2, 0};
+    th.no    = {0, 1, 2, 0, 1, 0, 0};
+    th.nn    = {0, 0, 0, 0, 0, 0, 2};
+    th.nti   = {0, 0, 0, 0, 0, 0, 0};
     return th;
 }
 
 // Helper: mole fractions → mass fractions
-static std::vector<double> X2Y(const std::vector<double>& X,
-                                const MOM::BasicThermoData& th)
+static std::vector<double> X2Y(const std::vector<double>& X, const MOM::BasicThermoData& th)
 {
     const int ns = static_cast<int>(th.names.size());
-    double MW = 0.;
-    for (int k = 0; k < ns; ++k) MW += X[k] * th.mw[k];
+    double MW    = 0.;
+    for (int k = 0; k < ns; ++k)
+        MW += X[k] * th.mw[k];
     std::vector<double> Y(ns);
-    for (int k = 0; k < ns; ++k) Y[k] = X[k] * th.mw[k] / MW;
+    for (int k = 0; k < ns; ++k)
+        Y[k] = X[k] * th.mw[k] / MW;
     return Y;
 }
 
@@ -106,25 +107,22 @@ static std::vector<double> X2Y(const std::vector<double>& X,
 // ============================================================================
 
 template <MOM::MomentMethod M>
-[[gnu::noinline]]   // keep as a distinct symbol so the asm grep is easy
-double TemplatedCellLoop(M&           model,
-                         int          n_cells,
+[[gnu::noinline]] // keep as a distinct symbol so the asm grep is easy
+double TemplatedCellLoop(M& model,
+                         int n_cells,
                          const double* T_arr,
                          const double* P_arr,
-                         const double* Y_flat,   // [n_cells × ns]
+                         const double* Y_flat, // [n_cells × ns]
                          const double* mu_arr,
-                         const double* M_flat,   // [n_cells × neq]
-                         double*       src_flat)  // [n_cells × neq] output
+                         const double* M_flat, // [n_cells × neq]
+                         double* src_flat)     // [n_cells × neq] output
 {
     constexpr unsigned neq = M::n_equations;
-    const     unsigned ns  = 7u;
+    const unsigned ns      = 7u;
 
-    for (int i = 0; i < n_cells; ++i) {
-        MOM::ComputeCell(model,
-                         T_arr[i], P_arr[i],
-                         Y_flat + i * ns,
-                         mu_arr[i],
-                         { M_flat + i * neq, neq });
+    for (int i = 0; i < n_cells; ++i)
+    {
+        MOM::ComputeCell(model, T_arr[i], P_arr[i], Y_flat + i * ns, mu_arr[i], {M_flat + i * neq, neq});
 
         auto src = model.sources();
         std::copy(src.begin(), src.end(), src_flat + i * neq);
@@ -149,33 +147,37 @@ double TemplatedCellLoop(M&           model,
 
 [[gnu::noinline]]
 double ForEachCellLoop(MOM::AnyMomentMethod<MOM::BasicThermoData>& model,
-                       int          n_cells,
+                       int n_cells,
                        const double* T_arr,
                        const double* P_arr,
                        const double* Y_flat,
                        const double* mu_arr,
                        const double* M_flat,
-                       double*       src_flat)
+                       double* src_flat)
 {
     const unsigned ns = 7u;
 
-    MOM::ForEachCell(model, [&](auto& m) {
-        // Inside this lambda, typeof(m) is concrete — not type-erased.
-        constexpr unsigned neq = std::decay_t<decltype(m)>::n_equations;
+    MOM::ForEachCell(model,
+                     [&](auto& m)
+                     {
+                         // Inside this lambda, typeof(m) is concrete — not type-erased.
+                         constexpr unsigned neq = std::decay_t<decltype(m)>::n_equations;
 
-        for (int i = 0; i < n_cells; ++i) {
-            MOM::ComputeCell(m,
-                             T_arr[i], P_arr[i],
-                             Y_flat + i * ns,
-                             mu_arr[i],
-                             { M_flat + i * neq, neq });
+                         for (int i = 0; i < n_cells; ++i)
+                         {
+                             MOM::ComputeCell(m,
+                                              T_arr[i],
+                                              P_arr[i],
+                                              Y_flat + i * ns,
+                                              mu_arr[i],
+                                              {M_flat + i * neq, neq});
 
-            auto src = m.sources();
-            std::copy(src.begin(), src.end(), src_flat + i * neq);
-        }
-    });
+                             auto src = m.sources();
+                             std::copy(src.begin(), src.end(), src_flat + i * neq);
+                         }
+                     });
 
-    constexpr unsigned neq = 3u;  // ThreeEquations has 3 equations
+    constexpr unsigned neq = 3u; // ThreeEquations has 3 equations
     return std::accumulate(src_flat, src_flat + n_cells * neq, 0.0);
 }
 
@@ -204,15 +206,13 @@ static bool validateZeroFallbacks(MOM::BasicThermoData& th)
         bm.SetMoments(1e-10, 1e-12);
         bm.CalculateSourceMoments();
 
-        auto cond = bm.sources_condensation();   // not modelled → kZeroData
-        auto sint = bm.sources_sintering();       // not modelled → kZeroData
+        auto cond = bm.sources_condensation(); // not modelled → kZeroData
+        auto sint = bm.sources_sintering();    // not modelled → kZeroData
 
         bool cond_ok = (cond.size() == 2) &&
-                       std::all_of(cond.begin(), cond.end(),
-                                   [](double v){ return v == 0.0; });
+                       std::all_of(cond.begin(), cond.end(), [](double v) { return v == 0.0; });
         bool sint_ok = (sint.size() == 2) &&
-                       std::all_of(sint.begin(), sint.end(),
-                                   [](double v){ return v == 0.0; });
+                       std::all_of(sint.begin(), sint.end(), [](double v) { return v == 0.0; });
 
         std::cout << std::boolalpha;
         std::cout << "  BrookesMoss::sources_condensation() → size=" << cond.size()
@@ -239,11 +239,10 @@ static bool validateZeroFallbacks(MOM::BasicThermoData& th)
         te.SetMoments(1e-10, 1e-15, 1e-10);
         te.CalculateSourceMoments();
 
-        auto sint = te.sources_sintering();   // not modelled → kZeroData
+        auto sint = te.sources_sintering(); // not modelled → kZeroData
 
         bool sint_ok = (sint.size() == 3) &&
-                       std::all_of(sint.begin(), sint.end(),
-                                   [](double v){ return v == 0.0; });
+                       std::all_of(sint.begin(), sint.end(), [](double v) { return v == 0.0; });
 
         std::cout << "  ThreeEquations::sources_sintering() → size=" << sint.size()
                   << "  all_zero=" << sint_ok << "\n";
@@ -258,20 +257,19 @@ static bool validateZeroFallbacks(MOM::BasicThermoData& th)
 // Timing harness
 // ============================================================================
 
-template <typename Fn>
-static double timeLoop(Fn&& fn, int reps, const char* label)
+template <typename Fn> static double timeLoop(Fn&& fn, int reps, const char* label)
 {
     // Warm-up
     fn();
 
     auto t0 = std::chrono::high_resolution_clock::now();
-    for (int r = 0; r < reps; ++r) fn();
+    for (int r = 0; r < reps; ++r)
+        fn();
     auto t1 = std::chrono::high_resolution_clock::now();
 
     double ms = std::chrono::duration<double, std::milli>(t1 - t0).count() / reps;
-    std::cout << "  " << std::left << std::setw(38) << label
-              << std::right << std::fixed << std::setprecision(3)
-              << ms << " ms / iteration\n";
+    std::cout << "  " << std::left << std::setw(38) << label << std::right << std::fixed
+              << std::setprecision(3) << ms << " ms / iteration\n";
     return ms;
 }
 
@@ -287,24 +285,25 @@ int main()
     // ── Synthetic cell field: 10 000 cells at representative flame conditions ─
     constexpr int N   = 10'000;
     constexpr int ns  = 7;
-    constexpr int neq = 3;   // ThreeEquations has 3 equations
+    constexpr int neq = 3; // ThreeEquations has 3 equations
 
-    std::vector<double> T_arr(N),  P_arr(N),  mu_arr(N);
+    std::vector<double> T_arr(N), P_arr(N), mu_arr(N);
     std::vector<double> Y_flat(N * ns);
     std::vector<double> M_flat(N * neq);
-    std::vector<double> src_A(N * neq, 0.);   // Pattern A output
-    std::vector<double> src_B(N * neq, 0.);   // Pattern B output
+    std::vector<double> src_A(N * neq, 0.); // Pattern A output
+    std::vector<double> src_B(N * neq, 0.); // Pattern B output
 
     // Fill with representative values (temperature ramp, fixed composition)
     const std::vector<double> Y0 = X2Y({0.001, 0.002, 0.23, 0, 0.1, 5e-5, 0.667}, th);
-    for (int i = 0; i < N; ++i) {
-        T_arr[i]   = 1200. + 0.12 * i;   // 1200 – 2400 K
-        P_arr[i]   = 101325.;
-        mu_arr[i]  = 4e-5;
+    for (int i = 0; i < N; ++i)
+    {
+        T_arr[i]  = 1200. + 0.12 * i; // 1200 – 2400 K
+        P_arr[i]  = 101325.;
+        mu_arr[i] = 4e-5;
         std::copy(Y0.begin(), Y0.end(), Y_flat.data() + i * ns);
-        M_flat[i*neq + 0] = 1e-10;     // Ys
-        M_flat[i*neq + 1] = 1e-15;     // NsNorm
-        M_flat[i*neq + 2] = 1e-10;     // Ss
+        M_flat[i * neq + 0] = 1e-10; // Ys
+        M_flat[i * neq + 1] = 1e-15; // NsNorm
+        M_flat[i * neq + 2] = 1e-10; // Ss
     }
 
     // ── Construct ThreeEquations model ───────────────────────────────────────
@@ -315,13 +314,17 @@ int main()
 
     // Wrap in AnyMomentMethod for Pattern B
     auto te_any = MOM::MakeAnyMomentMethod(th, "ThreeEquations");
-    std::visit([](auto& m) {
-        if constexpr (requires { m.SetPAH(std::string_view{}); }) {
-            m.SetPAH("C2H2");
-            m.SetNucleation(1);
-            m.SetCoagulation(1);
-        }
-    }, te_any);
+    std::visit(
+        [](auto& m)
+        {
+            if constexpr (requires { m.SetPAH(std::string_view{}); })
+            {
+                m.SetPAH("C2H2");
+                m.SetNucleation(1);
+                m.SetCoagulation(1);
+            }
+        },
+        te_any);
 
     // ── Zero-fallback validation ──────────────────────────────────────────────
     bool zf_ok = validateZeroFallbacks(th);
@@ -332,15 +335,21 @@ int main()
 
     double sum_A = TemplatedCellLoop(te_direct,
                                      N,
-                                     T_arr.data(), P_arr.data(),
-                                     Y_flat.data(), mu_arr.data(),
-                                     M_flat.data(), src_A.data());
+                                     T_arr.data(),
+                                     P_arr.data(),
+                                     Y_flat.data(),
+                                     mu_arr.data(),
+                                     M_flat.data(),
+                                     src_A.data());
 
     double sum_B = ForEachCellLoop(te_any,
                                    N,
-                                   T_arr.data(), P_arr.data(),
-                                   Y_flat.data(), mu_arr.data(),
-                                   M_flat.data(), src_B.data());
+                                   T_arr.data(),
+                                   P_arr.data(),
+                                   Y_flat.data(),
+                                   mu_arr.data(),
+                                   M_flat.data(),
+                                   src_B.data());
 
     bool equiv = (src_A == src_B);
     std::cout << "  Pattern A checksum: " << std::scientific << std::setprecision(6) << sum_A << "\n";
@@ -351,29 +360,44 @@ int main()
     constexpr int REPS = 20;
     std::cout << "\n=== Timing (N=" << N << " cells, " << REPS << " repetitions) ===\n";
 
-    double ms_A = timeLoop([&] {
-        TemplatedCellLoop(te_direct,
-                          N, T_arr.data(), P_arr.data(),
-                          Y_flat.data(), mu_arr.data(),
-                          M_flat.data(), src_A.data());
-    }, REPS, "Pattern A: template loop");
+    double ms_A = timeLoop(
+        [&]
+        {
+            TemplatedCellLoop(te_direct,
+                              N,
+                              T_arr.data(),
+                              P_arr.data(),
+                              Y_flat.data(),
+                              mu_arr.data(),
+                              M_flat.data(),
+                              src_A.data());
+        },
+        REPS,
+        "Pattern A: template loop");
 
-    double ms_B = timeLoop([&] {
-        ForEachCellLoop(te_any,
-                        N, T_arr.data(), P_arr.data(),
-                        Y_flat.data(), mu_arr.data(),
-                        M_flat.data(), src_B.data());
-    }, REPS, "Pattern B: ForEachCell loop");
+    double ms_B = timeLoop(
+        [&]
+        {
+            ForEachCellLoop(te_any,
+                            N,
+                            T_arr.data(),
+                            P_arr.data(),
+                            Y_flat.data(),
+                            mu_arr.data(),
+                            M_flat.data(),
+                            src_B.data());
+        },
+        REPS,
+        "Pattern B: ForEachCell loop");
 
-    std::cout << "\n  Overhead of variant dispatch: "
-              << std::fixed << std::setprecision(3)
-              << (ms_B - ms_A) << " ms  ("
-              << std::setprecision(1) << (ms_B / ms_A - 1.) * 100. << "%)\n";
+    std::cout << "\n  Overhead of variant dispatch: " << std::fixed << std::setprecision(3)
+              << (ms_B - ms_A) << " ms  (" << std::setprecision(1) << (ms_B / ms_A - 1.) * 100.
+              << "%)\n";
 
     // ── Summary ──────────────────────────────────────────────────────────────
     std::cout << "\n=== Summary ===\n";
-    std::cout << "  Zero-fallback validation: " << (zf_ok  ? "PASS ✓" : "FAIL ✗") << "\n";
-    std::cout << "  Numerical equivalence:    " << (equiv  ? "PASS ✓" : "FAIL ✗") << "\n";
+    std::cout << "  Zero-fallback validation: " << (zf_ok ? "PASS ✓" : "FAIL ✗") << "\n";
+    std::cout << "  Numerical equivalence:    " << (equiv ? "PASS ✓" : "FAIL ✗") << "\n";
 
     return (zf_ok && equiv) ? 0 : 1;
 }

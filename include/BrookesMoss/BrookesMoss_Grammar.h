@@ -34,7 +34,7 @@
 \*-----------------------------------------------------------------------*/
 
 #ifndef MOM_BrookesMoss_Grammar_H
-#define	MOM_BrookesMoss_Grammar_H
+#define MOM_BrookesMoss_Grammar_H
 
 #include "Dictionary.h"
 #include "DictionaryManager.h"
@@ -43,12 +43,12 @@
 
 namespace MOM
 {
-	class BrookesMoss_Grammar : public OpenSMOKEpp::DictionaryGrammar
-	{
-	protected:
+class BrookesMoss_Grammar : public OpenSMOKEpp::DictionaryGrammar
+{
+protected:
 
-		virtual void DefineRules();
-	};
-}
+    virtual void DefineRules();
+};
+} // namespace MOM
 
 #endif // MOM_BrookesMoss_Grammar_H

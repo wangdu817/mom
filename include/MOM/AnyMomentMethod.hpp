@@ -45,7 +45,8 @@
 #include <stdexcept>
 #include <string>
 
-namespace MOM {
+namespace MOM
+{
 
 // ============================================================================
 // AnyMomentMethod<Thermo> — runtime-selectable moment method
@@ -98,34 +99,31 @@ using AnyMomentMethod = typename AllVariants::template AsVariant<Thermo>;
 // covers every registered variant without manual if-chains.
 // ============================================================================
 
-namespace detail {
+namespace detail
+{
 
 // Base case: empty list — no variant matched the label.
-template <template<typename> class... Vs>
-struct FactoryHelper
+template <template <typename> class... Vs> struct FactoryHelper
 {
     template <typename Thermo>
-    [[noreturn]] static AnyMomentMethod<Thermo>
-    make(const Thermo&, std::string_view label)
+    [[noreturn]] static AnyMomentMethod<Thermo> make(const Thermo&, std::string_view label)
     {
         throw std::invalid_argument(
-            "MOM::MakeAnyMomentMethod: unknown method label '" +
-            std::string(label) +
+            "MOM::MakeAnyMomentMethod: unknown method label '" + std::string(label) +
             "'. See MomVariantList.hpp for registered variants and their labels.");
     }
 };
 
 // Recursive case: try First's labels, then recurse into Rest...
-template <template<typename> class First, template<typename> class... Rest>
+template <template <typename> class First, template <typename> class... Rest>
 struct FactoryHelper<First, Rest...>
 {
     template <typename Thermo>
-    static AnyMomentMethod<Thermo>
-    make(const Thermo& thermo, std::string_view label)
+    static AnyMomentMethod<Thermo> make(const Thermo& thermo, std::string_view label)
     {
         for (std::string_view lbl : First<Thermo>::variant_labels)
             if (lbl == label)
-                return AnyMomentMethod<Thermo>{ std::in_place_type<First<Thermo>>, thermo };
+                return AnyMomentMethod<Thermo>{std::in_place_type<First<Thermo>>, thermo};
         return FactoryHelper<Rest...>::template make<Thermo>(thermo, label);
     }
 };
@@ -133,9 +131,10 @@ struct FactoryHelper<First, Rest...>
 // Unpack TypeList<Vs...> → FactoryHelper<Vs...>::make
 // This allows MakeAnyMomentMethod to delegate to the correct FactoryHelper
 // specialisation without naming the individual variant types.
-template <template<typename> class... Vs, typename Thermo>
-inline AnyMomentMethod<Thermo>
-make_from_type_list(TypeList<Vs...>, const Thermo& thermo, std::string_view label)
+template <template <typename> class... Vs, typename Thermo>
+inline AnyMomentMethod<Thermo> make_from_type_list(TypeList<Vs...>,
+                                                   const Thermo& thermo,
+                                                   std::string_view label)
 {
     return FactoryHelper<Vs...>::template make<Thermo>(thermo, label);
 }
@@ -157,8 +156,8 @@ make_from_type_list(TypeList<Vs...>, const Thermo& thermo, std::string_view labe
 // ============================================================================
 
 template <ThermoMap Thermo>
-[[nodiscard]] AnyMomentMethod<Thermo>
-MakeAnyMomentMethod(const Thermo& thermo, std::string_view label);
+[[nodiscard]] AnyMomentMethod<Thermo> MakeAnyMomentMethod(const Thermo& thermo,
+                                                          std::string_view label);
 
 // ============================================================================
 // Generic dispatch helpers (free functions, not member functions)
@@ -174,33 +173,34 @@ MakeAnyMomentMethod(const Thermo& thermo, std::string_view label);
 
 /// Returns the number of transported equations for the active method.
 template <ThermoMap Thermo>
-[[nodiscard]] inline unsigned GetNEquations(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline unsigned GetNEquations(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) -> unsigned { return mm.n_equations; }, m);
 }
 
 /// Injects thermodynamic state into the active method.
 template <ThermoMap Thermo>
-inline void SetState(AnyMomentMethod<Thermo>& m,
-                     double T, double P_Pa, const double* Y) noexcept {
+inline void SetState(AnyMomentMethod<Thermo>& m, double T, double P_Pa, const double* Y) noexcept
+{
     std::visit([&](auto& mm) { mm.SetStatus(T, P_Pa, Y); }, m);
 }
 
 /// Sets the mixture dynamic viscosity [kg/m/s].
-template <ThermoMap Thermo>
-inline void SetViscosity(AnyMomentMethod<Thermo>& m, double mu) noexcept {
+template <ThermoMap Thermo> inline void SetViscosity(AnyMomentMethod<Thermo>& m, double mu) noexcept
+{
     std::visit([mu](auto& mm) { mm.SetViscosity(mu); }, m);
 }
 
 /// Sets current moment values from a contiguous span.
 template <ThermoMap Thermo>
-inline void SetMoments(AnyMomentMethod<Thermo>& m,
-                       std::span<const double> moments) noexcept {
+inline void SetMoments(AnyMomentMethod<Thermo>& m, std::span<const double> moments) noexcept
+{
     std::visit([moments](auto& mm) { mm.SetMoments(moments); }, m);
 }
 
 /// Computes all source terms and gas-phase consumption.
-template <ThermoMap Thermo>
-inline void Compute(AnyMomentMethod<Thermo>& m) {
+template <ThermoMap Thermo> inline void Compute(AnyMomentMethod<Thermo>& m)
+{
     std::visit([](auto& mm) { mm.CalculateSourceMoments(); }, m);
 }
 
@@ -217,18 +217,21 @@ inline void Compute(AnyMomentMethod<Thermo>& m) {
 
 template <ThermoMap Thermo>
 inline void ComputeCell(AnyMomentMethod<Thermo>& m,
-                        double                   T,
-                        double                   P_Pa,
-                        const double*            Y,
-                        double                   mu,
-                        std::span<const double>  moments) noexcept
+                        double T,
+                        double P_Pa,
+                        const double* Y,
+                        double mu,
+                        std::span<const double> moments) noexcept
 {
-    std::visit([T, P_Pa, Y, mu, moments](auto& mm) noexcept {
-        mm.SetStatus(T, P_Pa, Y);
-        mm.SetMoments(moments);
-        mm.SetViscosity(mu);
-        mm.CalculateSourceMoments();
-    }, m);
+    std::visit(
+        [T, P_Pa, Y, mu, moments](auto& mm) noexcept
+        {
+            mm.SetStatus(T, P_Pa, Y);
+            mm.SetMoments(moments);
+            mm.SetViscosity(mu);
+            mm.CalculateSourceMoments();
+        },
+        m);
 }
 
 // ============================================================================
@@ -267,128 +270,133 @@ inline void ForEachCell(AnyMomentMethod<Thermo>& m, CellCallback&& callback)
     std::visit(std::forward<CellCallback>(callback), m);
 }
 
-
 #if defined(MOM_USE_DICTIONARY)
 /// Setup from a dictionary
 template <ThermoMap Thermo, typename Dictionary>
-[[nodiscard]] inline std::expected<void, std::string>
-SetupFromDictionary(AnyMomentMethod<Thermo>& m, Dictionary& dict)
+[[nodiscard]] inline std::expected<void, std::string> SetupFromDictionary(AnyMomentMethod<Thermo>& m,
+                                                                          Dictionary& dict)
 {
-    return std::visit([&dict](auto& mm) -> std::expected<void, std::string> {
-        return mm.SetupFromDictionary(dict);
-    }, m);
+    return std::visit([&dict](auto& mm) -> std::expected<void, std::string>
+                      { return mm.SetupFromDictionary(dict); },
+                      m);
 }
 #endif
 
 template <ThermoMap Thermo>
-[[nodiscard]] inline int GetThermophoreticModel(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline int GetThermophoreticModel(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.thermophoretic_model(); }, m);
 }
 
 template <ThermoMap Thermo>
-[[nodiscard]] inline bool GetGasConsumption(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline bool GetGasConsumption(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.GasConsumption(); }, m);
 }
 
 /// Returns a span over the total source vector (all processes summed).
 template <ThermoMap Thermo>
-[[nodiscard]] inline std::span<const double>
-GetSources(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline std::span<const double> GetSources(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.sources(); }, m);
 }
 
 /// Returns a span over the gas-phase source terms [kg/m3/s].
 template <ThermoMap Thermo>
-[[nodiscard]] inline std::span<const double>
-GetOmegaGas(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline std::span<const double> GetOmegaGas(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.omega_gas(); }, m);
 }
 
 /// Returns soot/particle volume fraction [-].
 template <ThermoMap Thermo>
-[[nodiscard]] inline double GetVolumeFraction(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline double GetVolumeFraction(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.VolumeFraction(); }, m);
 }
 
 /// Returns mean primary particle diameter [m].
 template <ThermoMap Thermo>
-[[nodiscard]] inline double GetParticleDiameter(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline double GetParticleDiameter(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.ParticleDiameter(); }, m);
 }
 
 /// Returns particle number density [#/m3].
 template <ThermoMap Thermo>
-[[nodiscard]] inline double GetParticleNumberDensity(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline double GetParticleNumberDensity(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.ParticleNumberDensity(); }, m);
 }
 
 /// Returns particle mass fraction [-].
 template <ThermoMap Thermo>
-[[nodiscard]] inline double GetMassFraction(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline double GetMassFraction(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.MassFraction(); }, m);
 }
 
 /// Returns the Schmidt number for the particle phase [-].
 template <ThermoMap Thermo>
-[[nodiscard]] inline double GetSchmidtNumber(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline double GetSchmidtNumber(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.schmidt_number(); }, m);
 }
 
 /// Returns the effective diffusion coefficient [kg/m/s].
 template <ThermoMap Thermo>
-[[nodiscard]] inline double GetDiffusionCoefficient(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline double GetDiffusionCoefficient(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.DiffusionCoefficient(); }, m);
 }
 
 /// Returns true if the Planck absorption coefficient should be included.
 template <ThermoMap Thermo>
-[[nodiscard]] inline bool GetRadiativeHeatTransfer(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline bool GetRadiativeHeatTransfer(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.radiative_heat_transfer(); }, m);
 }
 
 /// Returns the Planck absorption coefficient [1/m].
 template <ThermoMap Thermo>
 [[nodiscard]] inline double GetPlanckCoefficient(const AnyMomentMethod<Thermo>& m,
-                                                  double T, double fv) noexcept {
-    return std::visit([T, fv](const auto& mm) {
-        return mm.planck_coefficient(T, fv);
-    }, m);
+                                                 double T,
+                                                 double fv) noexcept
+{
+    return std::visit([T, fv](const auto& mm) { return mm.planck_coefficient(T, fv); }, m);
 }
 
 /// Returns the initial moment values for solver initialisation.
 template <ThermoMap Thermo>
-[[nodiscard]] inline std::span<const double>
-GetInitialMoments(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline std::span<const double> GetInitialMoments(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.initial_moments(); }, m);
 }
 
 /// Returns true if a gas-closure dummy species is active.
 template <ThermoMap Thermo>
-[[nodiscard]] inline bool GetClosureDummySpeciesIsActive(
-    const AnyMomentMethod<Thermo>& m) noexcept
+[[nodiscard]] inline bool GetClosureDummySpeciesIsActive(const AnyMomentMethod<Thermo>& m) noexcept
 {
-    return std::visit([](const auto& mm) {
-        return mm.ClosureDummySpeciesIsActive();
-    }, m);
+    return std::visit([](const auto& mm) { return mm.ClosureDummySpeciesIsActive(); }, m);
 }
 
 /// Returns 0-based index of the gas-closure dummy species (-1 if inactive).
 template <ThermoMap Thermo>
-[[nodiscard]] inline int GetClosureDummyIndex(
-    const AnyMomentMethod<Thermo>& m) noexcept
+[[nodiscard]] inline int GetClosureDummyIndex(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.closure_dummy_index(); }, m);
 }
 
 /// Returns 0-based precursor species index.
 template <ThermoMap Thermo>
-[[nodiscard]] inline int GetPrecursorIndex(const AnyMomentMethod<Thermo>& m) noexcept {
+[[nodiscard]] inline int GetPrecursorIndex(const AnyMomentMethod<Thermo>& m) noexcept
+{
     return std::visit([](const auto& mm) { return mm.precursor_index(); }, m);
 }
 
 /// Prints the model configuration summary.
-template <ThermoMap Thermo>
-inline void PrintSummary(const AnyMomentMethod<Thermo>& m) {
+template <ThermoMap Thermo> inline void PrintSummary(const AnyMomentMethod<Thermo>& m)
+{
     std::visit([](const auto& mm) { mm.PrintSummary(); }, m);
 }
 

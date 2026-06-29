@@ -37,175 +37,172 @@
 
 namespace MOM
 {
-	void ThreeEquations_Grammar::DefineRules()
-	{
+void ThreeEquations_Grammar::DefineRules()
+{
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@ThreeEquations",
-			OpenSMOKEpp::SINGLE_BOOL,
-			"Three equations model: on/off (default: true)",
-			true));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@ThreeEquations",
+                                              OpenSMOKEpp::SINGLE_BOOL,
+                                              "Three equations model: on/off (default: true)",
+                                              true));
 
+    // ----------------------------------------------------------------------------------------------------------- //
+    // Soot models
+    // ----------------------------------------------------------------------------------------------------------- //
 
-		// ----------------------------------------------------------------------------------------------------------- //
-		// Soot models
-		// ----------------------------------------------------------------------------------------------------------- //
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@NucleationModel",
+                                              OpenSMOKEpp::SINGLE_INT,
+                                              "Nucleation model: 0=off, 1=on (default: 1)",
+                                              false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@NucleationModel",
-			OpenSMOKEpp::SINGLE_INT,
-			"Nucleation model: 0=off, 1=on (default: 1)",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@SurfaceGrowthModel",
+                                              OpenSMOKEpp::SINGLE_INT,
+                                              "Surface growth model: 0=off, 1=on (default: 1)",
+                                              false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@SurfaceGrowthModel",
-			OpenSMOKEpp::SINGLE_INT,
-			"Surface growth model: 0=off, 1=on (default: 1)",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@OxidationModel",
+                                              OpenSMOKEpp::SINGLE_INT,
+                                              "Oxidation model: 0=off, 1=on (default: 1)",
+                                              false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@OxidationModel",
-			OpenSMOKEpp::SINGLE_INT,
-			"Oxidation model: 0=off, 1=on (default: 1)",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@CondensationModel",
+                                              OpenSMOKEpp::SINGLE_INT,
+                                              "Condensation model: 0=off, 1=on (default: 1)",
+                                              false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@CondensationModel",
-			OpenSMOKEpp::SINGLE_INT,
-			"Condensation model: 0=off, 1=on (default: 1)",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@CoagulationModel",
+                                              OpenSMOKEpp::SINGLE_INT,
+                                              "Coagulation model: 0=off, 1=on (default: 1)",
+                                              false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@CoagulationModel",
-			OpenSMOKEpp::SINGLE_INT,
-			"Coagulation model: 0=off, 1=on (default: 1)",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@ThermophoreticModel",
+                                              OpenSMOKEpp::SINGLE_INT,
+                                              "Thermophoretic model: 0=off, 1=on (default: 1)",
+                                              false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@ThermophoreticModel",
-			OpenSMOKEpp::SINGLE_INT,
-			"Thermophoretic model: 0=off, 1=on (default: 1)",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@SurfaceChemistryModel",
+                                              OpenSMOKEpp::SINGLE_STRING,
+                                              "Surface chemistry model (RC-PAH (default) | HMOM)",
+                                              false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@SurfaceChemistryModel",
-			OpenSMOKEpp::SINGLE_STRING,
-			"Surface chemistry model (RC-PAH (default) | HMOM)",
-			false));
+    // ----------------------------------------------------------------------------------------------------------- //
+    // PAHs
+    // ----------------------------------------------------------------------------------------------------------- //
 
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@PAH",
+                                              OpenSMOKEpp::SINGLE_STRING,
+                                              "Species to be assumed as PAH (example: @PAH C10H8;)",
+                                              true));
 
-		// ----------------------------------------------------------------------------------------------------------- //
-		// PAHs
-		// ----------------------------------------------------------------------------------------------------------- //
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@GasClosureDummySpecies",
+        OpenSMOKEpp::SINGLE_STRING,
+        "Species to be assumed as gaseous dummy species (example: @GasClosureDummySpecies TIO2RU;)",
+        true));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@PAH",
-			OpenSMOKEpp::SINGLE_STRING,
-			"Species to be assumed as PAH (example: @PAH C10H8;)",
-			true));
+    AddKeyWord(
+        OpenSMOKEpp::DictionaryKeyWord("@GasConsumption",
+                                       OpenSMOKEpp::SINGLE_BOOL,
+                                       "Consumption of gaseous species is accounted for (default: true)",
+                                       true));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@GasClosureDummySpecies",
-			OpenSMOKEpp::SINGLE_STRING,
-			"Species to be assumed as gaseous dummy species (example: @GasClosureDummySpecies TIO2RU;)",
-			true));						
-			
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@GasConsumption",
-			OpenSMOKEpp::SINGLE_BOOL,
-			"Consumption of gaseous species is accounted for (default: true)",
-			true));
+    // ----------------------------------------------------------------------------------------------------------- //
+    // Additional sub-models
+    // ----------------------------------------------------------------------------------------------------------- //
 
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@RadiativeHeatTransfer",
+                                              OpenSMOKEpp::SINGLE_BOOL,
+                                              "Radiative heat transfer (default: true)",
+                                              false));
 
-		// ----------------------------------------------------------------------------------------------------------- //
-		// Additional sub-models
-		// ----------------------------------------------------------------------------------------------------------- //
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@PlanckCoefficient",
+        OpenSMOKEpp::SINGLE_STRING,
+        "Calculation of Planck Coefficient: Smooke (default) | Kent | Sazhin | none",
+        false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@RadiativeHeatTransfer",
-			OpenSMOKEpp::SINGLE_BOOL,
-			"Radiative heat transfer (default: true)",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@SchmidtNumber", OpenSMOKEpp::SINGLE_DOUBLE, "Schmidt number (default: 50)", false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@PlanckCoefficient",
-			OpenSMOKEpp::SINGLE_STRING,
-			"Calculation of Planck Coefficient: Smooke (default) | Kent | Sazhin | none",
-			false));
+    // ----------------------------------------------------------------------------------------------------------- //
+    // Soot properties
+    // ----------------------------------------------------------------------------------------------------------- //
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@SchmidtNumber",
-			OpenSMOKEpp::SINGLE_DOUBLE,
-			"Schmidt number (default: 50)",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@SootDensity",
+                                              OpenSMOKEpp::SINGLE_MEASURE,
+                                              "Density of soot particles (default: 1800 kg/m3)",
+                                              false));
 
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@SimplifiedPAHMass",
+        OpenSMOKEpp::SINGLE_BOOL,
+        "Simplified calculation of PAH mass, based on C atoms only (default: false)",
+        false));
 
-		// ----------------------------------------------------------------------------------------------------------- //
-		// Soot properties
-		// ----------------------------------------------------------------------------------------------------------- //
+    // ----------------------------------------------------------------------------------------------------------- //
+    // Collision enhancement factors
+    // ----------------------------------------------------------------------------------------------------------- //
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@SootDensity",
-			OpenSMOKEpp::SINGLE_MEASURE,
-			"Density of soot particles (default: 1800 kg/m3)",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@epsNucleation",
+                                              OpenSMOKEpp::SINGLE_DOUBLE,
+                                              "Collision enhancement factor for nucleation",
+                                              false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@SimplifiedPAHMass",
-			OpenSMOKEpp::SINGLE_BOOL,
-			"Simplified calculation of PAH mass, based on C atoms only (default: false)",
-			false));				
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@epsCondensation",
+                                              OpenSMOKEpp::SINGLE_DOUBLE,
+                                              "Collision enhancement factor for condensation",
+                                              false));
 
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@epsCoagulation",
+                                              OpenSMOKEpp::SINGLE_DOUBLE,
+                                              "Collision enhancement factor for coagulation",
+                                              false));
 
-		// ----------------------------------------------------------------------------------------------------------- //
-		// Collision enhancement factors
-		// ----------------------------------------------------------------------------------------------------------- //
-		
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@epsNucleation",
-			OpenSMOKEpp::SINGLE_DOUBLE,
-			"Collision enhancement factor for nucleation",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@CorrectionCoefficientPAHPAH",
+        OpenSMOKEpp::SINGLE_DOUBLE,
+        "Correction coefficient for PAH-PAH nucleation kernel (from HMOM, default: 4.4)",
+        false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@epsCondensation",
-			OpenSMOKEpp::SINGLE_DOUBLE,
-			"Collision enhancement factor for condensation",
-			false));
+    // ----------------------------------------------------------------------------------------------------------- //
+    // Minimum values for properties calculation
+    // ----------------------------------------------------------------------------------------------------------- //
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@epsCoagulation",
-			OpenSMOKEpp::SINGLE_DOUBLE,
-			"Collision enhancement factor for coagulation",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@MinimumNs",
+        OpenSMOKEpp::SINGLE_MEASURE,
+        "Minimum Ns for the calculation of soot properties (default: 1e6 #/m3)",
+        false));
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@CorrectionCoefficientPAHPAH",
-			OpenSMOKEpp::SINGLE_DOUBLE,
-			"Correction coefficient for PAH-PAH nucleation kernel (from HMOM, default: 4.4)",
-			false));
+    // ----------------------------------------------------------------------------------------------------------- //
+    // Dimer model
+    // ----------------------------------------------------------------------------------------------------------- //
 
-		// ----------------------------------------------------------------------------------------------------------- //
-		// Minimum values for properties calculation
-		// ----------------------------------------------------------------------------------------------------------- //
-		
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@MinimumNs",
-			OpenSMOKEpp::SINGLE_MEASURE,
-			"Minimum Ns for the calculation of soot properties (default: 1e6 #/m3)",
-			false));
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@DimerModel",
+                                              OpenSMOKEpp::SINGLE_STRING,
+                                              "Dimer concentration model (qssa-rodrigues)",
+                                              false));
 
+    // ----------------------------------------------------------------------------------------------------------- //
+    // Sticking coefficient
+    // ----------------------------------------------------------------------------------------------------------- //
 
-		// ----------------------------------------------------------------------------------------------------------- //
-		// Dimer model
-		// ----------------------------------------------------------------------------------------------------------- //
-		
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@DimerModel",
-			OpenSMOKEpp::SINGLE_STRING,
-			"Dimer concentration model (qssa-rodrigues)",
-			false));
+    AddKeyWord(
+        OpenSMOKEpp::DictionaryKeyWord("@StickingCoefficientModel",
+                                       OpenSMOKEpp::SINGLE_STRING,
+                                       "Sticking coefficient model (constant (default) | pah-dependent)",
+                                       true));
 
-		// ----------------------------------------------------------------------------------------------------------- //
-		// Sticking coefficient
-		// ----------------------------------------------------------------------------------------------------------- //
-		
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@StickingCoefficientModel",
-			OpenSMOKEpp::SINGLE_STRING,
-			"Sticking coefficient model (constant (default) | pah-dependent)",
-			true));		
-			
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@StickingCoefficientConstant",
-			OpenSMOKEpp::SINGLE_DOUBLE,
-			"Sticking coefficient constant, dimensionless in case of constant (default 2e-3), in kmol4/kg4 in case of pah-dependent (default 1.5e-11)",
-			true));	
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@StickingCoefficientConstant",
+        OpenSMOKEpp::SINGLE_DOUBLE,
+        "Sticking coefficient constant, dimensionless in case of constant (default 2e-3), in kmol4/kg4 in case of pah-dependent (default 1.5e-11)",
+        true));
 
-		// ----------------------------------------------------------------------------------------------------------- //
-		// Debug mode
-		// ----------------------------------------------------------------------------------------------------------- //
+    // ----------------------------------------------------------------------------------------------------------- //
+    // Debug mode
+    // ----------------------------------------------------------------------------------------------------------- //
 
-		AddKeyWord(OpenSMOKEpp::DictionaryKeyWord("@DebugMode",
-			OpenSMOKEpp::SINGLE_BOOL,
-			"Debug mode (default: false)",
-			false));	
-	}
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@DebugMode", OpenSMOKEpp::SINGLE_BOOL, "Debug mode (default: false)", false));
 }
-
+} // namespace MOM

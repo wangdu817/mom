@@ -59,7 +59,7 @@
 // ============================================================================
 
 // ── Infrastructure ────────────────────────────────────────────────────────────
-#include "MomentMethodConcept.hpp"  // MomentMethod concept (used in ConceptCheck)
+#include "MomentMethodConcept.hpp" // MomentMethod concept (used in ConceptCheck)
 
 // ── Registered variant headers ────────────────────────────────────────────────
 // Add one #include per new variant here.
@@ -70,7 +70,8 @@
 
 #include <variant>
 
-namespace MOM {
+namespace MOM
+{
 
 // ============================================================================
 // detail::TypeList<Variants...>
@@ -91,10 +92,10 @@ namespace MOM {
 //
 // ============================================================================
 
-namespace detail {
+namespace detail
+{
 
-template <template<typename> class... Variants>
-struct TypeList
+template <template <typename> class... Variants> struct TypeList
 {
     // ── Type-list operations ─────────────────────────────────────────────────
 
@@ -102,8 +103,7 @@ struct TypeList
     static constexpr std::size_t size = sizeof...(Variants);
 
     /// Instantiate as std::variant<Variants<Thermo>...>.
-    template <typename Thermo>
-    using AsVariant = std::variant<Variants<Thermo>...>;
+    template <typename Thermo> using AsVariant = std::variant<Variants<Thermo>...>;
 
     // ── Compile-time concept gate ─────────────────────────────────────────────
     //
@@ -112,15 +112,13 @@ struct TypeList
     // variant in a single statement.  The fold expression fires individually
     // for each Vs, so the compiler error points at the offending variant.
 
-    template <typename TestThermo>
-    struct ConceptCheck
+    template <typename TestThermo> struct ConceptCheck
     {
-        static_assert(
-            (MomentMethod<Variants<TestThermo>> && ...),
-            "[MOM] One or more registered variants in AllVariants do not satisfy "
-            "the MomentMethod concept. Check: SetMoments(span), "
-            "CalculateSourceMoments() noexcept, DiffusionCoefficient() const, "
-            "CollisionDiameter(), SpecificSurface(), PrintSummary().");
+        static_assert((MomentMethod<Variants<TestThermo>> && ...),
+                      "[MOM] One or more registered variants in AllVariants do not satisfy "
+                      "the MomentMethod concept. Check: SetMoments(span), "
+                      "CalculateSourceMoments() noexcept, DiffusionCoefficient() const, "
+                      "CollisionDiameter(), SpecificSurface(), PrintSummary().");
     };
 };
 
@@ -139,11 +137,6 @@ struct TypeList
 // state after std::variant default construction, which is not meaningful here
 // since the factory always constructs explicitly).
 
-using AllVariants = detail::TypeList<
-    HMOM,
-    BrookesMoss,
-    ThreeEquations,
-    TiO2
->;
+using AllVariants = detail::TypeList<HMOM, BrookesMoss, ThreeEquations, TiO2>;
 
 } // namespace MOM
