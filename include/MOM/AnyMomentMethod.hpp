@@ -300,16 +300,30 @@ inline void ForEachCell(AnyMomentMethod<Thermo>& m, CellCallback&& callback)
 
 #if defined(MOM_USE_DICTIONARY)
 /**
- * @brief Configure the active variant from a key-value dictionary.
- * @return `std::expected<void, std::string>` — error string on failure, never throws.
+ * @brief Configure the active variant by parsing the given dictionary.
+ *
+ * Dispatches to the concrete variant's `ParseConfig(dict)` static member
+ * template, then calls `SetupFromConfig()` on success.
+ *
+ * @tparam Dictionary  OpenSMOKE++ dictionary type (deduced).
+ * @return `std::expected<void, std::string>` — holds an error string on the
+ *         first malformed or unsupported dictionary key; never throws.
  */
 template <ThermoMap Thermo, typename Dictionary>
-[[nodiscard]] inline std::expected<void, std::string> SetupFromDictionary(AnyMomentMethod<Thermo>& m,
-                                                                          Dictionary& dict)
+[[nodiscard]] inline std::expected<void, std::string>
+SetupFromDictionary(AnyMomentMethod<Thermo>& m, Dictionary& dict)
 {
-    return std::visit([&dict](auto& mm) -> std::expected<void, std::string>
-                      { return mm.SetupFromDictionary(dict); },
-                      m);
+    return std::visit(
+        [&dict](auto& mm) -> std::expected<void, std::string>
+        {
+            // ParseConfig is a static member template on the concrete variant type.
+            // Calling it via the instance is valid C++ and avoids spelling out the type.
+            auto cfg = mm.ParseConfig(dict);
+            if (!cfg) return std::unexpected(cfg.error());
+            mm.SetupFromConfig(*cfg);
+            return {};
+        },
+        m);
 }
 #endif
 

@@ -126,7 +126,7 @@ enum class PlanckCoeffModel : int
  * @brief Parse a Planck absorption coefficient model label from a string.
  *
  * Case-insensitive. Returns `PlanckCoeffModel::None` for unrecognised labels.
- * Used by `SetupFromDictionary()` implementations.
+ * Used by `ParseConfig()` implementations.
  *
  * @param s  Label string (e.g. `"Smooke"`, `"Kent"`, `"Sazhin"`, `"None"`).
  * @return   Matching `PlanckCoeffModel` enumerator, or `None` if not recognised.
