@@ -184,15 +184,15 @@ public:
 
     // -- MomentMethod concept — particle properties ----------------------------
 
-    [[nodiscard]] double VolumeFraction() const noexcept;
-    [[nodiscard]] double ParticleDiameter() const noexcept;  //!< primary particle diameter [m]
-    [[nodiscard]] double CollisionDiameter() const noexcept; //!< aggregate collision diameter [m]
+    [[nodiscard]] double volume_fraction() const noexcept;
+    [[nodiscard]] double particle_diameter() const noexcept;  //!< primary particle diameter [m]
+    [[nodiscard]] double collision_diameter() const noexcept; //!< aggregate collision diameter [m]
     [[nodiscard]] double AggregateDiameter() const noexcept; //!< mobility aggregate diameter [m]
-    [[nodiscard]] double ParticleNumberDensity() const noexcept;    //!< [#/m3]
-    [[nodiscard]] double MassFraction() const noexcept;             //!< = YTiO2_
-    [[nodiscard]] double SpecificSurface() const noexcept;          //!< STiO2 [m2/m3]
-    [[nodiscard]] double NumberOfPrimaryParticles() const noexcept; //!< np [-]
-    [[nodiscard]] double DiffusionCoefficient() const noexcept;     //!< [kg/m/s]
+    [[nodiscard]] double particle_number_density() const noexcept;    //!< [#/m3]
+    [[nodiscard]] double mass_fraction() const noexcept;             //!< = YTiO2_
+    [[nodiscard]] double specific_surface() const noexcept;          //!< STiO2 [m2/m3]
+    [[nodiscard]] double number_primary_particles() const noexcept; //!< np [-]
+    [[nodiscard]] double diffusion_coefficient() const noexcept;     //!< [kg/m/s]
 
     // -- MomentMethod concept — initial conditions -----------------------------
 
@@ -234,7 +234,6 @@ public:
     // MomentMethodReporter calls this with a lambda cb(label, value):
     //   • header mode — lambda uses label to register the column
     //   • row mode    — lambda uses value to write the data
-    // Columns are inserted BEFORE the omega_gas block.
 
     /// TiO2-specific prefix columns: da, np, ss, vs, tauS, NDF parameters.
     template <typename CB> void variant_prefix_output(CB&& cb) const
@@ -254,6 +253,12 @@ public:
         cb("nu1mean[m3/#]", ndf.nu1mean);
         cb("nu2mean[m3/#]", ndf.nu2mean);
         cb("mu[log(m3)]", ndf.mu);
+
+        cb("omegaTot[kg/m3/s]", this->omega_gas_.sum());
+        cb("omegaPrec[kg/m3/s]", this->omega_gas_[precursor_index_]);
+        cb("omegaO2[kg/m3/s]", this->omega_gas_[O2_index_]);
+        cb("omegaH2O[kg/m3/s]", this->omega_gas_[H2O_index_]);
+        cb("omegaCO2[kg/m3/s]", this->omega_gas_[CO2_index_]);
     }
 
     // -- NDF reconstruction (TiO2-specific) -----------------------------------
@@ -425,8 +430,12 @@ private:
 
     // -- Gas consumption stoichiometry ------------------------------------------
     // Derived from atom balance: Ti_a C_b H_c O_d + x O2 → TiO2(s) + y CO2 + z H2O
-    int H2O_index_ = -1, CO2_index_ = -1, O2_index_ = -1;
-    double W_H2O_ = 0., W_CO2_ = 0., W_O2_ = 0.;
+    int H2O_index_ = -1;
+    int CO2_index_ = -1; 
+    int O2_index_ = -1;
+    double W_H2O_ = 0.;
+    double W_CO2_ = 0.;
+    double W_O2_ = 0.;
     double nu_H2O_from_prec_ = 0.; //!< H2O stoichiometric coefficient
     double nu_CO2_from_prec_ = 0.; //!< CO2 stoichiometric coefficient
     double nu_O2_from_prec_  = 0.; //!< O2 stoichiometric coefficient (negative = consumed)

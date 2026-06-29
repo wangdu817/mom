@@ -189,14 +189,14 @@ public:
 
     // -- MomentMethod concept — particle properties ----------------------------
 
-    [[nodiscard]] double VolumeFraction() const noexcept;
-    [[nodiscard]] double ParticleDiameter() const noexcept;  //!< primary particle diameter [m]
-    [[nodiscard]] double CollisionDiameter() const noexcept; //!< aggregate collision diameter [m]
-    [[nodiscard]] double ParticleNumberDensity() const noexcept; //!< [#/m3]
-    [[nodiscard]] double MassFraction() const noexcept;          //!< = Ys_
-    [[nodiscard]] double SpecificSurface() const noexcept;       //!< Ss [m2/m3]
-    [[nodiscard]] double NumberOfPrimaryParticles() const noexcept;
-    [[nodiscard]] double DiffusionCoefficient() const noexcept; //!< [kg/m/s]
+    [[nodiscard]] double volume_fraction() const noexcept;
+    [[nodiscard]] double particle_diameter() const noexcept;            //!< primary particle diameter [m]
+    [[nodiscard]] double collision_diameter() const noexcept;           //!< aggregate collision diameter [m]
+    [[nodiscard]] double particle_number_density() const noexcept;      //!< particle number density [#/m3]
+    [[nodiscard]] double mass_fraction() const noexcept;                //!< mass fraction (= Ys_) [-]
+    [[nodiscard]] double specific_surface() const noexcept;             //!< specific surface area [m2/m3]
+    [[nodiscard]] double number_primary_particles() const noexcept;     //!< number of primary particles [-]
+    [[nodiscard]] double diffusion_coefficient() const noexcept;        //!< diffusion coefficient [kg/m/s]
 
     // -- MomentMethod concept — initial conditions -----------------------------
 
@@ -228,7 +228,6 @@ public:
     // MomentMethodReporter calls this with a lambda cb(label, value):
     //   • header mode — lambda uses label to register the column
     //   • row mode    — lambda uses value to write the data
-    // Columns are inserted BEFORE the omega_gas block.
 
     /// ThreeEquations-specific prefix columns: np, ss, vs, NDF parameters.
     template <typename CB> void variant_prefix_output(CB&& cb) const
@@ -246,6 +245,14 @@ public:
         cb("nu1mean[m3/#]", ndf.nu1mean);
         cb("nu2mean[m3/#]", ndf.nu2mean);
         cb("mu[log(m3)]", ndf.mu);
+
+        cb("omegaTot[kg/m3/s]", this->omega_gas_.sum());
+        cb("omegaPrec[kg/m3/s]", this->omega_gas_[pah_index_]);
+        cb("omegaC2H2[kg/m3/s]", this->omega_gas_[index_C2H2_]);
+        cb("omegaH2[kg/m3/s]", this->omega_gas_[index_H2_]);
+        cb("omegaO2[kg/m3/s]", this->omega_gas_[index_O2_]);
+        cb("omegaH2O[kg/m3/s]", this->omega_gas_[index_H2O_]);
+        cb("omegaOH[kg/m3/s]", this->omega_gas_[index_OH_]);
     }
 
     // -- NDF reconstruction (ThreeEquations-specific) --------------------------
@@ -309,7 +316,6 @@ public:
     void SetStickingCoefficientConstant(double v) noexcept { sticking_coeff_constant_ = v; }
 
     /// Particle density alias (triggers geometry recalculation).
-    void SetSootDensity(double rhos) noexcept;
     void SetNsMinimum(double v) noexcept;
     void SetPAH(std::string_view name);
     void SetGasClosureDummySpecies(std::string_view name);
@@ -412,26 +418,45 @@ private:
     double N0_scaling_ = 1.e15; //!< [#/m3]
 
     // -- Dimer properties -------------------------------------------------------
-    double vdim_ = 0., sdim_ = 0., ddim_ = 0.;
-    double vnucl_ = 0., snucl_ = 0., dnucl_ = 0.;
-    double vc2_ = 0., sc2_ = 0., dc2_ = 0.;
-    double c_dimer_           = 0.; //!< dimer concentration [kmol/m3]
+    double vdim_ = 0.;
+    double sdim_ = 0.;
+    double ddim_ = 0.;
+    double vnucl_ = 0.;
+    double snucl_ = 0.;
+    double dnucl_ = 0.;
+    double vc2_ = 0.;
+    double sc2_ = 0.;
+    double dc2_ = 0.;
+    double c_dimer_ = 0.; //!< dimer concentration [kmol/m3]
     double dimerization_rate_ = 0.; //!< [#/m3/s]
 
     // -- PAH properties ---------------------------------------------------------
     std::string pah_species_;
     int pah_index_ = -1;
-    double vpah_ = 0., spah_ = 0., dpah_ = 0.;
-    double mpah_ = 0., mwpah_ = 0., ncpah_ = 0., nhpah_ = 0.;
-    double conc_PAH_                 = 0.;
+    double vpah_ = 0.;
+    double spah_ = 0.;
+    double dpah_ = 0.;
+    double mpah_ = 0.; 
+    double mwpah_ = 0.;
+    double ncpah_ = 0.;
+    double nhpah_ = 0.;
+    double conc_PAH_ = 0.;
     double correction_coeff_pah_pah_ = 4.4;
 
     // -- Species concentrations -------------------------------------------------
-    double conc_H_ = 0., conc_OH_ = 0., conc_O2_ = 0.;
-    double conc_H2_ = 0., conc_H2O_ = 0., conc_C2H2_ = 0.;
+    double conc_H_ = 0.;
+    double conc_OH_ = 0.; 
+    double conc_O2_ = 0.;
+    double conc_H2_ = 0.;
+    double conc_H2O_ = 0.;
+    double conc_C2H2_ = 0.;
 
-    int index_H_ = -1, index_OH_ = -1, index_O2_ = -1;
-    int index_H2_ = -1, index_H2O_ = -1, index_C2H2_ = -1;
+    int index_H_ = -1;
+    int index_OH_ = -1; 
+    int index_O2_ = -1;
+    int index_H2_ = -1;
+    int index_H2O_ = -1; 
+    int index_C2H2_ = -1;
 
     double mass_fraction_H_  = 0.;
     double mass_fraction_OH_ = 0.;
@@ -462,8 +487,7 @@ private:
     DimerModel dimer_concentration_model_ = DimerModel::QSSA_Rodrigues;
 
     // -- Additional model flags -------------------------------------------------
-    bool smooth_heaviside_oxidation_ =
-        true; //!< use smooth Heaviside for oxidation particle destruction
+    bool smooth_heaviside_oxidation_ = true; //!< Heaviside for oxidation particle destruction
     bool is_debug_mode_          = false; //!< enable verbose diagnostic output
     bool is_simplified_pah_mass_ = false; //!< use Nc*WC instead of full PAH MW
 

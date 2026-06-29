@@ -237,28 +237,28 @@ public:
     // -- MomentMethod concept — particle properties ---------------------------
 
     /** @brief Soot volume fraction fv = M10 * WC / ρ_s [-]. */
-    [[nodiscard]] double VolumeFraction() const noexcept;
+    [[nodiscard]] double volume_fraction() const noexcept;
 
     /** @brief Mean primary particle diameter dp [m]. */
-    [[nodiscard]] double ParticleDiameter() const noexcept;
+    [[nodiscard]] double particle_diameter() const noexcept;
 
     /** @brief Aggregate collision diameter dc [m] (model-dependent). */
-    [[nodiscard]] double CollisionDiameter() const noexcept;
+    [[nodiscard]] double collision_diameter() const noexcept;
 
     /** @brief Total soot number density N = N0 + NL [#/m3]. */
-    [[nodiscard]] double ParticleNumberDensity() const noexcept;
+    [[nodiscard]] double particle_number_density() const noexcept;
 
     /** @brief Soot mass fraction Ys = M10 * WC / (ρ_mix) [-]. */
-    [[nodiscard]] double MassFraction() const noexcept;
+    [[nodiscard]] double mass_fraction() const noexcept;
 
     /** @brief Soot specific surface area Ss = M01 [m2/m3]. */
-    [[nodiscard]] double SpecificSurface() const noexcept;
+    [[nodiscard]] double specific_surface() const noexcept;
 
     /** @brief Mean number of primary particles per aggregate np [-]. */
-    [[nodiscard]] double NumberOfPrimaryParticles() const noexcept;
+    [[nodiscard]] double number_primary_particles() const noexcept;
 
     /** @brief Effective particle diffusion coefficient D_p [kg/m/s]. */
-    [[nodiscard]] double DiffusionCoefficient() const noexcept;
+    [[nodiscard]] double diffusion_coefficient() const noexcept;
 
     // -- MomentMethod concept — initial conditions ----------------------------
 
@@ -389,58 +389,58 @@ public:
     [[nodiscard]] std::array<NDFNode, 2> NumberDensityFunctionNodes() const;
 
     /** @brief Small-particle number density N0 [#/m3]. */
-    [[nodiscard]] double SootSmallParticleNumberDensity() const noexcept;
+    [[nodiscard]] double soot_small_number_density() const noexcept;
 
     /** @brief Large-particle number density NL [#/m3]. */
-    [[nodiscard]] double SootLargeParticleNumberDensity() const noexcept;
+    [[nodiscard]] double soot_large_number_density() const noexcept;
 
     /** @brief Large-mode number fraction αL = NL/(N0+NL) [-]. */
-    [[nodiscard]] double SootLargeParticleFraction() const noexcept;
+    [[nodiscard]] double soot_large_fraction() const noexcept;
 
     /** @brief Small-mode number fraction α0 = N0/(N0+NL) [-]. */
-    [[nodiscard]] double SootSmallParticleFraction() const noexcept;
+    [[nodiscard]] double soot_small_fraction() const noexcept;
 
     /** @brief Mean volume of large-mode particles VL [m3/#]. */
-    [[nodiscard]] double SootLargeMeanParticleVolume() const noexcept;
+    [[nodiscard]] double soot_large_mean_volume() const noexcept;
 
     /** @brief Mean surface of large-mode particles SL [m2/#]. */
-    [[nodiscard]] double SootLargeMeanParticleSurface() const noexcept;
+    [[nodiscard]] double soot_large_mean_surface() const noexcept;
 
     /** @brief Primary particle diameter of large-mode particles dp,L [m]. */
-    [[nodiscard]] double SootLargePrimaryParticleDiameter() const noexcept;
+    [[nodiscard]] double soot_large_primary_particle_diameter() const noexcept;
 
     /** @brief Mean primary particle count per large-mode aggregate np,L [-]. */
-    [[nodiscard]] double SootLargeNumberOfPrimaryParticles() const noexcept;
+    [[nodiscard]] double soot_large_primary_particle_number() const noexcept;
 
     /** @brief Mean particle volume over both modes vs = (M10·WC/Nav) / (M00·WC/Nav·ρ_s) [m3/#]. */
-    [[nodiscard]] double SootMeanParticleVolume() const noexcept;
+    [[nodiscard]] double soot_mean_volume() const noexcept;
 
     /** @brief Mean particle surface over both modes ss = M01/(M00) [m2/#]. */
-    [[nodiscard]] double SootMeanParticleSurface() const noexcept;
+    [[nodiscard]] double soot_mean_surface() const noexcept;
 
     /**
      * @brief Log geometric std dev of primary particle diameter σg,dp (Mueller 2009, Eq. 44).
      * @return σ_g [-] (natural log scale).
      */
-    [[nodiscard]] double SootLogGeometricStdDevPrimaryParticleDiameter() const noexcept;
+    [[nodiscard]] double soot_log_geom_std_dev_primary_particle_diameter() const noexcept;
 
     /**
      * @brief Log geometric std dev of primary particle count σg,np (Mueller 2009, Eq. 45).
      * @return σ_g [-] (natural log scale).
      */
-    [[nodiscard]] double SootLogGeometricStdDevPrimaryParticleNumber() const noexcept;
+    [[nodiscard]] double soot_log_geom_std_dev_primary_particle_number() const noexcept;
 
     /**
      * @brief Scattering effective diameter d₆₃ = 6·(M₄,₋₃/M₁,₀)^{1/3} (Mueller 2009, Eq. 46).
      * @return d₆₃ [m].
      */
-    [[nodiscard]] double SootD63() const noexcept;
+    [[nodiscard]] double soot_d63() const noexcept;
 
     /** @brief Log geometric std dev of primary diameter for the large mode only. */
-    [[nodiscard]] double SootLargeLogGeometricStdDevPrimaryParticleDiameter() const noexcept;
+    [[nodiscard]] double soot_large_log_geom_std_dev_primary_particle_diameter() const noexcept;
 
     /** @brief Log geometric std dev of primary count for the large mode only. */
-    [[nodiscard]] double SootLargeLogGeometricStdDevPrimaryParticleNumber() const noexcept;
+    [[nodiscard]] double soot_large_log_geom_std_dev_primary_particle_number() const noexcept;
 
     /**
      * @brief Fill a set of common particle properties in one call.
@@ -518,8 +518,8 @@ public:
      *   write data.
      * The variant implementation is **identical** for both modes.
      *
-     * - `variant_prefix_output` — columns inserted **before** `omega_gas`.
-     * - `variant_suffix_output` — columns appended **after** source terms.
+     * - `variant_prefix_output` 
+     * - `variant_suffix_output` 
      *
      * To add or remove columns: edit only these two methods.
      * `MomentMethodReporter` requires no modification.
@@ -537,23 +537,31 @@ public:
      */
     template <typename CB> void variant_prefix_output(CB&& cb) const
     {
-        cb("np[-]", NumberOfPrimaryParticles());
-        cb("ss[m2/#]", SootMeanParticleSurface());
-        cb("vs[m3/#]", SootMeanParticleVolume());
-        cb("N0[#/m3]", SootSmallParticleNumberDensity());
-        cb("NL[#/m3]", SootLargeParticleNumberDensity());
-        cb("alphaL[-]", SootLargeParticleFraction());
-        cb("dpL[nm]", SootLargePrimaryParticleDiameter() * 1.e9);
-        cb("npL[-]", SootLargeNumberOfPrimaryParticles());
-        cb("d63[nm]", SootD63() * 1.e9);
-        cb("sigma_dp[-]", SootLogGeometricStdDevPrimaryParticleDiameter());
-        cb("sigma_np[-]", SootLogGeometricStdDevPrimaryParticleNumber());
-        cb("sigma_dp_L[-]", SootLargeLogGeometricStdDevPrimaryParticleDiameter());
-        cb("sigma_np_L[-]", SootLargeLogGeometricStdDevPrimaryParticleNumber());
-        cb("gsd_dp[-]", std::exp(SootLogGeometricStdDevPrimaryParticleDiameter()));
-        cb("gsd_np[-]", std::exp(SootLogGeometricStdDevPrimaryParticleNumber()));
-        cb("gsd_dp_L[-]", std::exp(SootLargeLogGeometricStdDevPrimaryParticleDiameter()));
-        cb("gsd_np_L[-]", std::exp(SootLargeLogGeometricStdDevPrimaryParticleNumber()));
+        cb("np[-]", number_primary_particles());
+        cb("ss[m2/#]", soot_mean_surface());
+        cb("vs[m3/#]", soot_mean_volume());
+        cb("N0[#/m3]", soot_small_number_density());
+        cb("NL[#/m3]", soot_large_number_density());
+        cb("alphaL[-]", soot_large_fraction());
+        cb("dpL[nm]", soot_large_primary_particle_diameter() * 1.e9);
+        cb("npL[-]", soot_large_primary_particle_number());
+        cb("d63[nm]", soot_d63() * 1.e9);
+        cb("sigma_dp[-]", soot_log_geom_std_dev_primary_particle_diameter());
+        cb("sigma_np[-]", soot_log_geom_std_dev_primary_particle_number());
+        cb("sigma_dp_L[-]", soot_large_log_geom_std_dev_primary_particle_diameter());
+        cb("sigma_np_L[-]", soot_large_log_geom_std_dev_primary_particle_number());
+        cb("gsd_dp[-]", std::exp(soot_log_geom_std_dev_primary_particle_diameter()));
+        cb("gsd_np[-]", std::exp(soot_log_geom_std_dev_primary_particle_number()));
+        cb("gsd_dp_L[-]", std::exp(soot_large_log_geom_std_dev_primary_particle_diameter()));
+        cb("gsd_np_L[-]", std::exp(soot_large_log_geom_std_dev_primary_particle_number()));
+
+        cb("omegaTot[kg/m3/s]", this->omega_gas_.sum());
+        cb("omegaPrec[kg/m3/s]", this->omega_gas_[pah_index_]);
+        cb("omegaC2H2[kg/m3/s]", this->omega_gas_[index_C2H2_]);
+        cb("omegaH2[kg/m3/s]", this->omega_gas_[index_H2_]);
+        cb("omegaO2[kg/m3/s]", this->omega_gas_[index_O2_]);
+        cb("omegaH2O[kg/m3/s]", this->omega_gas_[index_H2O_]);
+        cb("omegaOH[kg/m3/s]", this->omega_gas_[index_OH_]);
     }
 
     /**
@@ -765,13 +773,22 @@ private:
     double NLSL_ = 0.; //!< NL * mean surface of large particles [#/m]
 
     // -- Species concentrations [kmol/m3] --------------------------------------
-    double conc_OH_ = 0., conc_H_ = 0., conc_H2O_ = 0.;
-    double conc_H2_ = 0., conc_C2H2_ = 0., conc_O2_ = 0.;
-    double conc_PAH_ = 0., conc_DIMER_ = 0.;
+    double conc_OH_ = 0.;
+    double conc_H_ = 0.;
+    double conc_H2O_ = 0.;
+    double conc_H2_ = 0.;
+    double conc_C2H2_ = 0.;
+    double conc_O2_ = 0.;
+    double conc_PAH_ = 0.;
+    double conc_DIMER_ = 0.;
 
     // 0-based species indices (-1 if absent in mechanism)
-    int index_H_ = -1, index_OH_ = -1, index_O2_ = -1;
-    int index_H2_ = -1, index_H2O_ = -1, index_C2H2_ = -1;
+    int index_H_ = -1;
+    int index_OH_ = -1;
+    int index_O2_ = -1;
+    int index_H2_ = -1;
+    int index_H2O_ = -1;
+    int index_C2H2_ = -1;
 
     // Mass fractions (needed for some surface rate expressions)
     double mass_fraction_H_  = 0.;
@@ -808,8 +825,13 @@ private:
     double betaN_TV_ = 0.;
 
     // -- Fractal/collision geometry pre-factors ---------------------------------
-    double Av_fractal_ = 0., As_fractal_ = 0., K_fractal_ = 0.;
-    double D_collisional_ = 0., Av_collisional_ = 0., As_collisional_ = 0., K_collisional_ = 0.;
+    double Av_fractal_ = 0.;
+    double As_fractal_ = 0.;
+    double K_fractal_ = 0.;
+    double D_collisional_ = 0.;
+    double Av_collisional_ = 0.;
+    double As_collisional_ = 0.;
+    double K_collisional_ = 0.;
 
     // -- Surface density correction ---------------------------------------------
     bool surface_density_correction_ = false;

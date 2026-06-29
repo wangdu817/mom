@@ -223,9 +223,11 @@ void MomentMethodReporter::WriteHeader(const Model& model, unsigned precision)
         model.variant_prefix_output(add_col);
 
     // -- Block 2: Gas consumption (concept-mandated) ---------------------------
+    /*
     out_.AddColumn("omega_gas[kg/m3/s]", precision);
     for (const auto& name : species_names_)
         out_.AddColumn("omega_" + name + "[kg/m3/s]", precision);
+    */
 
     // -- Block 3: Transport (concept-mandated) ---------------------------------
     out_.AddColumn("D[kg/m/s]", precision);
@@ -272,12 +274,12 @@ template <MomentMethod Model> void MomentMethodReporter::WriteRow(const Model& m
     out_.NewRow();
 
     // -- Block 1: Core particle state (concept-mandated) -----------------------
-    out_ << model.MassFraction();
-    out_ << model.ParticleNumberDensity();
-    out_ << model.SpecificSurface();
-    out_ << model.VolumeFraction();
-    out_ << model.ParticleDiameter() * 1.e9;  // m → nm
-    out_ << model.CollisionDiameter() * 1.e9; // m → nm
+    out_ << model.mass_fraction();
+    out_ << model.particle_number_density();
+    out_ << model.specific_surface();
+    out_ << model.volume_fraction();
+    out_ << model.particle_diameter() * 1.e9;  // m → nm
+    out_ << model.collision_diameter() * 1.e9; // m → nm
 
     // -- Variant prefix values -------------------------------------------------
     if constexpr (requires(const Model& m) {
@@ -286,13 +288,15 @@ template <MomentMethod Model> void MomentMethodReporter::WriteRow(const Model& m
         model.variant_prefix_output(add_val);
 
     // -- Block 2: Gas consumption (concept-mandated) ---------------------------
+    /*
     const auto og = model.omega_gas();
     out_ << std::accumulate(og.begin(), og.end(), 0.0);
     for (std::size_t k = 0; k < species_names_.size(); ++k)
         out_ << (k < og.size() ? og[k] : 0.0);
+    */
 
     // -- Block 3: Transport (concept-mandated) ---------------------------------
-    out_ << model.DiffusionCoefficient();
+    out_ << model.diffusion_coefficient();
 
     // -- Block 4: Total source terms (concept-mandated) ------------------------
     writeSpan(model.sources());

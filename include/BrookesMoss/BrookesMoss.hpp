@@ -148,13 +148,13 @@ public:
 
     // -- MomentMethod concept — particle properties ----------------------------
 
-    [[nodiscard]] double VolumeFraction() const noexcept;
-    [[nodiscard]] double ParticleDiameter() const noexcept;  //!< mean particle diameter [m]
-    [[nodiscard]] double CollisionDiameter() const noexcept; //!< same as ParticleDiameter for BM
-    [[nodiscard]] double ParticleNumberDensity() const noexcept; //!< [#/m3]
-    [[nodiscard]] double MassFraction() const noexcept;          //!< = Ys_
-    [[nodiscard]] double SpecificSurface() const noexcept;       //!< [m2/m3]
-    [[nodiscard]] double DiffusionCoefficient() const noexcept;  //!< [kg/m/s]
+    [[nodiscard]] double volume_fraction() const noexcept;
+    [[nodiscard]] double particle_diameter() const noexcept;  //!< mean particle diameter [m]
+    [[nodiscard]] double collision_diameter() const noexcept; //!< same as ParticleDiameter for BM
+    [[nodiscard]] double particle_number_density() const noexcept; //!< [#/m3]
+    [[nodiscard]] double mass_fraction() const noexcept;          //!< = Ys_
+    [[nodiscard]] double specific_surface() const noexcept;       //!< [m2/m3]
+    [[nodiscard]] double diffusion_coefficient() const noexcept;  //!< [kg/m/s]
 
     // -- MomentMethod concept — initial conditions -----------------------------
 
@@ -174,6 +174,36 @@ public:
     // -- MomentMethod concept — diagnostics ------------------------------------
 
     void PrintSummary() const;
+
+    // -- Reporter output hook (MomentMethodReporter extensibility protocol) ------
+    //
+    // Makes BrookesMoss self-describing with respect to output.
+    // MomentMethodReporter calls this with a lambda cb(label, value):
+    //   • header mode — lambda uses label to register the column
+    //   • row mode    — lambda uses value to write the data
+
+    /// ThreeEquations-specific prefix columns: np, ss, vs, NDF parameters.
+    template <typename CB> void variant_prefix_output(CB&& cb) const
+    {
+        cb("omegaTot[kg/m3/s]", this->omega_gas_.sum());
+        cb("omegaPrec[kg/m3/s]", this->omega_gas_[prec_index_]);
+        cb("omegaSg[kg/m3/s]", this->omega_gas_[sg_index_]);
+        cb("omegaH2[kg/m3/s]", this->omega_gas_[index_H2_]);
+        cb("omegaC2H2[kg/m3/s]", this->omega_gas_[index_C2H2_]);
+        cb("omegaOH[kg/m3/s]", this->omega_gas_[index_OH_]);
+        cb("omegaO2[kg/m3/s]", this->omega_gas_[index_O2_]);
+
+        if (nucleation_variant_ == NucleationVariant::BrookesMossHall)
+        {
+            cb("omegaC6H4[kg/m3/s]", this->omega_gas_[index_C6H5_]);
+            cb("omegaC6H6[kg/m3/s]", this->omega_gas_[index_C6H6_]);
+        }
+        else
+        {
+            cb("omegaC6H4[kg/m3/s]", 0.);
+            cb("omegaC6H6[kg/m3/s]", 0.);
+        }        
+    }    
 
     // -- Model switches --------------------------------------------------------
 
@@ -311,17 +341,20 @@ private:
     double conc_sg_ = 0.;
 
     // -- Key species concentrations [kmol/m3] -----------------------------------
-    double conc_H_ = 0., conc_OH_ = 0., conc_O2_ = 0.;
-    double conc_H2_ = 0., conc_H2O_ = 0., conc_C2H2_ = 0.;
+    double conc_H2_ = 0.;
+    double conc_C2H2_ = 0.;
+    double conc_C6H5_ = 0.;
+    double conc_C6H6_ = 0.;
+    double conc_OH_ = 0.;
+    double conc_O2_ = 0.;    
 
     // 0-based species indices
-    int index_H_ = -1, index_OH_ = -1, index_O2_ = -1;
-    int index_H2_ = -1, index_H2O_ = -1, index_C2H2_ = -1;
-    int index_C6H5_ = -1, index_C6H6_ = -1;
-
-    // Mass fractions (needed for BM-Hall expressions)
-    double Y_C2H2_ = 0., Y_C6H5_ = 0., Y_C6H6_ = 0.;
-    double Y_H2_ = 0., Y_OH_ = 0., Y_O2_ = 0.;
+    int index_H2_ = -1; 
+    int index_C2H2_ = -1;
+    int index_C6H5_ = -1;
+    int index_C6H6_ = -1;
+    int index_OH_ = -1; 
+    int index_O2_ = -1;    
 
     // -- Particle properties ----------------------------------------------------
     double dp_  = 25.e-9; //!< soot particle diameter [m] (default 25 nm)
@@ -358,8 +391,8 @@ private:
 
     // -- Gas consumption intermediate quantities --------------------------------
     double dMdt_nucleation_       = 0.; //!< [kg/m3/s]
-    double dMdt_nucleation_BMH_1_ = 0.;
-    double dMdt_nucleation_BMH_2_ = 0.;
+    double dMdt_nucleation_BMH_1_ = 0.; //!< [kg/m3/s]
+    double dMdt_nucleation_BMH_2_ = 0.; //!< [kg/m3/s]
     double dMdt_surface_growth_   = 0.;
     double dMdt_oxidation_        = 0.;
 

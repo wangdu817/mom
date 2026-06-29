@@ -83,28 +83,28 @@ namespace MOM
  * - `omega_gas()` — gas-phase species source terms [kg/m3/s], size = n_species
  *
  * **Particle properties** (derived from current moment values):
- * - `VolumeFraction()` — particle volume fraction [-]
- * - `ParticleDiameter()` — primary particle diameter [m]
- * - `CollisionDiameter()` — collision (aggregate) diameter [m]
- * - `ParticleNumberDensity()` — number density [#/m3]
- * - `MassFraction()` — particle mass fraction [-]
+ * - `volume_fraction()` — particle volume fraction [-]
+ * - `particle_diameter()` — primary particle diameter [m]
+ * - `collision_diameter()` — collision (aggregate) diameter [m]
+ * - `particle_number_density()` — number density [#/m3]
+ * - `mass_fraction()` — particle mass fraction [-]
  * - `ParticleDensity()` — material density [kg/m3]
- * - `SpecificSurface()` — surface area per unit volume [m2/m3]
+ * - `specific_surface()` — surface area per unit volume [m2/m3]
  *
  * **Transport:**
  * - `schmidt_number()` — particle Schmidt number [-]
- * - `DiffusionCoefficient()` — effective diffusion coefficient [kg/m/s]
+ * - `diffusion_coefficient()` — effective diffusion coefficient [kg/m/s]
  * - `thermophoretic_model()` — thermophoretic model flag (int, 0 = off)
  *
  * **Status / control:**
  * - `is_active()` — true if the method is configured and active
- * - `GasConsumption()` — true if gas-phase consumption is enabled
+ * - `gas_consumption()` — true if gas-phase consumption is enabled
  * - `initial_moments()` — initialisation values for the moment transport equations
  *
  * **Gas coupling:**
  * - `precursor_index()` — 0-based index of precursor species in the thermo map
  * - `precursor_concentration()` — precursor molar concentration [kmol/m3]
- * - `ClosureDummySpeciesIsActive()` — true if a dummy closure species is configured
+ * - `is_closure_dummy_species_()` — true if a dummy closure species is configured
  * - `closure_dummy_index()` — 0-based index of the dummy closure species
  *
  * **Radiative heat transfer:**
@@ -149,28 +149,28 @@ concept MomentMethod =
         { cm.omega_gas() } -> std::convertible_to<std::span<const double>>;
 
         // -- Particle properties --------------------------------------------
-        { cm.VolumeFraction() } -> std::same_as<double>;
-        { cm.ParticleDiameter() } -> std::same_as<double>;
-        { cm.CollisionDiameter() } -> std::same_as<double>;
-        { cm.ParticleNumberDensity() } -> std::same_as<double>;
-        { cm.MassFraction() } -> std::same_as<double>;
-        { cm.ParticleDensity() } -> std::same_as<double>;
-        { cm.SpecificSurface() } -> std::same_as<double>;
+        { cm.volume_fraction() } -> std::same_as<double>;
+        { cm.particle_diameter() } -> std::same_as<double>;
+        { cm.collision_diameter() } -> std::same_as<double>;
+        { cm.particle_number_density() } -> std::same_as<double>;
+        { cm.mass_fraction() } -> std::same_as<double>;
+        { cm.particle_density() } -> std::same_as<double>;
+        { cm.specific_surface() } -> std::same_as<double>;
 
         // -- Transport ------------------------------------------------------
         { cm.schmidt_number() } -> std::same_as<double>;
-        { cm.DiffusionCoefficient() } -> std::same_as<double>;
+        { cm.diffusion_coefficient() } -> std::same_as<double>;
         { cm.thermophoretic_model() } -> std::same_as<int>;
 
         // -- Status / control -----------------------------------------------
         { cm.is_active() } -> std::same_as<bool>;
-        { cm.GasConsumption() } -> std::same_as<bool>;
+        { cm.gas_consumption() } -> std::same_as<bool>;
         { cm.initial_moments() } -> std::convertible_to<std::span<const double>>;
 
         // -- Gas coupling ---------------------------------------------------
         { cm.precursor_index() } -> std::same_as<int>;
         { cm.precursor_concentration() } -> std::same_as<double>;
-        { cm.ClosureDummySpeciesIsActive() } -> std::same_as<bool>;
+        { cm.is_closure_dummy_species() } -> std::same_as<bool>;
         { cm.closure_dummy_index() } -> std::same_as<int>;
 
         // -- Radiative heat transfer ----------------------------------------

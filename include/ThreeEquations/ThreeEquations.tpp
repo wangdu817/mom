@@ -91,9 +91,9 @@ ThreeEquations<Thermo>::ThreeEquations(const Thermo& thermo) : thermo_(thermo)
     this->rho_particle_            = 1800.; // soot density [kg/m3]
     this->planck_model_            = PlanckCoeffModel::Smooke;
     this->SetThermophoreticModel(1);
-    this->dummy_species_         = "none";
-    this->dummy_index_           = -1;
-    this->dummy_species_closure_ = false;
+    this->closure_dummy_species_    = "none";
+    this->closure_dummy_index_      = -1;
+    this->is_closure_dummy_species_ = false;
 
     // -- Model defaults ----------------------------------------------------
     Df_                         = 1.8;
@@ -221,12 +221,6 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::Precalculations()
 // Setters that trigger recalculation
 // ============================================================================
 
-template <ThermoMap Thermo> void ThreeEquations<Thermo>::SetSootDensity(double rhos) noexcept
-{
-    this->rho_particle_ = rhos;
-    Precalculations();
-}
-
 template <ThermoMap Thermo> void ThreeEquations<Thermo>::SetNsMinimum(double v) noexcept
 {
     Ns_min_ = v;
@@ -248,30 +242,30 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::SetPAH(std::string_view
 template <ThermoMap Thermo>
 void ThreeEquations<Thermo>::SetGasClosureDummySpecies(std::string_view name)
 {
-    this->dummy_species_ = std::string(name);
+    this->closure_dummy_species_ = std::string(name);
 
-    if (this->dummy_species_ == "none")
+    if (this->closure_dummy_species_ == "none")
     {
-        this->dummy_index_           = -1;
-        this->dummy_species_closure_ = false;
+        this->closure_dummy_index_      = -1;
+        this->is_closure_dummy_species_ = false;
         return;
     }
 
-    this->dummy_index_ = thermo_.IndexOfSpecies(this->dummy_species_);
+    this->closure_dummy_index_ = thermo_.IndexOfSpecies(this->closure_dummy_species_);
 
-    if (this->dummy_index_ < 0)
-        throw std::runtime_error("[ThreeEquations] Dummy species not found: " + this->dummy_species_);
+    if (this->closure_dummy_index_ < 0)
+        throw std::runtime_error("[ThreeEquations] Dummy species not found: " + this->closure_dummy_species_);
 
-    if (this->dummy_index_ == pah_index_)
+    if (this->closure_dummy_index_ == pah_index_)
         throw std::runtime_error("[ThreeEquations] Dummy species cannot be the PAH precursor.");
 
-    if (this->dummy_index_ == index_H_ || this->dummy_index_ == index_H2_ ||
-        this->dummy_index_ == index_O2_ || this->dummy_index_ == index_OH_ ||
-        this->dummy_index_ == index_H2O_ || this->dummy_index_ == index_C2H2_)
+    if (this->closure_dummy_index_ == index_H_ || this->closure_dummy_index_ == index_H2_ ||
+        this->closure_dummy_index_ == index_O2_ || this->closure_dummy_index_ == index_OH_ ||
+        this->closure_dummy_index_ == index_H2O_ || this->closure_dummy_index_ == index_C2H2_)
         throw std::runtime_error(
             "[ThreeEquations] Dummy species cannot be H, H2, O2, OH, H2O, or C2H2.");
 
-    this->dummy_species_closure_ = true;
+    this->is_closure_dummy_species_ = true;
 }
 
 template <ThermoMap Thermo>
@@ -407,48 +401,48 @@ void ThreeEquations<Thermo>::Properties(
     dc = dp * std::pow(np, 1. / Df_);                                                        // [m]
 }
 
-template <ThermoMap Thermo> double ThreeEquations<Thermo>::VolumeFraction() const noexcept
+template <ThermoMap Thermo> double ThreeEquations<Thermo>::volume_fraction() const noexcept
 {
     return this->rho_ / this->rho_particle_ * std::max(Ys_, 0.);
 }
 
-template <ThermoMap Thermo> double ThreeEquations<Thermo>::MassFraction() const noexcept
+template <ThermoMap Thermo> double ThreeEquations<Thermo>::mass_fraction() const noexcept
 {
     return std::max(Ys_, 0.);
 }
 
-template <ThermoMap Thermo> double ThreeEquations<Thermo>::ParticleNumberDensity() const noexcept
+template <ThermoMap Thermo> double ThreeEquations<Thermo>::particle_number_density() const noexcept
 {
     return std::max(NsNorm_ * N0_scaling_, 0.);
 }
 
-template <ThermoMap Thermo> double ThreeEquations<Thermo>::SpecificSurface() const noexcept
+template <ThermoMap Thermo> double ThreeEquations<Thermo>::specific_surface() const noexcept
 {
     return std::max(Ss_, 0.);
 }
 
-template <ThermoMap Thermo> double ThreeEquations<Thermo>::ParticleDiameter() const noexcept
+template <ThermoMap Thermo> double ThreeEquations<Thermo>::particle_diameter() const noexcept
 {
     double fv, dp, dc, np, ss, vs;
     Properties(fv, dp, dc, np, ss, vs);
     return dp;
 }
 
-template <ThermoMap Thermo> double ThreeEquations<Thermo>::CollisionDiameter() const noexcept
+template <ThermoMap Thermo> double ThreeEquations<Thermo>::collision_diameter() const noexcept
 {
     double fv, dp, dc, np, ss, vs;
     Properties(fv, dp, dc, np, ss, vs);
     return dc;
 }
 
-template <ThermoMap Thermo> double ThreeEquations<Thermo>::NumberOfPrimaryParticles() const noexcept
+template <ThermoMap Thermo> double ThreeEquations<Thermo>::number_primary_particles() const noexcept
 {
     double fv, dp, dc, np, ss, vs;
     Properties(fv, dp, dc, np, ss, vs);
     return np;
 }
 
-template <ThermoMap Thermo> double ThreeEquations<Thermo>::DiffusionCoefficient() const noexcept
+template <ThermoMap Thermo> double ThreeEquations<Thermo>::diffusion_coefficient() const noexcept
 {
     double fv, dp, dc, np, ss, vs;
     Properties(fv, dp, dc, np, ss, vs);
@@ -1062,15 +1056,15 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::CalculateOmegaGas() noe
     }
 
     // 4. Dummy species closure (mass-fraction conservation)
-    if (this->dummy_species_closure_)
+    if (this->is_closure_dummy_species_)
     {
         // dummy_index_ must be set during setup — a negative value is a programming error.
-        assert(this->dummy_index_ >= 0 && "[ThreeEquations::CalculateOmegaGas] dummy_index_ not set.");
+        assert(this->closure_dummy_index_ >= 0 && "[ThreeEquations::CalculateOmegaGas] dummy_index_ not set.");
         double sum = 0.;
         for (int i = 0; i < nsp; ++i)
-            if (i != this->dummy_index_)
+            if (i != this->closure_dummy_index_)
                 sum += this->omega_gas_[i];
-        this->omega_gas_[this->dummy_index_] = -sum;
+        this->omega_gas_[this->closure_dummy_index_] = -sum;
     }
 
     if (is_debug_mode_)
@@ -1250,7 +1244,7 @@ std::expected<void, std::string> ThreeEquations<Thermo>::SetupFromDictionary(Dic
             v *= 1000.;
         else
             return std::unexpected("@SootDensity: allowed units: kg/m3 | g/cm3");
-        SetSootDensity(v);
+        this->SetParticleDensity(v);
     }
     if (dict.CheckOption("@RadiativeHeatTransfer"))
     {

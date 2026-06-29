@@ -63,9 +63,9 @@ template <ThermoMap Thermo> TiO2<Thermo>::TiO2(const Thermo& thermo) : thermo_(t
     this->planck_model_    = PlanckCoeffModel::None; // TiO2 is dielectric
     this->SetThermophoreticModel(1);
     this->schmidt_number_        = 50.;
-    this->dummy_species_         = "none";
-    this->dummy_index_           = -1;
-    this->dummy_species_closure_ = false;
+    this->closure_dummy_species_         = "none";
+    this->closure_dummy_index_           = -1;
+    this->is_closure_dummy_species_ = false;
 
     // -- Nucleation parameters ---------------------------------------------
     nTiO2_min_   = 2;
@@ -344,24 +344,24 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SetupGasConsumptionStoichiometry(
 
 template <ThermoMap Thermo> void TiO2<Thermo>::SetGasClosureDummySpecies(std::string_view name)
 {
-    this->dummy_species_ = std::string(name);
+    this->closure_dummy_species_ = std::string(name);
 
-    if (this->dummy_species_ == "none")
+    if (this->closure_dummy_species_ == "none")
     {
-        this->dummy_index_           = -1;
-        this->dummy_species_closure_ = false;
+        this->closure_dummy_index_      = -1;
+        this->is_closure_dummy_species_ = false;
         return;
     }
 
-    this->dummy_index_ = thermo_.IndexOfSpecies(this->dummy_species_);
-    if (this->dummy_index_ < 0)
+    this->closure_dummy_index_ = thermo_.IndexOfSpecies(this->closure_dummy_species_);
+    if (this->closure_dummy_index_ < 0)
         throw std::runtime_error("[TiO2] Dummy species not found in mechanism: " +
-                                 this->dummy_species_);
+                                 this->closure_dummy_species_);
 
-    if (this->dummy_index_ == precursor_index_)
+    if (this->closure_dummy_index_ == precursor_index_)
         throw std::runtime_error("[TiO2] Dummy species cannot be the precursor species.");
 
-    this->dummy_species_closure_ = true;
+    this->is_closure_dummy_species_ = true;
 }
 
 // ============================================================================
@@ -421,22 +421,22 @@ void TiO2<Thermo>::Properties(double& fv,
 // VolumeFraction, MassFraction, ParticleNumberDensity, SpecificSurface
 // ============================================================================
 
-template <ThermoMap Thermo> double TiO2<Thermo>::VolumeFraction() const noexcept
+template <ThermoMap Thermo> double TiO2<Thermo>::volume_fraction() const noexcept
 {
     return this->rho_ / rhoTiO2_ * std::max(YTiO2_, 0.);
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::MassFraction() const noexcept
+template <ThermoMap Thermo> double TiO2<Thermo>::mass_fraction() const noexcept
 {
     return std::max(YTiO2_, 0.);
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::ParticleNumberDensity() const noexcept
+template <ThermoMap Thermo> double TiO2<Thermo>::particle_number_density() const noexcept
 {
     return std::max(NTiO2N_ * N0_scaling_, 0.);
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::SpecificSurface() const noexcept
+template <ThermoMap Thermo> double TiO2<Thermo>::specific_surface() const noexcept
 {
     return std::max(STiO2_, 0.);
 }
@@ -446,14 +446,14 @@ template <ThermoMap Thermo> double TiO2<Thermo>::SpecificSurface() const noexcep
 // NumberOfPrimaryParticles
 // ============================================================================
 
-template <ThermoMap Thermo> double TiO2<Thermo>::ParticleDiameter() const noexcept
+template <ThermoMap Thermo> double TiO2<Thermo>::particle_diameter() const noexcept
 {
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
     return dp;
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::CollisionDiameter() const noexcept
+template <ThermoMap Thermo> double TiO2<Thermo>::collision_diameter() const noexcept
 {
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
@@ -467,7 +467,7 @@ template <ThermoMap Thermo> double TiO2<Thermo>::AggregateDiameter() const noexc
     return da;
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::NumberOfPrimaryParticles() const noexcept
+template <ThermoMap Thermo> double TiO2<Thermo>::number_primary_particles() const noexcept
 {
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
@@ -478,7 +478,7 @@ template <ThermoMap Thermo> double TiO2<Thermo>::NumberOfPrimaryParticles() cons
 // DiffusionCoefficient  — Cunningham-corrected Brownian + Schmidt fallback
 // ============================================================================
 
-template <ThermoMap Thermo> double TiO2<Thermo>::DiffusionCoefficient() const noexcept
+template <ThermoMap Thermo> double TiO2<Thermo>::diffusion_coefficient() const noexcept
 {
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
@@ -870,14 +870,14 @@ template <ThermoMap Thermo> void TiO2<Thermo>::CalculateOmegaGas_internal() noex
         this->omega_gas_[O2_index_] += nu_O2_from_prec_ * Rprec * W_O2_;
 
     // Dummy species closure: adjust to enforce sum(omega_gas) = 0
-    if (this->dummy_species_closure_ && this->dummy_index_ >= 0)
+    if (this->is_closure_dummy_species_ && this->closure_dummy_index_ >= 0)
     {
         const int nsp = static_cast<int>(thermo_.NumberOfSpecies());
         double sum    = 0.;
         for (int i = 0; i < nsp; ++i)
-            if (i != this->dummy_index_)
+            if (i != this->closure_dummy_index_)
                 sum += this->omega_gas_[i];
-        this->omega_gas_[this->dummy_index_] = -sum;
+        this->omega_gas_[this->closure_dummy_index_] = -sum;
     }
 }
 

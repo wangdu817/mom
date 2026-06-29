@@ -166,12 +166,6 @@ public:
     void SetParticleDensity(double value) noexcept { rho_particle_ = value; }
 
     /**
-     * @brief Alias for SetParticleDensity retained for backward compatibility.
-     * @param value Density [kg/m3].
-     */
-    void SetSootDensity(double value) noexcept { rho_particle_ = value; }
-
-    /**
      * @brief Sets the mixture dynamic viscosity.
      *
      * Must be called before each `CalculateSourceMoments()` call if viscosity
@@ -230,13 +224,13 @@ public:
     [[nodiscard]] bool is_active() const noexcept { return is_active_; }
 
     /** @brief Returns `true` if gas-phase precursor consumption is enabled. */
-    [[nodiscard]] bool GasConsumption() const noexcept { return gas_consumption_; }
+    [[nodiscard]] bool gas_consumption() const noexcept { return gas_consumption_; }
 
     /** @brief Returns the particle Schmidt number [-]. */
     [[nodiscard]] double schmidt_number() const noexcept { return schmidt_number_; }
 
     /** @brief Returns the particle material density [kg/m3]. */
-    [[nodiscard]] double ParticleDensity() const noexcept { return rho_particle_; }
+    [[nodiscard]] double particle_density() const noexcept { return rho_particle_; }
 
     /** @brief Returns `true` if the particle Planck coefficient is non-zero. */
     [[nodiscard]] bool radiative_heat_transfer() const noexcept { return radiative_heat_transfer_; }
@@ -251,19 +245,19 @@ public:
     }
 
     /** @brief Returns `true` if a dummy closure species has been configured. */
-    [[nodiscard]] bool ClosureDummySpeciesIsActive() const noexcept
+    [[nodiscard]] bool is_closure_dummy_species() const noexcept
     {
-        return dummy_species_closure_;
+        return is_closure_dummy_species_;
     }
 
     /** @brief Returns the name of the dummy closure species. */
     [[nodiscard]] const std::string& closure_dummy_species() const noexcept
     {
-        return dummy_species_;
+        return closure_dummy_species_;
     }
 
     /** @brief Returns the 0-based index of the dummy closure species (−1 if inactive). */
-    [[nodiscard]] int closure_dummy_index() const noexcept { return dummy_index_; }
+    [[nodiscard]] int closure_dummy_index() const noexcept { return closure_dummy_index_; }
 
     // -- Source term access — span-based for zero-copy CFD interop ----------
 
@@ -411,10 +405,10 @@ protected:
 
     // -- Common control flags -----------------------------------------------
 
-    bool is_active_               = false; //!< True after successful SetupFromDictionary().
-    bool gas_consumption_         = true;  //!< True if omega_gas_ is computed.
-    bool radiative_heat_transfer_ = false; //!< True if planck_coefficient() > 0.
-    bool dummy_species_closure_   = false; //!< True if a closure dummy species is set.
+    bool is_active_                = false; //!< True after successful SetupFromDictionary().
+    bool gas_consumption_          = true;  //!< True if omega_gas_ is computed.
+    bool radiative_heat_transfer_  = false; //!< True if planck_coefficient() > 0.
+    bool is_closure_dummy_species_ = false; //!< True if a closure dummy species is set.
 
     double schmidt_number_ = 0.7;    //!< Particle Schmidt number [-].
     double rho_particle_   = 1800.;  //!< Particle material density [kg/m3]; TiO2 overrides to 3900.
@@ -422,8 +416,8 @@ protected:
     ThermophoreticModel thermophoretic_model_ = ThermophoreticModel::Off;
     PlanckCoeffModel planck_model_            = PlanckCoeffModel::Smooke;
 
-    std::string dummy_species_;      //!< Name of the dummy closure species (empty if inactive).
-    int dummy_index_ = -1;           //!< 0-based thermo-map index of the dummy species (−1 if inactive).
+    std::string closure_dummy_species_;      //!< Name of the dummy closure species (empty if inactive).
+    int closure_dummy_index_ = -1;           //!< 0-based thermo-map index of the dummy species (−1 if inactive).
 
     // -- Fixed-size source storage (stack-allocated) ------------------------
     //

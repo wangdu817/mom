@@ -130,9 +130,9 @@ template <ThermoMap Thermo> HMOM<Thermo>::HMOM(const Thermo& thermo) : thermo_(t
     this->SetThermophoreticModel(1);
     this->schmidt_number_        = 50.;
     this->rho_particle_          = 1800.;
-    this->dummy_species_         = "none";
-    this->dummy_index_           = -1;
-    this->dummy_species_closure_ = false;
+    this->closure_dummy_species_         = "none";
+    this->closure_dummy_index_           = -1;
+    this->is_closure_dummy_species_ = false;
 
     // -- Free-molecular pre-factors -----------------------------------------
     Cfm_      = std::sqrt(this->pi_ * this->kB_ / 2.0 / this->rho_particle_);
@@ -332,28 +332,28 @@ template <ThermoMap Thermo> void HMOM<Thermo>::SetPAH(std::string_view name)
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SetGasClosureDummySpecies(std::string_view name)
 {
-    this->dummy_species_ = std::string(name);
+    this->closure_dummy_species_ = std::string(name);
 
     if (name == "none")
     {
-        this->dummy_index_           = -1;
-        this->dummy_species_closure_ = false;
+        this->closure_dummy_index_           = -1;
+        this->is_closure_dummy_species_ = false;
         return;
     }
 
-    this->dummy_index_ = thermo_.IndexOfSpecies(name);
-    if (this->dummy_index_ < 0)
-        throw std::runtime_error("[HMOM] Dummy species not found: " + this->dummy_species_);
+    this->closure_dummy_index_ = thermo_.IndexOfSpecies(name);
+    if (this->closure_dummy_index_ < 0)
+        throw std::runtime_error("[HMOM] Dummy species not found: " + this->closure_dummy_species_);
 
-    if (this->dummy_index_ == pah_index_)
+    if (this->closure_dummy_index_ == pah_index_)
         throw std::runtime_error("[HMOM] Dummy species cannot be the same as the PAH precursor.");
 
-    if (this->dummy_index_ == index_H_ || this->dummy_index_ == index_H2_ ||
-        this->dummy_index_ == index_O2_ || this->dummy_index_ == index_OH_ ||
-        this->dummy_index_ == index_H2O_ || this->dummy_index_ == index_C2H2_)
+    if (this->closure_dummy_index_ == index_H_ || this->closure_dummy_index_ == index_H2_ ||
+        this->closure_dummy_index_ == index_O2_ || this->closure_dummy_index_ == index_OH_ ||
+        this->closure_dummy_index_ == index_H2O_ || this->closure_dummy_index_ == index_C2H2_)
         throw std::runtime_error("[HMOM] Dummy species cannot be H, H2, O2, OH, H2O, or C2H2.");
 
-    this->dummy_species_closure_ = true;
+    this->is_closure_dummy_species_ = true;
 }
 
 // ============================================================================
@@ -1174,13 +1174,13 @@ template <ThermoMap Thermo> void HMOM<Thermo>::CalculateOmegaGas() noexcept
         }
     }
 
-    if (this->dummy_species_closure_ && this->dummy_index_ >= 0)
+    if (this->is_closure_dummy_species_ && this->closure_dummy_index_ >= 0)
     {
         double sum = 0.;
         for (Eigen::Index i = 0; i < this->omega_gas_.size(); ++i)
-            if (i != static_cast<Eigen::Index>(this->dummy_index_))
+            if (i != static_cast<Eigen::Index>(this->closure_dummy_index_))
                 sum += this->omega_gas_[i];
-        this->omega_gas_[this->dummy_index_] = -sum;
+        this->omega_gas_[this->closure_dummy_index_] = -sum;
     }
 }
 
@@ -1188,13 +1188,13 @@ template <ThermoMap Thermo> void HMOM<Thermo>::CalculateOmegaGas() noexcept
 // Particle property accessors
 // ============================================================================
 
-template <ThermoMap Thermo> double HMOM<Thermo>::VolumeFraction() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::volume_fraction() const noexcept
 {
     const double fv = GetMoment(1., 0.);
     return (!std::isfinite(fv) || fv < kSootVolumeFloor) ? 0. : fv;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::ParticleDiameter() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::particle_diameter() const noexcept
 {
     const double V = GetMoment(1., 0.);
     const double S = GetMoment(0., 1.);
@@ -1204,7 +1204,7 @@ template <ThermoMap Thermo> double HMOM<Thermo>::ParticleDiameter() const noexce
     return (std::isfinite(dp) && dp > 0.) ? dp : 0.;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::CollisionDiameter() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::collision_diameter() const noexcept
 {
     const double N = GetMoment(0., 0.);
     if (!std::isfinite(N) || N <= kSootNumberFloor)
@@ -1213,24 +1213,24 @@ template <ThermoMap Thermo> double HMOM<Thermo>::CollisionDiameter() const noexc
     return (std::isfinite(dc) && dc > 0.) ? dc : 0.;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::ParticleNumberDensity() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::particle_number_density() const noexcept
 {
     const double n = GetMoment(0., 0.);
     return (!std::isfinite(n) || n < kSootNumberFloor) ? 0. : n;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::MassFraction() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::mass_fraction() const noexcept
 {
-    return this->rho_particle_ / this->rho_ * VolumeFraction();
+    return this->rho_particle_ / this->rho_ * volume_fraction();
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SpecificSurface() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::specific_surface() const noexcept
 {
     const double Ss = GetMoment(0., 1.);
     return (!std::isfinite(Ss) || Ss <= 0.) ? 0. : Ss;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::NumberOfPrimaryParticles() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::number_primary_particles() const noexcept
 {
     const double N = GetMoment(0., 0.);
     if (!std::isfinite(N) || N <= kSootNumberFloor)
@@ -1243,12 +1243,12 @@ template <ThermoMap Thermo> double HMOM<Thermo>::NumberOfPrimaryParticles() cons
     return (std::isfinite(np) && np >= 1.) ? np : 1.;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::DiffusionCoefficient() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::diffusion_coefficient() const noexcept
 {
     const double m = this->rho_ * this->kB_ * this->T_ / this->P_Pa_;
     const double lambda =
         this->mu_ / this->rho_ * std::sqrt(this->pi_ * m / (2. * this->kB_ * this->T_));
-    const double dc = std::max(CollisionDiameter(), 1.e-12);
+    const double dc = std::max(collision_diameter(), 1.e-12);
     const double Cu = 1. + 2.154 * lambda / dc;
     const double D  = this->kB_ * this->T_ * Cu / (3. * this->pi_ * this->mu_ * dc);
     return std::max(this->rho_ * D, this->mu_ / this->schmidt_number_);
@@ -1421,7 +1421,7 @@ std::expected<void, std::string> HMOM<Thermo>::SetupFromDictionary(Dictionary& d
         else
             return std::unexpected("@SootDensity: allowed units kg/m3 | g/cm3");
 
-        this->SetSootDensity(value);
+        this->SetParticleDensity(value);
     }
 
     if (dict.CheckOption("@SurfaceDensity") == true)
@@ -1719,29 +1719,29 @@ std::array<typename HMOM<Thermo>::NDFNode, 2> HMOM<Thermo>::NumberDensityFunctio
 // NDF accessors
 // ============================================================================
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootSmallParticleNumberDensity() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_small_number_density() const noexcept
 {
     return N0_;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootLargeParticleNumberDensity() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_large_number_density() const noexcept
 {
     return NL_;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootLargeParticleFraction() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_large_fraction() const noexcept
 {
     const double t = N0_ + NL_;
     return (t > 0.) ? NL_ / t : 0.;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootSmallParticleFraction() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_small_fraction() const noexcept
 {
     const double t = N0_ + NL_;
     return (t > 0.) ? N0_ / t : 1.;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootMeanParticleVolume() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_mean_volume() const noexcept
 {
     if (!std::isfinite(M00_) || !std::isfinite(M10_) || M00_ <= 0.0 || M10_ <= 0.0)
         return V0_;
@@ -1749,7 +1749,7 @@ template <ThermoMap Thermo> double HMOM<Thermo>::SootMeanParticleVolume() const 
     return M10_ / M00_; // [m3/#]
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootMeanParticleSurface() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_mean_surface() const noexcept
 {
     if (!std::isfinite(M00_) || !std::isfinite(M01_) || M00_ <= 0.0 || M01_ <= 0.0)
         return S0_;
@@ -1757,27 +1757,27 @@ template <ThermoMap Thermo> double HMOM<Thermo>::SootMeanParticleSurface() const
     return M01_ / M00_; // [m2/#]
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootLargeMeanParticleVolume() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_large_mean_volume() const noexcept
 {
     return (NL_ > kSootNumberFloor && NLVL_ > kSootVolumeFloor) ? NLVL_ / NL_ : V0_;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootLargeMeanParticleSurface() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_large_mean_surface() const noexcept
 {
     return (NL_ > kSootNumberFloor && NLSL_ > kSootSurfaceFloor) ? NLSL_ / NL_ : S0_;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootLargePrimaryParticleDiameter() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_large_primary_particle_diameter() const noexcept
 {
-    const double VL = SootLargeMeanParticleVolume();
-    const double SL = SootLargeMeanParticleSurface();
+    const double VL = soot_large_mean_volume();
+    const double SL = soot_large_mean_surface();
     return (SL > 0.) ? 6. * VL / SL : 0.;
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootLargeNumberOfPrimaryParticles() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_large_primary_particle_number() const noexcept
 {
-    const double VL = SootLargeMeanParticleVolume();
-    const double SL = SootLargeMeanParticleSurface();
+    const double VL = soot_large_mean_volume();
+    const double SL = soot_large_mean_surface();
     if (SL <= 0. || VL <= 0.)
         return 1.;
     return std::max(1., std::pow(SL, 3.) / (36. * this->pi_ * VL * VL));
@@ -1793,19 +1793,19 @@ double HMOM<Thermo>::LogGeomStdDevFromMoments(double M0, double M1, double M2) c
 }
 
 template <ThermoMap Thermo>
-double HMOM<Thermo>::SootLogGeometricStdDevPrimaryParticleDiameter() const noexcept
+double HMOM<Thermo>::soot_log_geom_std_dev_primary_particle_diameter() const noexcept
 {
     return LogGeomStdDevFromMoments(GetMoment(0., 0.), GetMoment(-1., 1.5), GetMoment(-2., 3.));
 }
 
 template <ThermoMap Thermo>
-double HMOM<Thermo>::SootLogGeometricStdDevPrimaryParticleNumber() const noexcept
+double HMOM<Thermo>::soot_log_geom_std_dev_primary_particle_number() const noexcept
 {
     return LogGeomStdDevFromMoments(GetMoment(0., 0.), GetMoment(1., 0.), GetMoment(2., 0.));
 }
 
 template <ThermoMap Thermo>
-double HMOM<Thermo>::SootLargeLogGeometricStdDevPrimaryParticleDiameter() const noexcept
+double HMOM<Thermo>::soot_large_log_geom_std_dev_primary_particle_diameter() const noexcept
 {
     if (!HasSoot() || NL_ <= kSootNumberFloor)
         return 0.0;
@@ -1818,7 +1818,7 @@ double HMOM<Thermo>::SootLargeLogGeometricStdDevPrimaryParticleDiameter() const 
 }
 
 template <ThermoMap Thermo>
-double HMOM<Thermo>::SootLargeLogGeometricStdDevPrimaryParticleNumber() const noexcept
+double HMOM<Thermo>::soot_large_log_geom_std_dev_primary_particle_number() const noexcept
 {
     if (!HasSoot() || NL_ <= kSootNumberFloor)
         return 0.0;
@@ -1830,7 +1830,7 @@ double HMOM<Thermo>::SootLargeLogGeometricStdDevPrimaryParticleNumber() const no
     return LogGeomStdDevFromMoments(M0L, M1L, M2L);
 }
 
-template <ThermoMap Thermo> double HMOM<Thermo>::SootD63() const noexcept
+template <ThermoMap Thermo> double HMOM<Thermo>::soot_d63() const noexcept
 {
     const double M10 = GetMoment(1., 0.);
     const double M43 = GetMoment(4. / 3., 0.);
