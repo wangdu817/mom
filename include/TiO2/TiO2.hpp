@@ -35,9 +35,6 @@
 
 #pragma once
 
-#include "MOM/MomentMethodBase.hpp"
-#include "MOM/ThermoProxy.hpp"
-#include "Eigen/Dense"
 #include <span>
 #include <string>
 #include <string_view>
@@ -45,36 +42,54 @@
 #include <expected>
 #endif
 
+#include "Eigen/Dense"
+
+#include "MOM/MomentMethodBase.hpp"
+#include "MOM/ThermoProxy.hpp"
+
 namespace MOM
 {
 
-// ============================================================================
-// TiO2<Thermo> — 3-equation method of moments for TiO2 nanoparticles
-// ============================================================================
-//
-// Models the formation and evolution of TiO2 nanoparticles from gas-phase
-// titanium precursors (e.g. Ti(OH)4 or TiCl4 families).
-//
-// Transported variables:
-//   moments[0] = YTiO2   — TiO2 particle mass fraction [-]
-//   moments[1] = NTiO2N  — scaled particle number density [-]
-//                          (NTiO2N = N / N0_scaling, N0_scaling typically 1e15 #/m3)
-//   moments[2] = STiO2   — total particle surface per gas volume [m2/m3]
-//
-// Physical processes modelled:
-//   Nucleation    (binary or fixed-cluster collision variant)
-//   Condensation  (precursor condensation on existing particles)
-//   Coagulation   (free-molecular regime)
-//   Sintering     (viscous-flow model: Kruis et al. 1993)
-//   Thermophoresis (via effective diffusion coefficient)
-//
-// NOT modelled (and not present in base source vectors):
-//   Surface growth by chemical vapour deposition (no HACA-equivalent for TiO2)
-//   Oxidation
-//   Radiative heat transfer (particles are dielectric — PlanckCoeffModel::None)
-//
-// @tparam Thermo  Must satisfy MOM::ThermoMap.
-// ============================================================================
+/**
+ * @class TiO2
+ * @brief Three-equation method of moments for TiO2 nanoparticle formation and evolution.
+ *
+ * Models TiO2 (anatase) nanoparticle formation from gas-phase titanium precursors
+ * (e.g. Ti(OH)4, TiCl4 families) via nucleation, condensation, coagulation, and
+ * sintering.  Shares the three-scalar transport structure of `ThreeEquations` but
+ * is adapted for an inorganic oxidic system without surface carbon chemistry.
+ *
+ * @par References
+ * - Kruis, Kusters & Pratsinis, *Aerosol Sci. Technol.* **19** (1993) 514–526.
+ * - Franzelli, Vié & Darabiha, *Proc. Combust. Inst.* **37** (2019) 5411–5419 (NDF reconstruction).
+ *
+ * @par Transported variables
+ * | Index | Symbol | Physical meaning |
+ * |---|---|---|
+ * | 0 | YTiO2  | TiO2 particle mass fraction [-] |
+ * | 1 | NTiO2N | Scaled number density = N / N0_scaling [-] (default N0_scaling = 10¹⁵ #/m³) |
+ * | 2 | STiO2  | Total particle surface area per gas volume [m²/m³] |
+ *
+ * @par Physical processes modelled
+ * - **Nucleation** — binary (precursor + precursor) or fixed-cluster variant.
+ * - **Condensation** — precursor condensation on existing TiO2 particles.
+ * - **Coagulation** — free-molecular kernel with enhancement factor.
+ * - **Sintering** — viscous-flow model (Kruis et al. 1993):
+ *   τ_s = (1/A_s)·T^{−n_s}·exp(T_s/T).
+ * - **Thermophoresis** — encoded in the effective diffusion coefficient.
+ *
+ * @par NOT modelled
+ * - Surface growth by CVD (no HACA-equivalent for TiO2).
+ * - Oxidation (particles are already fully oxidised).
+ * - Radiative heat transfer (dielectric — `PlanckCoeffModel::None`).
+ *
+ * @note `sources_growth()` and `sources_oxidation()` return zero spans (fallback
+ *       from base class — no `_impl()` declared).
+ * @note When sintering is stiff relative to the flow time step, use
+ *       `SinteringDeferredUpdate()` to integrate it separately via an ODE sub-step.
+ *
+ * @tparam Thermo  Must satisfy the MOM::ThermoMap concept.
+ */
 
 template <ThermoMap Thermo> class TiO2 : public MomentMethodBase<TiO2<Thermo>, 3>
 {
@@ -87,37 +102,42 @@ public:
     /// Labels accepted by MOM::MakeAnyMomentMethod for runtime variant selection.
     static constexpr std::array<std::string_view, 2> variant_labels{"TiO2", "tio2"};
 
-    // ── Method-specific sub-model enums ─────────────────────────────────────
+    // -- Method-specific sub-model enums -------------------------------------
 
+    /** @brief Nucleation mechanism selector for TiO2. */
     enum class NucleationVariant : int
     {
-        Off          = 0,
-        Binary       = 1, //!< Ti(OH)4 + Ti(OH)4 → (TiO2)_n + vapour
-        FixedCluster = 2  //!< Nucleation via a fixed-size cluster
+        Off          = 0, //!< Nucleation disabled.
+        Binary       = 1, //!< Ti(OH)4 + Ti(OH)4 → (TiO2)_n + vapour (free-molecular collision).
+        FixedCluster = 2  //!< Nucleation via a fixed-size cluster of n0 TiO2 units.
     };
 
-    // ── NDF reconstruction (shared structure with ThreeEquations) ─────────────
-    //
-    // TiO2 uses the same Pareto + log-normal NDF reconstruction as
-    // ThreeEquations (Franzelli et al. 2019), adapted for TiO2.
-
+    /**
+     * @struct NDFReconstructionData
+     * @brief Parameters of the Pareto + log-normal NDF reconstruction for TiO2.
+     *
+     * Uses the same reconstruction framework as `ThreeEquations` (Franzelli et al.
+     * 2019), adapted for TiO2 nanoparticle size distributions.
+     *
+     * Call `ReconstructedNDFData()` to compute and retrieve these parameters.
+     */
     struct NDFReconstructionData
     {
-        bool valid;     //!< true if reconstruction is physically meaningful
-        double N;       //!< particle number density [#/m3]
-        double fv;      //!< volume fraction [-]
-        double nuMean;  //!< mean particle volume [m3/#]
-        double nuNucl;  //!< nucleated particle volume [m3/#]
-        double alpha;   //!< Pareto weight [-]
-        double nbar0;   //!< nucleation-peak normalised NDF [1/m3]
-        double sigma;   //!< log-normal standard deviation [-]
-        double k;       //!< Pareto tail index [-]
-        double nu1mean; //!< mean volume of Pareto contribution [m3/#]
-        double nu2mean; //!< mean volume of log-normal contribution [m3/#]
-        double mu;      //!< log-normal location parameter [log(m3)]
+        bool valid;     //!< True if reconstruction is physically meaningful.
+        double N;       //!< Particle number density [#/m³].
+        double fv;      //!< Volume fraction [-].
+        double nuMean;  //!< Mean particle volume [m³/#].
+        double nuNucl;  //!< Volume of a newly nucleated particle [m³/#].
+        double alpha;   //!< Pareto weight α ∈ [0,1] [-].
+        double nbar0;   //!< Nucleation-peak normalised NDF value [1/m³].
+        double sigma;   //!< Log-normal standard deviation σ [-].
+        double k;       //!< Pareto tail index k [-].
+        double nu1mean; //!< Mean volume of the Pareto contribution [m³/#].
+        double nu2mean; //!< Mean volume of the log-normal contribution [m³/#].
+        double mu;      //!< Log-normal location parameter μ [log(m³)].
     };
 
-    // ── Construction ─────────────────────────────────────────────────────────
+    // -- Construction ---------------------------------------------------------
 
     explicit TiO2(const Thermo& thermo);
 
@@ -131,7 +151,7 @@ public:
     [[nodiscard]] std::expected<void, std::string> SetupFromDictionary(Dictionary& dict);
 #endif
 
-    // ── MomentMethod concept — state injection ────────────────────────────────
+    // -- MomentMethod concept — state injection --------------------------------
 
     /// @param T    Temperature [K]
     /// @param P_Pa Pressure [Pa]
@@ -145,14 +165,14 @@ public:
     /// Named setter (preferred for TiO2-aware code).
     void SetMoments(double YTiO2, double NTiO2N, double STiO2) noexcept;
 
-    // ── MomentMethod concept — core computation ───────────────────────────────
+    // -- MomentMethod concept — core computation -------------------------------
 
     /// Computes all source terms for the current cell state.
     void CalculateSourceMoments() noexcept;
 
     void CalculateOmegaGas() noexcept;
 
-    // ── Deferred sintering (operator-splitting compatible) ────────────────────
+    // -- Deferred sintering (operator-splitting compatible) --------------------
     //
     // When sintering is stiff relative to the main transport time step,
     // it can be integrated separately using an ODE solver. Call this method
@@ -162,7 +182,7 @@ public:
 
     [[nodiscard]] double SinteringDeferredUpdate(double dt_ode);
 
-    // ── MomentMethod concept — particle properties ────────────────────────────
+    // -- MomentMethod concept — particle properties ----------------------------
 
     [[nodiscard]] double VolumeFraction() const noexcept;
     [[nodiscard]] double ParticleDiameter() const noexcept;  //!< primary particle diameter [m]
@@ -174,14 +194,14 @@ public:
     [[nodiscard]] double NumberOfPrimaryParticles() const noexcept; //!< np [-]
     [[nodiscard]] double DiffusionCoefficient() const noexcept;     //!< [kg/m/s]
 
-    // ── MomentMethod concept — initial conditions ─────────────────────────────
+    // -- MomentMethod concept — initial conditions -----------------------------
 
     [[nodiscard]] std::span<const double> initial_moments() const noexcept
     {
         return {initial_moments_cache_.data(), 3u};
     }
 
-    // ── MomentMethod concept — precursor ──────────────────────────────────────
+    // -- MomentMethod concept — precursor --------------------------------------
 
     [[nodiscard]] int precursor_index() const noexcept { return precursor_index_; }
 
@@ -192,11 +212,11 @@ public:
         return precursor_species_;
     }
 
-    // ── MomentMethod concept — diagnostics ────────────────────────────────────
+    // -- MomentMethod concept — diagnostics ------------------------------------
 
     void PrintSummary() const;
 
-    // ── Aggregated properties helper ──────────────────────────────────────────
+    // -- Aggregated properties helper ------------------------------------------
 
     void Properties(double& fv,
                     double& dp,
@@ -208,7 +228,7 @@ public:
                     double& ssph,
                     double& tauS) const noexcept;
 
-    // ── Reporter output hook (MomentMethodReporter extensibility protocol) ──────
+    // -- Reporter output hook (MomentMethodReporter extensibility protocol) ------
     //
     // Makes TiO2 self-describing with respect to output.
     // MomentMethodReporter calls this with a lambda cb(label, value):
@@ -236,7 +256,7 @@ public:
         cb("mu[log(m3)]", ndf.mu);
     }
 
-    // ── NDF reconstruction (TiO2-specific) ───────────────────────────────────
+    // -- NDF reconstruction (TiO2-specific) -----------------------------------
 
     [[nodiscard]] NDFReconstructionData ReconstructedNDFData(bool use_regularized_moments = false) const;
 
@@ -249,7 +269,7 @@ public:
                           Eigen::VectorXd& n,
                           bool use_regularized_moments = false) const;
 
-    // ── Material / geometry accessors ─────────────────────────────────────────
+    // -- Material / geometry accessors -----------------------------------------
 
     [[nodiscard]] double rhoTiO2() const noexcept { return rhoTiO2_; }
 
@@ -261,7 +281,7 @@ public:
 
     [[nodiscard]] double ScalingFactorNs() const noexcept { return N0_scaling_; }
 
-    // ── Model switches ────────────────────────────────────────────────────────
+    // -- Model switches --------------------------------------------------------
 
     void SetNucleation(int flag) noexcept
     {
@@ -301,7 +321,7 @@ public:
     /// Configure stoichiometry for gas-phase consumption from precursor formula.
     void SetupGasConsumptionStoichiometry();
 
-    // ── Model state queries ────────────────────────────────────────────────────
+    // -- Model state queries ----------------------------------------------------
 
     [[nodiscard]] int nucleation_model() const noexcept
     {
@@ -316,11 +336,16 @@ public:
 
     [[nodiscard]] bool is_sintering_deferred() const noexcept { return is_sintering_deferred_; }
 
-    // ── CRTP extension points — process source storage owned by TiO2 ─────────
-    //
-    // TiO2 models: nucleation, coagulation, condensation, sintering.
-    // NOT modelled: growth, oxidation → base class returns zero span for both.
+    /**
+     * @name CRTP extension points — per-process source storage
+     *
+     * TiO2 models: nucleation, coagulation, condensation, sintering.
+     * Growth and oxidation are **not** modelled; `sources_growth()` and
+     * `sources_oxidation()` return zero spans automatically.
+     * @{
+     */
 
+    /** @brief Nucleation source terms [mol/m³/s], size = n_equations. */
     [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation_impl() const noexcept
     {
         return {source_nucleation_.data(), this->n_equations};
@@ -341,9 +366,11 @@ public:
         return {source_sintering_.data(), this->n_equations};
     }
 
+    /** @} */
+
 private:
 
-    // ── Private computational methods ──────────────────────────────────────────
+    // -- Private computational methods ------------------------------------------
 
     void MemoryAllocation();
     void Precalculations();
@@ -357,26 +384,26 @@ private:
 
 private:
 
-    // ── Thermodynamics reference ───────────────────────────────────────────────
+    // -- Thermodynamics reference -----------------------------------------------
     const Thermo& thermo_;
 
-    // ── Transported variables ──────────────────────────────────────────────────
+    // -- Transported variables --------------------------------------------------
     double YTiO2_      = 0.;    //!< TiO2 mass fraction [-]
     double NTiO2N_     = 0.;    //!< N / N0_scaling [-]
     double STiO2_      = 0.;    //!< surface area concentration [m2/m3]
     double N0_scaling_ = 1.e15; //!< [#/m3]
 
-    // ── Material properties ────────────────────────────────────────────────────
+    // -- Material properties ----------------------------------------------------
     static constexpr double W_TiO2_  = 79.866; //!< TiO2 molecular weight [kg/kmol]
     static constexpr double rhoTiO2_ = 3900.;  //!< solid anatase density [kg/m3]
     static constexpr double m_TiO2_  = W_TiO2_ / (6.02214076e26); //!< [kg/molecule]
 
-    // ── Monomer/nucleus geometry ───────────────────────────────────────────────
+    // -- Monomer/nucleus geometry -----------------------------------------------
     double v0_ = 0.; //!< monomer volume [m3]
     double s0_ = 0.; //!< monomer surface [m2]
     double d0_ = 0.; //!< monomer diameter [m]
 
-    // ── Precursor properties ───────────────────────────────────────────────────
+    // -- Precursor properties ---------------------------------------------------
     std::string precursor_species_;
     int precursor_index_  = -1;
     double nti_precursor_ = 0.; //!< Ti atoms per precursor molecule
@@ -396,7 +423,7 @@ private:
     double vprec_ = 0.; //!< solid TiO2 volume added per precursor molecule [m3]
     double dprec_ = 0.; //!< collision diameter for beta_nuc / beta_cond [m]
 
-    // ── Gas consumption stoichiometry ──────────────────────────────────────────
+    // -- Gas consumption stoichiometry ------------------------------------------
     // Derived from atom balance: Ti_a C_b H_c O_d + x O2 → TiO2(s) + y CO2 + z H2O
     int H2O_index_ = -1, CO2_index_ = -1, O2_index_ = -1;
     double W_H2O_ = 0., W_CO2_ = 0., W_O2_ = 0.;
@@ -404,13 +431,13 @@ private:
     double nu_CO2_from_prec_ = 0.; //!< CO2 stoichiometric coefficient
     double nu_O2_from_prec_  = 0.; //!< O2 stoichiometric coefficient (negative = consumed)
 
-    // ── Nucleation parameters ──────────────────────────────────────────────────
+    // -- Nucleation parameters --------------------------------------------------
     NucleationVariant nucleation_variant_ = NucleationVariant::Off;
     unsigned int nTiO2_min_               = 1;   //!< minimum reference size for regularization
     unsigned int n0_                      = 5;   //!< TiO2 units per newly nucleated particle
     double epsilon_nuc_                   = 2.5; //!< nucleation collision enhancement factor
 
-    // ── Sintering parameters ───────────────────────────────────────────────────
+    // -- Sintering parameters ---------------------------------------------------
     double As_ = 7.44e16; //!< sintering frequency factor [1/s/K]
     double ns_ = 1.0;     //!< temperature exponent [-]
     double Ts_ = -31000.; //!< activation temperature [K] (negative = Arrhenius)
@@ -425,7 +452,7 @@ private:
     double sintering_tau_qss_             = 0.;
     bool is_sintering_deferred_           = false;
 
-    // ── Coagulation / condensation parameters ──────────────────────────────────
+    // -- Coagulation / condensation parameters ----------------------------------
     double epsilon_coag_ = 2.2; //!< coagulation enhancement factor
     double epsilon_cond_ = 1.3; //!< condensation enhancement factor
 
@@ -434,18 +461,18 @@ private:
     double alpha_coag_ = 0.; //!< [m^(5/2)/s/K^(1/2)]
     double alpha_cond_ = 0.; //!< [m^(5/2)/s/K^(1/2)]
 
-    // ── Model flags ────────────────────────────────────────────────────────────
+    // -- Model flags ------------------------------------------------------------
     int coagulation_model_  = 0;
     int condensation_model_ = 0;
     int sintering_model_    = 0;
 
-    // ── Numerical regularisation floors ───────────────────────────────────────
+    // -- Numerical regularisation floors ---------------------------------------
     double N_min_  = 1.;     //!< [#/m3]
     double fv_min_ = 1.e-15; //!< [-]
     double v_min_  = 0.;     //!< [m3] set in Precalculations from nTiO2_min_
     double S_min_  = 0.;     //!< [m2/m3]
 
-    // ── Per-process source storage (owned by TiO2, not by base) ──────────────
+    // -- Per-process source storage (owned by TiO2, not by base) --------------
     //
     // TiO2 models: nucleation, coagulation, condensation, sintering.
     // growth and oxidation are absent; base class returns zero span for both.
@@ -455,7 +482,7 @@ private:
     MomentVector source_condensation_ = MomentVector::Zero();
     MomentVector source_sintering_    = MomentVector::Zero();
 
-    // ── Initial moments cache ──────────────────────────────────────────────────
+    // -- Initial moments cache --------------------------------------------------
     MomentVector initial_moments_cache_ = MomentVector::Zero();
 
     bool is_debug_mode_ = false; //!< enable verbose diagnostic output

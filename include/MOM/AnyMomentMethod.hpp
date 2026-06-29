@@ -35,15 +35,18 @@
 
 #pragma once
 
+// -- Standard library ---------------------------------------------------------
+#include <functional>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+
+// -- Project headers -----------------------------------------------------------
 // MomVariantList.hpp is the single authoritative registry of all variants.
 // It transitively provides: all variant headers, MomentMethodConcept.hpp,
 // detail::TypeList, AllVariants, and <variant>.
 #include "MomVariantList.hpp"
-#include <functional>
-#include <span>
-#include <string_view>
-#include <stdexcept>
-#include <string>
 
 namespace MOM
 {
@@ -78,7 +81,7 @@ namespace MOM
 //
 // ============================================================================
 
-// ── AnyMomentMethod<Thermo> — derived automatically from AllVariants ──────────
+// -- AnyMomentMethod<Thermo> — derived automatically from AllVariants ----------
 //
 // Expands to std::variant<HMOM<Thermo>, BrookesMoss<Thermo>, ...> with the
 // exact set of types registered in MomVariantList.hpp::AllVariants.
@@ -102,7 +105,12 @@ using AnyMomentMethod = typename AllVariants::template AsVariant<Thermo>;
 namespace detail
 {
 
-// Base case: empty list — no variant matched the label.
+/**
+ * @brief Base case — empty variant list; no label matched.
+ *
+ * Throws `std::invalid_argument` with a diagnostic message pointing to
+ * `MomVariantList.hpp` for the list of registered variants.
+ */
 template <template <typename> class... Vs> struct FactoryHelper
 {
     template <typename Thermo>
@@ -114,7 +122,13 @@ template <template <typename> class... Vs> struct FactoryHelper
     }
 };
 
-// Recursive case: try First's labels, then recurse into Rest...
+/**
+ * @brief Recursive case — try `First`'s labels, then recurse into `Rest...`.
+ *
+ * Iterates `First<Thermo>::variant_labels` at compile time.  On a match,
+ * constructs an `AnyMomentMethod<Thermo>` in-place holding `First<Thermo>`.
+ * On no match, delegates to `FactoryHelper<Rest...>`.
+ */
 template <template <typename> class First, template <typename> class... Rest>
 struct FactoryHelper<First, Rest...>
 {
@@ -128,9 +142,12 @@ struct FactoryHelper<First, Rest...>
     }
 };
 
-// Unpack TypeList<Vs...> → FactoryHelper<Vs...>::make
-// This allows MakeAnyMomentMethod to delegate to the correct FactoryHelper
-// specialisation without naming the individual variant types.
+/**
+ * @brief Unpacks `TypeList<Vs...>` → `FactoryHelper<Vs...>::make`.
+ *
+ * Allows `MakeAnyMomentMethod` to delegate to the correct `FactoryHelper`
+ * specialisation without naming the individual variant types explicitly.
+ */
 template <template <typename> class... Vs, typename Thermo>
 inline AnyMomentMethod<Thermo> make_from_type_list(TypeList<Vs...>,
                                                    const Thermo& thermo,
@@ -141,80 +158,90 @@ inline AnyMomentMethod<Thermo> make_from_type_list(TypeList<Vs...>,
 
 } // namespace detail
 
-// ============================================================================
-// Factory function
-// ============================================================================
-//
-// Constructs an AnyMomentMethod holding the concrete type whose variant_labels
-// contains @p label (exact, case-sensitive match).
-//
-// @param thermo  Thermodynamics object (must outlive the returned variant)
-// @param label   Any label registered in a variant's variant_labels member.
-//                See MomVariantList.hpp for all registered variants.
-//
-// @throws std::invalid_argument if label is not recognised.
-// ============================================================================
-
+/**
+ * @brief Construct an `AnyMomentMethod` holding the variant matching @p label.
+ *
+ * Performs an exact, case-sensitive match against each registered variant's
+ * `variant_labels` static member (defined in `MomVariantList.hpp`).
+ *
+ * @par Example
+ * @code
+ *   MOM::AnyMomentMethod<MyThermo> model =
+ *       MOM::MakeAnyMomentMethod<MyThermo>(thermo, "HMOM");
+ * @endcode
+ *
+ * @tparam Thermo    Must satisfy `ThermoMap`.
+ * @param  thermo    Thermodynamics object — must outlive the returned variant.
+ * @param  label     Any label registered in a variant's `variant_labels` member.
+ * @return `AnyMomentMethod<Thermo>` holding the matched concrete type.
+ * @throws std::invalid_argument if @p label is not recognised.
+ */
 template <ThermoMap Thermo>
 [[nodiscard]] AnyMomentMethod<Thermo> MakeAnyMomentMethod(const Thermo& thermo,
                                                           std::string_view label);
 
-// ============================================================================
-// Generic dispatch helpers (free functions, not member functions)
-// ============================================================================
-//
-// These reproduce the full MomentMethod concept interface as free functions
-// operating on AnyMomentMethod. Each is a one-liner std::visit wrapper.
-// They are the "uniform call site" for CFD solver code that works with any
-// method without template parameters.
-//
-// All helpers have O(1) dispatch cost (one indirect branch via jump table).
-// ============================================================================
+/**
+ * @name Runtime dispatch helpers for AnyMomentMethod
+ *
+ * These free functions reproduce the full `MomentMethod` concept interface as
+ * `std::visit` wrappers operating on `AnyMomentMethod<Thermo>`.  Each carries
+ * O(1) dispatch cost — one indirect branch via the `std::variant` jump table.
+ *
+ * Use these when the concrete type is not known at compile time (e.g. the method
+ * is chosen from an input file).  When the type IS known statically, prefer the
+ * direct template interface or `MomentMethod`-constrained overloads — the
+ * compiler can then inline and vectorise the full computation.
+ * @{
+ */
 
-/// Returns the number of transported equations for the active method.
+/** @brief Returns the number of transported equations for the active method. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline unsigned GetNEquations(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) -> unsigned { return mm.n_equations; }, m);
 }
 
-/// Injects thermodynamic state into the active method.
+/**
+ * @brief Injects thermodynamic state into the active method.
+ * @param T    Temperature [K].
+ * @param P_Pa Pressure [Pa].
+ * @param Y    Species mass fractions (pointer, size = n_species).
+ */
 template <ThermoMap Thermo>
 inline void SetState(AnyMomentMethod<Thermo>& m, double T, double P_Pa, const double* Y) noexcept
 {
     std::visit([&](auto& mm) { mm.SetStatus(T, P_Pa, Y); }, m);
 }
 
-/// Sets the mixture dynamic viscosity [kg/m/s].
+/** @brief Sets the mixture dynamic viscosity [kg/m/s]. */
 template <ThermoMap Thermo> inline void SetViscosity(AnyMomentMethod<Thermo>& m, double mu) noexcept
 {
     std::visit([mu](auto& mm) { mm.SetViscosity(mu); }, m);
 }
 
-/// Sets current moment values from a contiguous span.
+/** @brief Sets current moment values from a contiguous span of size `n_equations`. */
 template <ThermoMap Thermo>
 inline void SetMoments(AnyMomentMethod<Thermo>& m, std::span<const double> moments) noexcept
 {
     std::visit([moments](auto& mm) { mm.SetMoments(moments); }, m);
 }
 
-/// Computes all source terms and gas-phase consumption.
+/** @brief Computes all source terms and gas-phase consumption. */
 template <ThermoMap Thermo> inline void Compute(AnyMomentMethod<Thermo>& m)
 {
     std::visit([](auto& mm) { mm.CalculateSourceMoments(); }, m);
 }
 
-// ============================================================================
-// ComputeCell — single-call per-cell entry point (runtime path)
-// ============================================================================
-//
-// Collapses the four-call sequence (SetState/SetMoments/SetViscosity/Compute)
-// into a single std::visit, reducing jump-table dispatches from four to one.
-//
-// For the compile-time path (type known statically), use the MomentMethod-
-// constrained overload in MomentMethodConcept.hpp instead.
-// ============================================================================
-
+/**
+ * @brief Single-call per-cell entry point for the runtime path.
+ *
+ * Collapses `SetState` / `SetMoments` / `SetViscosity` / `Compute` into a
+ * single `std::visit`, reducing jump-table dispatches from four to one.
+ *
+ * @note For the compile-time path (type known statically), use the
+ *       `MomentMethod`-constrained `ComputeCell` overload in
+ *       `MomentMethodConcept.hpp` — it allows full inlining.
+ */
 template <ThermoMap Thermo>
 inline void ComputeCell(AnyMomentMethod<Thermo>& m,
                         double T,
@@ -234,36 +261,34 @@ inline void ComputeCell(AnyMomentMethod<Thermo>& m,
         m);
 }
 
-// ============================================================================
-// ForEachCell — hoist variant dispatch outside the cell loop
-// ============================================================================
-//
-// The key CFD loop pattern: call this ONCE before iterating over cells.
-// std::visit selects the concrete variant type once, then calls `callback`
-// with the concrete model as argument. The callback owns the loop, so all
-// N cells are processed with the SAME concrete type — zero jump-table
-// overhead inside the hot loop.
-//
-// Compare with ComputeCell (above), which calls std::visit for each cell
-// individually.  Both are correct; ForEachCell is optimal for bulk sweeps.
-//
-// Usage:
-//
-//   MOM::ForEachCell(model, [&](auto& m) {
-//       // typeof(m) is the concrete type, e.g. ThreeEquations<Thermo>&
-//       // All cells share this one instantiation — fully specialised.
-//       for (int i = 0; i < n_cells; ++i) {
-//           MOM::ComputeCell(m, T[i], P[i], Y + i*ns, mu[i], M + i*neq);
-//           auto src = m.sources();
-//           std::copy(src.begin(), src.end(), Src + i*neq);
-//       }
-//   });
-//
-// The compiler generates four fully-optimised loop bodies (one per variant
-// alternative) and selects among them via a single indirect branch, which
-// the branch predictor collapses to zero overhead after the first call.
-// ============================================================================
-
+/**
+ * @brief Hoist variant dispatch outside the cell loop for maximum performance.
+ *
+ * Calls `std::visit` **once** before the cell loop, then invokes @p callback
+ * with the concrete model type as argument.  The callback owns the loop, so all
+ * N cells are processed with the same concrete type — zero jump-table overhead
+ * inside the hot loop.
+ *
+ * @code
+ *   MOM::ForEachCell(model, [&](auto& m) {
+ *       // typeof(m) is, e.g., ThreeEquations<Thermo>&
+ *       for (int i = 0; i < n_cells; ++i) {
+ *           MOM::ComputeCell(m, T[i], P[i], Y + i*ns, mu[i], M + i*neq);
+ *           auto src = m.sources();
+ *           std::copy(src.begin(), src.end(), Src + i*neq);
+ *       }
+ *   });
+ * @endcode
+ *
+ * The compiler generates one fully-optimised loop body per registered variant
+ * and selects among them via a single indirect branch, which the branch
+ * predictor collapses to zero overhead after the first call.
+ *
+ * @tparam Thermo       Must satisfy `ThermoMap`.
+ * @tparam CellCallback Callable with signature `void(ConcreteModel&)`.
+ * @param  m            The runtime-polymorphic model instance.
+ * @param  callback     Function receiving the concrete model reference.
+ */
 template <ThermoMap Thermo, typename CellCallback>
 inline void ForEachCell(AnyMomentMethod<Thermo>& m, CellCallback&& callback)
 {
@@ -271,7 +296,10 @@ inline void ForEachCell(AnyMomentMethod<Thermo>& m, CellCallback&& callback)
 }
 
 #if defined(MOM_USE_DICTIONARY)
-/// Setup from a dictionary
+/**
+ * @brief Configure the active variant from a key-value dictionary.
+ * @return `std::expected<void, std::string>` — error string on failure, never throws.
+ */
 template <ThermoMap Thermo, typename Dictionary>
 [[nodiscard]] inline std::expected<void, std::string> SetupFromDictionary(AnyMomentMethod<Thermo>& m,
                                                                           Dictionary& dict)
@@ -282,82 +310,91 @@ template <ThermoMap Thermo, typename Dictionary>
 }
 #endif
 
+/** @brief Returns the thermophoretic model flag (0 = off, 1 = standard). */
 template <ThermoMap Thermo>
 [[nodiscard]] inline int GetThermophoreticModel(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.thermophoretic_model(); }, m);
 }
 
+/** @brief Returns `true` if gas-phase precursor consumption is enabled. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline bool GetGasConsumption(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.GasConsumption(); }, m);
 }
 
-/// Returns a span over the total source vector (all processes summed).
+/**
+ * @brief Returns a zero-copy span over the total source vector [mol/m³/s].
+ * @return Span of size `n_equations`; valid until next `CalculateSourceMoments()`.
+ */
 template <ThermoMap Thermo>
 [[nodiscard]] inline std::span<const double> GetSources(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.sources(); }, m);
 }
 
-/// Returns a span over the gas-phase source terms [kg/m3/s].
+/** @brief Returns a zero-copy span over gas-phase consumption terms [kg/m³/s]. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline std::span<const double> GetOmegaGas(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.omega_gas(); }, m);
 }
 
-/// Returns soot/particle volume fraction [-].
+/** @brief Returns the particle volume fraction [-]. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline double GetVolumeFraction(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.VolumeFraction(); }, m);
 }
 
-/// Returns mean primary particle diameter [m].
+/** @brief Returns the mean primary particle diameter [m]. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline double GetParticleDiameter(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.ParticleDiameter(); }, m);
 }
 
-/// Returns particle number density [#/m3].
+/** @brief Returns the total particle number density [#/m³]. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline double GetParticleNumberDensity(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.ParticleNumberDensity(); }, m);
 }
 
-/// Returns particle mass fraction [-].
+/** @brief Returns the particle mass fraction [-]. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline double GetMassFraction(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.MassFraction(); }, m);
 }
 
-/// Returns the Schmidt number for the particle phase [-].
+/** @brief Returns the particle Schmidt number [-]. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline double GetSchmidtNumber(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.schmidt_number(); }, m);
 }
 
-/// Returns the effective diffusion coefficient [kg/m/s].
+/** @brief Returns the effective particle diffusion coefficient [kg/m/s]. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline double GetDiffusionCoefficient(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.DiffusionCoefficient(); }, m);
 }
 
-/// Returns true if the Planck absorption coefficient should be included.
+/** @brief Returns `true` if the Planck absorption coefficient should be included in radiation. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline bool GetRadiativeHeatTransfer(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.radiative_heat_transfer(); }, m);
 }
 
-/// Returns the Planck absorption coefficient [1/m].
+/**
+ * @brief Returns the Planck mean absorption coefficient of the particle phase [1/m].
+ * @param T  Gas temperature [K].
+ * @param fv Particle volume fraction [-].
+ */
 template <ThermoMap Thermo>
 [[nodiscard]] inline double GetPlanckCoefficient(const AnyMomentMethod<Thermo>& m,
                                                  double T,
@@ -366,64 +403,44 @@ template <ThermoMap Thermo>
     return std::visit([T, fv](const auto& mm) { return mm.planck_coefficient(T, fv); }, m);
 }
 
-/// Returns the initial moment values for solver initialisation.
+/**
+ * @brief Returns the initial moment values for solver initialisation.
+ * @return Span of size `n_equations` with near-zero seed values.
+ */
 template <ThermoMap Thermo>
 [[nodiscard]] inline std::span<const double> GetInitialMoments(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.initial_moments(); }, m);
 }
 
-/// Returns true if a gas-closure dummy species is active.
+/** @brief Returns `true` if a gas-closure dummy species has been configured. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline bool GetClosureDummySpeciesIsActive(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.ClosureDummySpeciesIsActive(); }, m);
 }
 
-/// Returns 0-based index of the gas-closure dummy species (-1 if inactive).
+/** @brief Returns the 0-based index of the gas-closure dummy species (−1 if inactive). */
 template <ThermoMap Thermo>
 [[nodiscard]] inline int GetClosureDummyIndex(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.closure_dummy_index(); }, m);
 }
 
-/// Returns 0-based precursor species index.
+/** @brief Returns the 0-based precursor species index in the thermo map (−1 if unset). */
 template <ThermoMap Thermo>
 [[nodiscard]] inline int GetPrecursorIndex(const AnyMomentMethod<Thermo>& m) noexcept
 {
     return std::visit([](const auto& mm) { return mm.precursor_index(); }, m);
 }
 
-/// Prints the model configuration summary.
+/** @brief Prints the active variant's model configuration to stdout. */
 template <ThermoMap Thermo> inline void PrintSummary(const AnyMomentMethod<Thermo>& m)
 {
     std::visit([](const auto& mm) { mm.PrintSummary(); }, m);
 }
 
-// ============================================================================
-// Compile-time variant for performance-critical inner loops
-// ============================================================================
-//
-// When the method IS known at compile time, use this alias directly in a
-// templated cell-loop function. This allows full inlining and vectorisation
-// of CalculateSourceMoments().
-//
-// Pattern:
-//
-//   using ParticleModel = MOM::ThreeEquations<MyThermo>;  // ← one line to switch
-//   static_assert(MOM::MomentMethod<ParticleModel>);
-//
-//   template <MOM::MomentMethod M>
-//   void CellLoop(M& model, /* ... */) {
-//       for (auto& cell : cells) {
-//           model.SetStatus(cell.T, cell.P, cell.Y.data());
-//           model.SetMoments(cell.moments);
-//           model.CalculateSourceMoments();
-//           // access model.sources() — zero-copy span
-//       }
-//   }
-//
-// ============================================================================
+/** @} */
 
 } // namespace MOM
 

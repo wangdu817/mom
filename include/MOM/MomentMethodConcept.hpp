@@ -41,76 +41,79 @@
 namespace MOM
 {
 
-// ============================================================================
-// MomentMethod concept
-// ============================================================================
-//
-// This is the authoritative public contract for all moment method classes.
-// Any class M satisfying MomentMethod<M> can be used interchangeably by
-// a CFD solver without any modification to the solver code, beyond changing
-// a single type alias:
-//
-//   using ParticleModel = MOM::ThreeEquations<MyThermo>;   // ← change this line
-//   static_assert(MOM::MomentMethod<ParticleModel>);
-//
-// The concept is split into semantic groups for readability.
-//
-// --- Concept requirements summary ---
-//
-// Compile-time:
-//   M::n_equations         — unsigned, number of transported moment equations
-//
-// State injection (call before CalculateSourceMoments per cell/time-step):
-//   SetStatus(T, P, Y[])  — thermodynamic state
-//   SetMoments(span)       — current moment values
-//   SetViscosity(mu)       — mixture dynamic viscosity
-//
-// Core computation:
-//   CalculateSourceMoments()  — evaluates all source terms
-//   CalculateOmegaGas()       — evaluates gas-phase consumption terms only
-//
-// Source output (zero-copy spans into internal fixed-size storage):
-//   sources()              — total source vector [n_equations]
-//   sources_nucleation()   — nucleation contribution
-//   sources_coagulation()  — coagulation contribution
-//   sources_condensation() — condensation contribution (zero if not modelled)
-//   sources_growth()       — surface growth contribution (zero if not modelled)
-//   sources_oxidation()    — oxidation contribution (zero if not modelled)
-//   sources_sintering()    — sintering contribution (zero if not modelled)
-//   omega_gas()            — gas-phase source terms [n_species, kg/m3/s]
-//
-// Particle properties (derived from current moment values):
-//   VolumeFraction()       — particle volume fraction [-]
-//   ParticleDiameter()     — primary particle diameter [m]
-//   CollisionDiameter()    — collision (aggregate) diameter [m]
-//   ParticleNumberDensity()— number density [#/m3]
-//   MassFraction()         — particle mass fraction [-]
-//   ParticleDensity()      — material density [kg/m3]
-//   SpecificSurface()      — surface area per unit volume [m2/m3]
-//
-// Transport:
-//   schmidt_number()       — particle Schmidt number [-]
-//   DiffusionCoefficient() — effective diffusion coefficient [kg/m/s]
-//   thermophoretic_model() — thermophoretic model flag (int)
-//
-// Status / control:
-//   is_active()            — true if the method is configured and active
-//   GasConsumption()       — true if gas-phase consumption is enabled
-//   initial_moments()      — initialisation values for the moment vector
-//
-// Gas coupling:
-//   precursor_index()      — 0-based index of precursor species in thermo map
-//   precursor_concentration() — precursor molar concentration [kmol/m3]
-//   ClosureDummySpeciesIsActive() — true if a dummy closure species is set
-//   closure_dummy_index()  — 0-based index of dummy closure species
-//
-// Radiative heat transfer:
-//   radiative_heat_transfer() — true if particles contribute to radiation
-//   planck_coefficient(T, fv) — Planck mean absorption coefficient [1/m]
-//
-// Diagnostics:
-//   PrintSummary()         — prints model configuration to stdout
-// ============================================================================
+/**
+ * @concept MomentMethod
+ * @brief Authoritative public contract for all Method of Moments particle models.
+ *
+ * Any class @p M satisfying `MomentMethod<M>` can be used interchangeably by a
+ * CFD solver without modification beyond changing a single type alias:
+ *
+ * @code
+ *   using ParticleModel = MOM::ThreeEquations<MyThermo>;  // ← change only this
+ *   static_assert(MOM::MomentMethod<ParticleModel>);
+ * @endcode
+ *
+ * All concrete variants (HMOM, BrookesMoss, ThreeEquations, TiO2) derive from
+ * MomentMethodBase<Derived, NEq> and are checked against this concept at compile
+ * time.  The concept is intentionally free of implementation details — it specifies
+ * only observable behaviour.
+ *
+ * @par Concept requirements summary
+ *
+ * **Compile-time:**
+ * - `M::n_equations` — unsigned, number of transported moment equations
+ *
+ * **State injection** (call before CalculateSourceMoments each cell/time-step):
+ * - `SetStatus(T, P, Y[])` — thermodynamic state (T [K], P [Pa], Y mass fractions)
+ * - `SetMoments(span)` — current moment values
+ * - `SetViscosity(mu)` — mixture dynamic viscosity [kg/m/s]
+ *
+ * **Core computation:**
+ * - `CalculateSourceMoments()` — evaluates all source terms (noexcept)
+ * - `CalculateOmegaGas()` — evaluates gas-phase consumption terms only (noexcept)
+ *
+ * **Source output** (zero-copy spans into internal fixed-size storage):
+ * - `sources()` — total source vector, size = n_equations
+ * - `sources_nucleation()` — nucleation contribution
+ * - `sources_coagulation()` — coagulation contribution
+ * - `sources_condensation()` — condensation contribution (zero span if not modelled)
+ * - `sources_growth()` — surface growth contribution (zero span if not modelled)
+ * - `sources_oxidation()` — oxidation contribution (zero span if not modelled)
+ * - `sources_sintering()` — sintering contribution (zero span if not modelled)
+ * - `omega_gas()` — gas-phase species source terms [kg/m3/s], size = n_species
+ *
+ * **Particle properties** (derived from current moment values):
+ * - `VolumeFraction()` — particle volume fraction [-]
+ * - `ParticleDiameter()` — primary particle diameter [m]
+ * - `CollisionDiameter()` — collision (aggregate) diameter [m]
+ * - `ParticleNumberDensity()` — number density [#/m3]
+ * - `MassFraction()` — particle mass fraction [-]
+ * - `ParticleDensity()` — material density [kg/m3]
+ * - `SpecificSurface()` — surface area per unit volume [m2/m3]
+ *
+ * **Transport:**
+ * - `schmidt_number()` — particle Schmidt number [-]
+ * - `DiffusionCoefficient()` — effective diffusion coefficient [kg/m/s]
+ * - `thermophoretic_model()` — thermophoretic model flag (int, 0 = off)
+ *
+ * **Status / control:**
+ * - `is_active()` — true if the method is configured and active
+ * - `GasConsumption()` — true if gas-phase consumption is enabled
+ * - `initial_moments()` — initialisation values for the moment transport equations
+ *
+ * **Gas coupling:**
+ * - `precursor_index()` — 0-based index of precursor species in the thermo map
+ * - `precursor_concentration()` — precursor molar concentration [kmol/m3]
+ * - `ClosureDummySpeciesIsActive()` — true if a dummy closure species is configured
+ * - `closure_dummy_index()` — 0-based index of the dummy closure species
+ *
+ * **Radiative heat transfer:**
+ * - `radiative_heat_transfer()` — true if particles contribute to radiative loss
+ * - `planck_coefficient(T, fv)` — Planck mean absorption coefficient [1/m]
+ *
+ * **Diagnostics:**
+ * - `PrintSummary()` — prints model configuration to stdout
+ */
 
 template <typename M>
 concept MomentMethod =
@@ -122,20 +125,20 @@ concept MomentMethod =
 
     &&
     requires(M m, const M cm, double scalar, const double* Y_ptr, std::span<const double> moments_in) {
-        // ── State injection ────────────────────────────────────────────────
+        // -- State injection ------------------------------------------------
         // Y_ptr is a properly-typed local variable; no null-pointer cast needed.
         // noexcept is required: these setters run every cell iteration.
         { m.SetStatus(scalar, scalar, Y_ptr) } noexcept; // T [K], P [Pa], Y[]
         { m.SetMoments(moments_in) } noexcept;
         { m.SetViscosity(scalar) } noexcept;
 
-        // ── Core computation ───────────────────────────────────────────────
+        // -- Core computation -----------------------------------------------
         // noexcept is part of the contract: these run in the CFD inner loop
         // and must not carry exception-handling overhead or prevent hoisting.
         { m.CalculateSourceMoments() } noexcept;
         { m.CalculateOmegaGas() } noexcept;
 
-        // ── Source output (zero-copy spans) ────────────────────────────────
+        // -- Source output (zero-copy spans) --------------------------------
         { cm.sources() } -> std::convertible_to<std::span<const double>>;
         { cm.sources_nucleation() } -> std::convertible_to<std::span<const double>>;
         { cm.sources_coagulation() } -> std::convertible_to<std::span<const double>>;
@@ -145,7 +148,7 @@ concept MomentMethod =
         { cm.sources_sintering() } -> std::convertible_to<std::span<const double>>;
         { cm.omega_gas() } -> std::convertible_to<std::span<const double>>;
 
-        // ── Particle properties ────────────────────────────────────────────
+        // -- Particle properties --------------------------------------------
         { cm.VolumeFraction() } -> std::same_as<double>;
         { cm.ParticleDiameter() } -> std::same_as<double>;
         { cm.CollisionDiameter() } -> std::same_as<double>;
@@ -154,74 +157,77 @@ concept MomentMethod =
         { cm.ParticleDensity() } -> std::same_as<double>;
         { cm.SpecificSurface() } -> std::same_as<double>;
 
-        // ── Transport ──────────────────────────────────────────────────────
+        // -- Transport ------------------------------------------------------
         { cm.schmidt_number() } -> std::same_as<double>;
         { cm.DiffusionCoefficient() } -> std::same_as<double>;
         { cm.thermophoretic_model() } -> std::same_as<int>;
 
-        // ── Status / control ───────────────────────────────────────────────
+        // -- Status / control -----------------------------------------------
         { cm.is_active() } -> std::same_as<bool>;
         { cm.GasConsumption() } -> std::same_as<bool>;
         { cm.initial_moments() } -> std::convertible_to<std::span<const double>>;
 
-        // ── Gas coupling ───────────────────────────────────────────────────
+        // -- Gas coupling ---------------------------------------------------
         { cm.precursor_index() } -> std::same_as<int>;
         { cm.precursor_concentration() } -> std::same_as<double>;
         { cm.ClosureDummySpeciesIsActive() } -> std::same_as<bool>;
         { cm.closure_dummy_index() } -> std::same_as<int>;
 
-        // ── Radiative heat transfer ────────────────────────────────────────
+        // -- Radiative heat transfer ----------------------------------------
         { cm.radiative_heat_transfer() } -> std::same_as<bool>;
         { cm.planck_coefficient(scalar, scalar) } -> std::same_as<double>;
 
-        // ── Diagnostics ────────────────────────────────────────────────────
+        // -- Diagnostics ----------------------------------------------------
         { cm.PrintSummary() };
     };
 
-// ============================================================================
-// Helper alias: CFD adapter using a specific moment method
-// ============================================================================
-//
-// Illustrates the "one line to switch" idiom.
-// The static_assert fires at include time with a clear message if the
-// selected type no longer satisfies the concept (e.g. after a refactoring).
-//
-//   // In the CFD solver:
-//   #include "MOM/MOM.hpp"
-//   using ParticleModel = MOM::HMOM<MOM::Thermo>;
-//   static_assert(MOM::MomentMethod<ParticleModel>,
-//       "ParticleModel must satisfy MOM::MomentMethod");
-//
-// ============================================================================
+/**
+ * @brief Illustrates the "one line to switch" idiom.
+ *
+ * The `static_assert` fires at include time with a clear message if the
+ * selected type no longer satisfies the concept (e.g. after a refactoring).
+ *
+ * @code
+ *   // In the CFD solver:
+ *   #include "MOM/MOM.hpp"
+ *   using ParticleModel = MOM::HMOM<MOM::Thermo>;
+ *   static_assert(MOM::MomentMethod<ParticleModel>,
+ *       "ParticleModel must satisfy MOM::MomentMethod");
+ * @endcode
+ */
 
-// ============================================================================
-// ComputeCell — single-call per-cell entry point (compile-time path)
-// ============================================================================
-//
-// Preferred over calling SetStatus/SetMoments/SetViscosity/CalculateSourceMoments
-// individually. Bundling all four into one call lets the compiler keep the
-// object layout in registers across the full per-cell computation without
-// reloading 'this' at each function boundary.
-//
-// @param model    Any type satisfying MomentMethod<M>
-// @param T        Temperature [K]
-// @param P_Pa     Pressure [Pa]
-// @param Y        Species mass fractions (pointer, size = thermo.NumberOfSpecies())
-// @param mu       Mixture dynamic viscosity [kg/m/s]
-// @param moments  Current moment values (span of size M::n_equations)
-//
-// USAGE in a templated CFD cell loop:
-//
-//   template <MOM::MomentMethod M>
-//   void CellLoop(M& model, /* cell fields */) {
-//       for (auto& cell : cells) {
-//           MOM::ComputeCell(model, cell.T, cell.P, cell.Y.data(),
-//                            cell.mu, cell.moments);
-//           auto src = model.sources();   // zero-copy span — no allocation
-//       }
-//   }
-// ============================================================================
-
+/**
+ * @brief Single-call per-cell entry point for moment source computation.
+ *
+ * Preferred over calling SetStatus / SetMoments / SetViscosity /
+ * CalculateSourceMoments individually. Bundling all four into one call lets the
+ * compiler keep the object layout in registers across the full per-cell
+ * computation without reloading `this` at each function boundary.
+ *
+ * @note This function is `inline` and `noexcept`. In a release build (-O2/-O3)
+ *       the four calls are collapsed to a direct in-place computation with no
+ *       function-call overhead.  Use this as the single hot-path entry point in
+ *       CFD cell loops.
+ *
+ * @code
+ *   template <MOM::MomentMethod M>
+ *   void CellLoop(M& model) {
+ *       for (auto& cell : cells) {
+ *           MOM::ComputeCell(model, cell.T, cell.P, cell.Y.data(),
+ *                            cell.mu, cell.moments);
+ *           auto src = model.sources();   // zero-copy span — no allocation
+ *       }
+ *   }
+ * @endcode
+ *
+ * @tparam M       Any type satisfying MomentMethod<M>.
+ * @param  model   The moment method instance to update.
+ * @param  T       Gas temperature [K].
+ * @param  P_Pa    Gas pressure [Pa].
+ * @param  Y       Species mass fractions (pointer, size = thermo.NumberOfSpecies()).
+ * @param  mu      Mixture dynamic viscosity [kg/m/s].
+ * @param  moments Current moment values (span of size M::n_equations).
+ */
 template <MomentMethod M>
 inline void ComputeCell(
     M& model, double T, double P_Pa, const double* Y, double mu, std::span<const double> moments) noexcept

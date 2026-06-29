@@ -35,83 +35,86 @@
 
 #pragma once
 
-// ============================================================================
-// MomVariantList.hpp — authoritative registry of all MOM variants
-// ============================================================================
-//
-// THIS IS THE ONLY FILE THAT NEEDS TO BE EDITED WHEN ADDING A NEW VARIANT.
-//
-// To register a new variant "FooMOM":
-//
-//   Step 1.  Create include/FooMOM/FooMOM.hpp (CRTP subclass of MomentMethodBase)
-//            and add the required static member:
-//
-//              static constexpr std::array<std::string_view, N> variant_labels
-//                  { "FooMOM", "foomom" };
-//
-//   Step 2.  Add one #include line below (under "Registered variant headers").
-//
-//   Step 3.  Add FooMOM to the AllVariants type alias below.
-//
-// That is all. The AnyMomentMethod variant type, the MakeAnyMomentMethod
-// factory, and the MomentMethod concept checks are all derived automatically
-// from AllVariants.
-// ============================================================================
+/**
+ * @file MomVariantList.hpp
+ * @brief Authoritative registry of all MOM particle-method variants.
+ *
+ * **This is the only file that needs to be edited when adding a new variant.**
+ *
+ * @par How to register a new variant `FooMOM`
+ *
+ * 1. Create `include/FooMOM/FooMOM.hpp` — a CRTP subclass of
+ *    `MomentMethodBase<FooMOM<Thermo>, NEq>` — and add the required static member:
+ *    @code
+ *      static constexpr std::array<std::string_view, N> variant_labels
+ *          { "FooMOM", "foomom" };
+ *    @endcode
+ * 2. Add one `#include` line below under "Registered variant headers".
+ * 3. Add `FooMOM` to the `AllVariants` type alias at the bottom of this file.
+ *
+ * That is all. The `AnyMomentMethod` variant type, the `MakeAnyMomentMethod`
+ * factory, and all `MomentMethod` concept checks are derived automatically from
+ * `AllVariants` — no other file requires modification.
+ */
 
-// ── Infrastructure ────────────────────────────────────────────────────────────
-#include "MomentMethodConcept.hpp" // MomentMethod concept (used in ConceptCheck)
+// -- Standard library ---------------------------------------------------------
+#include <variant>
 
-// ── Registered variant headers ────────────────────────────────────────────────
+// -- Infrastructure ------------------------------------------------------------
+#include "MomentMethodConcept.hpp"
+
+// -- Registered variant headers ------------------------------------------------
 // Add one #include per new variant here.
 #include "HMOM/HMOM.hpp"
 #include "BrookesMoss/BrookesMoss.hpp"
 #include "ThreeEquations/ThreeEquations.hpp"
 #include "TiO2/TiO2.hpp"
 
-#include <variant>
-
 namespace MOM
 {
-
-// ============================================================================
-// detail::TypeList<Variants...>
-// ============================================================================
-//
-// Compile-time list of template-template parameters (uninstantiated variant
-// class templates).  Provides:
-//
-//   TypeList<Vs...>::AsVariant<Thermo>
-//       → std::variant<Vs<Thermo>...>
-//
-//   TypeList<Vs...>::ConceptCheck<TestThermo>
-//       A struct whose instantiation static_asserts that every Vs<TestThermo>
-//       satisfies the MomentMethod concept.  Trigger by explicit instantiation
-//       in MOM.hpp:
-//
-//           template struct MOM::AllVariants::ConceptCheck<MOM::BasicThermoData>;
-//
-// ============================================================================
 
 namespace detail
 {
 
+/**
+ * @brief Compile-time list of uninstantiated variant class templates.
+ *
+ * Provides two operations consumed by `AnyMomentMethod` and `MakeAnyMomentMethod`:
+ *
+ * - `TypeList<Vs...>::AsVariant<Thermo>` expands to
+ *   `std::variant<Vs<Thermo>...>`, which is the type of `AnyMomentMethod<Thermo>`.
+ *
+ * - `TypeList<Vs...>::ConceptCheck<TestThermo>` is a struct whose instantiation
+ *   `static_assert`s that every `Vs<TestThermo>` satisfies the `MomentMethod`
+ *   concept.  Triggered by the explicit instantiation in `MOM.hpp`:
+ *   @code
+ *     template struct MOM::AllVariants::ConceptCheck<MOM::BasicThermoData>;
+ *   @endcode
+ *   The fold expression fires individually for each `Vs`, so a compiler error
+ *   points at the offending variant by name.
+ *
+ * @tparam Variants  Uninstantiated template-template parameters — one per variant.
+ */
 template <template <typename> class... Variants> struct TypeList
 {
-    // ── Type-list operations ─────────────────────────────────────────────────
-
-    /// Number of registered variants.
+    /** @brief Number of registered variants (computed at compile time). */
     static constexpr std::size_t size = sizeof...(Variants);
 
-    /// Instantiate as std::variant<Variants<Thermo>...>.
+    /**
+     * @brief Instantiate as `std::variant<Variants<Thermo>...>`.
+     * @tparam Thermo  Thermodynamics backend satisfying `ThermoMap`.
+     */
     template <typename Thermo> using AsVariant = std::variant<Variants<Thermo>...>;
 
-    // ── Compile-time concept gate ─────────────────────────────────────────────
-    //
-    // Instantiate ConceptCheck<BasicThermoData> (via explicit template
-    // instantiation in MOM.hpp) to fire the static_assert for every registered
-    // variant in a single statement.  The fold expression fires individually
-    // for each Vs, so the compiler error points at the offending variant.
-
+    /**
+     * @brief Compile-time concept gate — verifies all registered variants.
+     *
+     * Instantiating `ConceptCheck<T>` triggers a `static_assert` that checks
+     * every registered variant against the `MomentMethod<M>` concept.
+     * If any variant fails, the error message lists the missing API members.
+     *
+     * @tparam TestThermo  Any type satisfying `ThermoMap` (typically `BasicThermoData`).
+     */
     template <typename TestThermo> struct ConceptCheck
     {
         static_assert((MomentMethod<Variants<TestThermo>> && ...),
@@ -124,19 +127,19 @@ template <template <typename> class... Variants> struct TypeList
 
 } // namespace detail
 
-// ============================================================================
-// AllVariants — THE ONLY LINE TO CHANGE WHEN ADDING A VARIANT
-// ============================================================================
-//
-// The canonical registry.  Every type listed here:
-//   • appears as an alternative in AnyMomentMethod<Thermo>
-//   • is tried by MakeAnyMomentMethod via its variant_labels static member
-//   • is concept-checked by the explicit instantiation in MOM.hpp
-//
-// Order is preserved in the variant (first alternative is the default-active
-// state after std::variant default construction, which is not meaningful here
-// since the factory always constructs explicitly).
-
+/**
+ * @brief Canonical registry of all registered MOM variants.
+ *
+ * Every type listed in `AllVariants`:
+ * - Appears as an alternative in `AnyMomentMethod<Thermo>` (the runtime-selectable
+ *   `std::variant` type).
+ * - Is tried by `MakeAnyMomentMethod` during factory label matching, via each
+ *   variant's `static constexpr variant_labels` member.
+ * - Is concept-checked by the explicit `ConceptCheck` instantiation in `MOM.hpp`.
+ *
+ * @note **To add a new variant**: add its class template to this alias and add
+ *       its `#include` above.  No other file requires modification.
+ */
 using AllVariants = detail::TypeList<HMOM, BrookesMoss, ThreeEquations, TiO2>;
 
 } // namespace MOM

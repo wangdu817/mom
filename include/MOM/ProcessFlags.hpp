@@ -35,94 +35,102 @@
 
 #pragma once
 
-#include <cstdint>
 #include <string_view>
 
 namespace MOM
 {
 
-// ============================================================================
-// Process model flags
-// ============================================================================
-//
-// Strongly-typed enum classes for all physical sub-processes.
-// Using enum class (rather than raw int) gives type safety at call sites
-// and clear compiler diagnostics when an invalid value is passed.
-//
-// All concrete moment method classes accept both the enum class and a plain
-// int (via converting constructors) for backward compatibility with existing
-// CFD code that uses integer flags.
-//
-// Convention:
-//   Off     = 0  (process disabled)
-//   Standard = 1 (primary model variant, method-specific)
-//   Extended = 2 (alternative / extended model variant, method-specific)
-// ============================================================================
+/**
+ * @brief Strongly-typed flags for all physical sub-process models.
+ *
+ * Using `enum class` (rather than raw `int`) gives type safety at call sites
+ * and clear compiler diagnostics when an invalid value is passed.
+ *
+ * All concrete moment method classes accept both the enum class and a plain
+ * `int` (via implicit converting constructors) for backward compatibility with
+ * existing CFD codes that use integer flags.
+ *
+ * @par Convention
+ * - `Off = 0` — process disabled; corresponding source terms are zero.
+ * - `Standard = 1` — primary model variant (method-specific implementation).
+ * - `Extended = 2` — alternative or extended model variant where applicable.
+ */
 
+/** @brief Nucleation sub-model selector. */
 enum class NucleationModel : int
 {
-    Off      = 0,
-    Standard = 1, //!< Default nucleation model for each method
-    Extended = 2  //!< Alternative nucleation model (e.g. BrookesMoss-Hall)
+    Off      = 0, //!< Nucleation disabled.
+    Standard = 1, //!< Default nucleation model for each variant (PAH dimerisation for soot).
+    Extended = 2  //!< Alternative nucleation (e.g. Brookes-Moss-Hall extended inception).
 };
 
+/** @brief Coagulation sub-model selector. */
 enum class CoagulationModel : int
 {
-    Off      = 0,
-    Standard = 1 //!< Free-molecular + continuum coagulation
+    Off      = 0, //!< Coagulation disabled.
+    Standard = 1  //!< Free-molecular + continuum coagulation kernel.
 };
 
+/** @brief Surface growth sub-model selector. */
 enum class SurfaceGrowthModel : int
 {
-    Off      = 0,
-    Standard = 1 //!< HACA-based surface growth
+    Off      = 0, //!< Surface growth disabled.
+    Standard = 1  //!< HACA (H-abstraction–C2H2-addition) surface growth.
 };
 
+/** @brief Oxidation sub-model selector. */
 enum class OxidationModel : int
 {
-    Off      = 0,
-    Standard = 1, //!< OH + O2 oxidation
-    Extended = 2  //!< Alternative oxidation model (e.g. BrookesMoss-Hall)
+    Off      = 0, //!< Oxidation disabled.
+    Standard = 1, //!< OH + O2 oxidation (Lee et al. correlation).
+    Extended = 2  //!< Alternative oxidation (e.g. BrookesMoss-Hall variant).
 };
 
+/** @brief PAH condensation sub-model selector. */
 enum class CondensationModel : int
 {
-    Off      = 0,
-    Standard = 1 //!< PAH condensation on soot
+    Off      = 0, //!< Condensation disabled.
+    Standard = 1  //!< PAH adsorption on existing soot particles.
 };
 
+/** @brief Sintering sub-model selector (used by TiO2). */
 enum class SinteringModel : int
 {
-    Off      = 0,
-    Standard = 1 //!< Viscous flow sintering (TiO2)
+    Off      = 0, //!< Sintering disabled.
+    Standard = 1  //!< Viscous-flow sintering model (Kruis et al. 1993).
 };
 
+/** @brief Thermophoretic drift sub-model selector. */
 enum class ThermophoreticModel : int
 {
-    Off      = 0,
-    Standard = 1 //!< Thermophoretic drift in diffusion coefficient
+    Off      = 0, //!< No thermophoretic correction to diffusion.
+    Standard = 1  //!< Thermophoretic drift encoded in effective diffusion coefficient.
 };
 
-// ============================================================================
-// Planck mean absorption coefficient models for radiative heat transfer
-// ============================================================================
-
+/**
+ * @brief Planck mean absorption coefficient model for radiative heat transfer.
+ *
+ * Selects the empirical correlation used to compute the Planck mean absorption
+ * coefficient κ_P [1/m] of the particle phase, needed by radiation solvers.
+ * TiO2 particles are dielectric and should use `None`.
+ */
 enum class PlanckCoeffModel : int
 {
-    None   = 0, //!< No radiative contribution from particles
-    Smooke = 1, //!< Smooke et al. correlation (default for soot)
-    Kent   = 2, //!< Kent & Honnery correlation
-    Sazhin = 3  //!< Sazhin et al. correlation
+    None   = 0, //!< No radiative contribution from particles (κ_P = 0).
+    Smooke = 1, //!< Smooke et al. (1988) correlation (default for soot).
+    Kent   = 2, //!< Kent & Honnery (1990) correlation.
+    Sazhin = 3  //!< Sazhin (1994) correlation.
 };
 
-// ============================================================================
-// String-to-enum parsers
-// ============================================================================
-//
-// Used by SetupFromDictionary() implementations. Returns the Off variant
-// if the label is not recognised (never throws).
-// ============================================================================
-
+/**
+ * @brief Parse a Planck absorption coefficient model label from a string.
+ *
+ * Case-insensitive. Returns `PlanckCoeffModel::None` for unrecognised labels.
+ * Used by `SetupFromDictionary()` implementations.
+ *
+ * @param s  Label string (e.g. `"Smooke"`, `"Kent"`, `"Sazhin"`, `"None"`).
+ * @return   Matching `PlanckCoeffModel` enumerator, or `None` if not recognised.
+ */
 [[nodiscard]] constexpr PlanckCoeffModel PlanckCoeffModelFromString(std::string_view s) noexcept
 {
     if (s == "Smooke" || s == "smooke" || s == "SMOOKE")
@@ -136,6 +144,14 @@ enum class PlanckCoeffModel : int
     return PlanckCoeffModel::None;
 }
 
+/**
+ * @brief Parse a nucleation model label from a string.
+ *
+ * Returns `NucleationModel::Off` for unrecognised labels.
+ *
+ * @param s  Label string (`"Standard"`, `"Extended"`, `"1"`, `"2"`, or `"Off"`).
+ * @return   Matching `NucleationModel` enumerator.
+ */
 [[nodiscard]] constexpr NucleationModel NucleationModelFromString(std::string_view s) noexcept
 {
     if (s == "Standard" || s == "standard" || s == "1")
@@ -145,6 +161,14 @@ enum class PlanckCoeffModel : int
     return NucleationModel::Off;
 }
 
+/**
+ * @brief Parse an oxidation model label from a string.
+ *
+ * Returns `OxidationModel::Off` for unrecognised labels.
+ *
+ * @param s  Label string (`"Standard"`, `"Extended"`, `"1"`, `"2"`, or `"Off"`).
+ * @return   Matching `OxidationModel` enumerator.
+ */
 [[nodiscard]] constexpr OxidationModel OxidationModelFromString(std::string_view s) noexcept
 {
     if (s == "Standard" || s == "standard" || s == "1")

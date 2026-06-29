@@ -56,7 +56,7 @@ namespace MOM
 
 template <ThermoMap Thermo> TiO2<Thermo>::TiO2(const Thermo& thermo) : thermo_(thermo)
 {
-    // ── CRTP base state ───────────────────────────────────────────────────
+    // -- CRTP base state ---------------------------------------------------
     this->is_active_       = true;
     this->gas_consumption_ = false;
     this->rho_particle_    = rhoTiO2_;
@@ -67,31 +67,31 @@ template <ThermoMap Thermo> TiO2<Thermo>::TiO2(const Thermo& thermo) : thermo_(t
     this->dummy_index_           = -1;
     this->dummy_species_closure_ = false;
 
-    // ── Nucleation parameters ─────────────────────────────────────────────
+    // -- Nucleation parameters ---------------------------------------------
     nTiO2_min_   = 2;
     n0_          = 5;
     epsilon_nuc_ = 2.5;
 
-    // ── Coagulation / condensation ────────────────────────────────────────
+    // -- Coagulation / condensation ----------------------------------------
     epsilon_coag_ = 2.2;
     epsilon_cond_ = 1.3;
 
-    // ── Model flags ───────────────────────────────────────────────────────
+    // -- Model flags -------------------------------------------------------
     nucleation_variant_ = NucleationVariant::Binary;
     coagulation_model_  = 1;
     condensation_model_ = 1;
     sintering_model_    = 1;
 
-    // ── Sintering kinetics ────────────────────────────────────────────────
+    // -- Sintering kinetics ------------------------------------------------
     As_ = 7.44e16;
     ns_ = 1.0;
     // Ts_ is already initialised to -31000. by the class default; do NOT override.
 
-    // ── Numerical floors ──────────────────────────────────────────────────
+    // -- Numerical floors --------------------------------------------------
     N_min_  = 1.e3;
     fv_min_ = 1.e-16;
 
-    // ── Precursor (none initially) ────────────────────────────────────────
+    // -- Precursor (none initially) ----------------------------------------
     precursor_species_ = "none";
     precursor_index_   = -1;
     nti_precursor_ = nh_precursor_ = no_precursor_ = nc_precursor_ = 0.;
@@ -104,12 +104,12 @@ template <ThermoMap Thermo> TiO2<Thermo>::TiO2(const Thermo& thermo) : thermo_(t
     vprec_                                                         = 0.;
     dprec_                                                         = 0.;
 
-    // ── Gas consumption stoichiometry indices ─────────────────────────────
+    // -- Gas consumption stoichiometry indices -----------------------------
     H2O_index_ = CO2_index_ = O2_index_ = -1;
     W_H2O_ = W_CO2_ = W_O2_ = 0.;
     nu_H2O_from_prec_ = nu_CO2_from_prec_ = nu_O2_from_prec_ = 0.;
 
-    // ── Sintering regularisation ──────────────────────────────────────────
+    // -- Sintering regularisation ------------------------------------------
     sintering_dp_min_              = 2.e-9;
     sintering_activation_np_       = 1.05;
     sintering_activation_width_np_ = 0.05;
@@ -122,7 +122,7 @@ template <ThermoMap Thermo> TiO2<Thermo>::TiO2(const Thermo& thermo) : thermo_(t
     //
     is_debug_mode_ = false;
 
-    // ── Geometry, floors, and initial-moments cache ───────────────────────
+    // -- Geometry, floors, and initial-moments cache -----------------------
     Precalculations();
     MemoryAllocation();
 }

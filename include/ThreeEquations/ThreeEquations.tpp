@@ -83,7 +83,7 @@ inline double Arrhenius_cgs(double A, double n, double E_J_mol, double T) noexce
 template <ThermoMap Thermo>
 ThreeEquations<Thermo>::ThreeEquations(const Thermo& thermo) : thermo_(thermo)
 {
-    // ── CRTP base state ───────────────────────────────────────────────────
+    // -- CRTP base state ---------------------------------------------------
     this->is_active_               = true;
     this->gas_consumption_         = false;
     this->radiative_heat_transfer_ = true;
@@ -95,7 +95,7 @@ ThreeEquations<Thermo>::ThreeEquations(const Thermo& thermo) : thermo_(thermo)
     this->dummy_index_           = -1;
     this->dummy_species_closure_ = false;
 
-    // ── Model defaults ────────────────────────────────────────────────────
+    // -- Model defaults ----------------------------------------------------
     Df_                         = 1.8;
     N0_scaling_                 = 1.e15;
     epsilon_nucleation_         = 2.5;
@@ -115,7 +115,7 @@ ThreeEquations<Thermo>::ThreeEquations(const Thermo& thermo) : thermo_(thermo)
     is_simplified_pah_mass_     = false;
     is_debug_mode_              = false;
 
-    // ── PAH: default to C2H2 ─────────────────────────────────────────────
+    // -- PAH: default to C2H2 ---------------------------------------------
     pah_species_ = "C2H2";
     pah_index_   = thermo_.IndexOfSpecies(pah_species_);
     mwpah_       = thermo_.MolecularWeight(pah_index_);
@@ -127,7 +127,7 @@ ThreeEquations<Thermo>::ThreeEquations(const Thermo& thermo) : thermo_(thermo)
     nhpah_       = 2.;
     conc_PAH_    = 0.;
 
-    // ── Gas species indices ───────────────────────────────────────────────
+    // -- Gas species indices -----------------------------------------------
     index_H_    = thermo_.IndexOfSpecies("H");
     index_OH_   = thermo_.IndexOfSpecies("OH");
     index_O2_   = thermo_.IndexOfSpecies("O2");
@@ -138,10 +138,10 @@ ThreeEquations<Thermo>::ThreeEquations(const Thermo& thermo) : thermo_(thermo)
     conc_H_ = conc_OH_ = conc_O2_ = conc_H2_ = conc_H2O_ = conc_C2H2_ = 0.;
     mass_fraction_H_ = mass_fraction_OH_ = 0.;
 
-    // ── Numerical floor for Ns must be set before Precalculations() ───────
+    // -- Numerical floor for Ns must be set before Precalculations() -------
     Ns_min_ = 1.e6;
 
-    // ── Geometry, floors, and initial-moments cache ────────────────────────
+    // -- Geometry, floors, and initial-moments cache ------------------------
     Precalculations();
     MemoryAllocation();
 }
@@ -171,12 +171,12 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::Precalculations()
 {
     const double rho_soot = this->rho_particle_;
 
-    // ── PAH identification ────────────────────────────────────────────────
+    // -- PAH identification ------------------------------------------------
     pah_index_ = thermo_.IndexOfSpecies(pah_species_);
     ncpah_     = static_cast<double>(thermo_.NumberOfCarbonAtoms(pah_index_));
     nhpah_     = static_cast<double>(thermo_.NumberOfHydrogenAtoms(pah_index_));
 
-    // ── PAH mass and geometry ─────────────────────────────────────────────
+    // -- PAH mass and geometry ---------------------------------------------
     mwpah_ = thermo_.MolecularWeight(pah_index_); // [kg/kmol]
     if (is_simplified_pah_mass_)
         mwpah_ = ncpah_ * this->WC_;
@@ -186,27 +186,27 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::Precalculations()
     spah_ = this->pi_ * dpah_ * dpah_;                 // [m2]
     mpah_ = mwpah_ / this->Nav_kmol_;                  // [kg/#]
 
-    // ── Dimer geometry ────────────────────────────────────────────────────
+    // -- Dimer geometry ----------------------------------------------------
     vdim_ = 2. * vpah_;
     ddim_ = std::pow(6. / this->pi_ * vdim_, 1. / 3.);
     sdim_ = this->pi_ * ddim_ * ddim_;
 
-    // ── Nucleus geometry  (dimer + dimer) ─────────────────────────────────
+    // -- Nucleus geometry  (dimer + dimer) ---------------------------------
     vnucl_ = 2. * vdim_;
     dnucl_ = std::pow(6. / this->pi_ * vnucl_, 1. / 3.);
     snucl_ = this->pi_ * dnucl_ * dnucl_;
 
-    // ── C2 pair geometry ──────────────────────────────────────────────────
+    // -- C2 pair geometry --------------------------------------------------
     vc2_ = (this->WC_ / rho_soot / this->Nav_kmol_) * 2.;
     dc2_ = std::pow(6. / this->pi_ * vc2_, 1. / 3.);
     sc2_ = this->pi_ * dc2_ * dc2_;
 
-    // ── Numerical floors ──────────────────────────────────────────────────
+    // -- Numerical floors --------------------------------------------------
     vs_min_ = vnucl_;
     Ss_min_ = Ns_min_ * snucl_;
     Ys_min_ = (Ns_min_ * vnucl_) * rho_soot / 1.0; // reference gas density 1 kg/m3
 
-    // ── Initial moments cache ─────────────────────────────────────────────
+    // -- Initial moments cache ---------------------------------------------
     {
         const double Ns0          = Ns_min_;
         const double Ys0          = rho_soot / 1. * Ns0 * vnucl_;

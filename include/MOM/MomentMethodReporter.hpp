@@ -42,7 +42,7 @@
 // Single-Responsibility: formats and writes output for any MOM variant.
 //
 // Design contract
-// ───────────────
+// ---------------
 // • Accepts any model satisfying MomentMethod<M> via a read-only const&.
 // • Reads state exclusively through the public interface — no private access,
 //   no friend declarations, no casts.
@@ -54,7 +54,7 @@
 //   The reporter only observes — it never mutates the model.
 //
 // Extensibility protocol — variant_output hooks
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 // Each variant may optionally implement one or both of these template methods:
 //
 //   template <typename CB>
@@ -75,7 +75,7 @@
 //   2. No changes to MomentMethodReporter are required.
 //
 // Usage sketch
-// ────────────
+// ------------
 //   MOM::OutputFileColumns file("soot.out");
 //   MOM::MomentMethodReporter reporter(file, thermo.names);
 //   reporter.WriteHeader(model);    // invokes variant's hooks automatically
@@ -91,7 +91,7 @@
 //   }
 //
 // AnyMomentMethod shims
-// ─────────────────────
+// ---------------------
 // std::visit is called ONCE per WriteHeader/WriteRow, not per cell.
 // For high-frequency use, prefer the direct template overloads.
 //
@@ -114,7 +114,7 @@ class MomentMethodReporter
 {
 public:
 
-    // ── Construction ──────────────────────────────────────────────────────────
+    // -- Construction ----------------------------------------------------------
 
     /// @param out            Output file managed externally. Must outlive the reporter.
     /// @param species_names  (optional) Species names from the thermo map, used to
@@ -129,7 +129,7 @@ public:
     MomentMethodReporter& operator=(const MomentMethodReporter&) = delete;
     MomentMethodReporter(MomentMethodReporter&&)                 = default;
 
-    // ── Static-dispatch API (preferred — zero overhead) ───────────────────────
+    // -- Static-dispatch API (preferred — zero overhead) -----------------------
 
     /// Register all output columns for variant Model.
     /// Call exactly once, before OutputFileColumns::Complete() and WriteRow.
@@ -141,7 +141,7 @@ public:
     /// or CalculateSourceMoments on the model.
     template <MomentMethod Model> void WriteRow(const Model& model);
 
-    // ── Runtime-dispatch API (AnyMomentMethod) ────────────────────────────────
+    // -- Runtime-dispatch API (AnyMomentMethod) --------------------------------
 
     template <ThermoMap Thermo>
     void WriteHeader(const AnyMomentMethod<Thermo>& any, unsigned precision = 8)
@@ -156,7 +156,7 @@ public:
 
 private:
 
-    // ── Internals ─────────────────────────────────────────────────────────────
+    // -- Internals -------------------------------------------------------------
 
     OutputFileColumns& out_;
     std::vector<std::string> species_names_;
@@ -205,7 +205,7 @@ void MomentMethodReporter::WriteHeader(const Model& model, unsigned precision)
         out_.AddColumn(std::string(label), precision);
     };
 
-    // ── Block 1: Core particle state (concept-mandated, truly common) ─────────
+    // -- Block 1: Core particle state (concept-mandated, truly common) ---------
     out_.AddColumn("Ys[-]", precision);
     out_.AddColumn("Ns[#/m3]", precision);
     out_.AddColumn("Ss[m2/m3]", precision);
@@ -213,7 +213,7 @@ void MomentMethodReporter::WriteHeader(const Model& model, unsigned precision)
     out_.AddColumn("dp[nm]", precision);
     out_.AddColumn("dc[nm]", precision);
 
-    // ── Variant prefix columns (np, ss, vs, aggregate props, statistics…) ─────
+    // -- Variant prefix columns (np, ss, vs, aggregate props, statistics…) -----
     // The variant self-describes its extra columns by implementing
     // variant_prefix_output(cb).  If the method is absent (e.g. BrookesMoss),
     // this block is a no-op at compile time.
@@ -222,19 +222,19 @@ void MomentMethodReporter::WriteHeader(const Model& model, unsigned precision)
                   })
         model.variant_prefix_output(add_col);
 
-    // ── Block 2: Gas consumption (concept-mandated) ───────────────────────────
+    // -- Block 2: Gas consumption (concept-mandated) ---------------------------
     out_.AddColumn("omega_gas[kg/m3/s]", precision);
     for (const auto& name : species_names_)
         out_.AddColumn("omega_" + name + "[kg/m3/s]", precision);
 
-    // ── Block 3: Transport (concept-mandated) ─────────────────────────────────
+    // -- Block 3: Transport (concept-mandated) ---------------------------------
     out_.AddColumn("D[kg/m/s]", precision);
 
-    // ── Block 4: Total source terms (concept-mandated) ────────────────────────
+    // -- Block 4: Total source terms (concept-mandated) ------------------------
     for (unsigned j = 0; j < N; ++j)
         out_.AddColumn(col("Sall", j, false, "mol/m3/s"), precision);
 
-    // ── Block 5: Per-process source terms ([ZF]-tagged for zero-fallback) ──────
+    // -- Block 5: Per-process source terms ([ZF]-tagged for zero-fallback) ------
     for (unsigned j = 0; j < N; ++j)
         out_.AddColumn(col("Snuc", j, !has_nuc), precision);
     for (unsigned j = 0; j < N; ++j)
@@ -248,7 +248,7 @@ void MomentMethodReporter::WriteHeader(const Model& model, unsigned precision)
     for (unsigned j = 0; j < N; ++j)
         out_.AddColumn(col("Ssin", j, !has_sin), precision);
 
-    // ── Variant suffix columns (detailed breakdowns, sub-process vectors…) ─────
+    // -- Variant suffix columns (detailed breakdowns, sub-process vectors…) -----
     // Same protocol as prefix.  HMOM uses this for the coagulation sub-breakdown.
     if constexpr (requires(const Model& m) {
                       m.variant_suffix_output([](std::string_view, double) {});
@@ -271,7 +271,7 @@ template <MomentMethod Model> void MomentMethodReporter::WriteRow(const Model& m
 
     out_.NewRow();
 
-    // ── Block 1: Core particle state (concept-mandated) ───────────────────────
+    // -- Block 1: Core particle state (concept-mandated) -----------------------
     out_ << model.MassFraction();
     out_ << model.ParticleNumberDensity();
     out_ << model.SpecificSurface();
@@ -279,25 +279,25 @@ template <MomentMethod Model> void MomentMethodReporter::WriteRow(const Model& m
     out_ << model.ParticleDiameter() * 1.e9;  // m → nm
     out_ << model.CollisionDiameter() * 1.e9; // m → nm
 
-    // ── Variant prefix values ─────────────────────────────────────────────────
+    // -- Variant prefix values -------------------------------------------------
     if constexpr (requires(const Model& m) {
                       m.variant_prefix_output([](std::string_view, double) {});
                   })
         model.variant_prefix_output(add_val);
 
-    // ── Block 2: Gas consumption (concept-mandated) ───────────────────────────
+    // -- Block 2: Gas consumption (concept-mandated) ---------------------------
     const auto og = model.omega_gas();
     out_ << std::accumulate(og.begin(), og.end(), 0.0);
     for (std::size_t k = 0; k < species_names_.size(); ++k)
         out_ << (k < og.size() ? og[k] : 0.0);
 
-    // ── Block 3: Transport (concept-mandated) ─────────────────────────────────
+    // -- Block 3: Transport (concept-mandated) ---------------------------------
     out_ << model.DiffusionCoefficient();
 
-    // ── Block 4: Total source terms (concept-mandated) ────────────────────────
+    // -- Block 4: Total source terms (concept-mandated) ------------------------
     writeSpan(model.sources());
 
-    // ── Block 5: Per-process source terms (concept-mandated, zero-fallback) ────
+    // -- Block 5: Per-process source terms (concept-mandated, zero-fallback) ----
     writeSpan(model.sources_nucleation());
     writeSpan(model.sources_coagulation());
     writeSpan(model.sources_condensation());
@@ -305,7 +305,7 @@ template <MomentMethod Model> void MomentMethodReporter::WriteRow(const Model& m
     writeSpan(model.sources_oxidation());
     writeSpan(model.sources_sintering());
 
-    // ── Variant suffix values ─────────────────────────────────────────────────
+    // -- Variant suffix values -------------------------------------------------
     if constexpr (requires(const Model& m) {
                       m.variant_suffix_output([](std::string_view, double) {});
                   })

@@ -35,9 +35,6 @@
 
 #pragma once
 
-#include "MOM/MomentMethodBase.hpp"
-#include "MOM/ThermoProxy.hpp"
-#include "Eigen/Dense"
 #include <span>
 #include <string>
 #include <string_view>
@@ -45,34 +42,47 @@
 #include <expected>
 #endif
 
+#include "Eigen/Dense"
+
+#include "MOM/MomentMethodBase.hpp"
+#include "MOM/ThermoProxy.hpp"
+
 namespace MOM
 {
 
-// ============================================================================
-// BrookesMoss<Thermo> — 2-equation soot model
-// ============================================================================
-//
-// References:
-//   Brookes & Moss, Combust. Flame 116 (1999) 486–503.
-//   Hall et al., Combust. Flame 169 (2016) 191–206.  (BM-Hall variant)
-//
-// Transported variables:
-//   moments[0] = Ys   — soot mass fraction [-]
-//   moments[1] = bs   — normalised radical nuclei concentration [m3/kg]
-//                       (bs = Ns / (rho * Ns_norm))
-//
-// Physical processes modelled:
-//   Nucleation    (Brookes-Moss or Brookes-Moss-Hall variant)
-//   Surface growth (C2H2 deposition)
-//   Oxidation     (O2 or BM-Hall variant)
-//   Coagulation   (free-molecular regime)
-//   Thermophoresis (via effective diffusion coefficient)
-//
-// Note: condensation is not modelled in the Brookes-Moss family.
-//       sources_condensation() from base returns a zero span.
-//
-// @tparam Thermo  Must satisfy MOM::ThermoMap.
-// ============================================================================
+/**
+ * @class BrookesMoss
+ * @brief Two-equation soot model of Brookes & Moss (1999), with Hall et al. (2016) extension.
+ *
+ * A classical two-scalar soot model widely used in turbulent diffusion flames.
+ * Transports soot mass fraction and a normalised radical nuclei concentration.
+ * The BM-Hall extension (Hall et al. 2016) adds phenyl-based inception and an
+ * improved oxidation correlation.
+ *
+ * @par References
+ * - Brookes & Moss, *Combust. Flame* **116** (1999) 486–503.
+ * - Hall, Smooke, Colket et al., *Combust. Flame* **169** (2016) 191–206.
+ *
+ * @par Transported variables
+ * | Index | Symbol | Physical meaning |
+ * |---|---|---|
+ * | 0 | Ys | Soot mass fraction [-] |
+ * | 1 | bs | Normalised radical nuclei concentration = Ns / (ρ·Ns_norm) [m³/kg] |
+ *
+ * @par Physical processes modelled
+ * - **Nucleation** — Brookes-Moss (1999) or BM-Hall (2016) extended inception.
+ * - **Surface growth** — C2H2 deposition with Arrhenius kinetics.
+ * - **Oxidation** — O2 attack (Brookes-Moss) or O2+OH (BM-Hall).
+ * - **Coagulation** — free-molecular regime.
+ * - **Thermophoresis** — encoded in the effective diffusion coefficient.
+ *
+ * @par NOT modelled
+ * - **Condensation**: no PAH surface adsorption term; `sources_condensation()`
+ *   returns a zero span.
+ * - **Sintering**: `sources_sintering()` returns a zero span.
+ *
+ * @tparam Thermo  Must satisfy the MOM::ThermoMap concept.
+ */
 
 template <ThermoMap Thermo> class BrookesMoss : public MomentMethodBase<BrookesMoss<Thermo>, 2>
 {
@@ -85,23 +95,25 @@ public:
     /// Labels accepted by MOM::MakeAnyMomentMethod for runtime variant selection.
     static constexpr std::array<std::string_view, 3> variant_labels{"BrookesMoss", "brookesmoss", "BM"};
 
-    // ── Method-specific sub-model enums ─────────────────────────────────────
+    // -- Method-specific sub-model enums -------------------------------------
 
+    /** @brief Nucleation kinetics variant. */
     enum class NucleationVariant : int
     {
-        Off             = 0,
-        BrookesMoss     = 1, //!< Original Brookes & Moss (1999) nucleation
-        BrookesMossHall = 2  //!< Hall et al. (2016) extended nucleation
+        Off             = 0, //!< Nucleation disabled.
+        BrookesMoss     = 1, //!< Original Brookes & Moss (1999) C2H2-based inception.
+        BrookesMossHall = 2  //!< Hall et al. (2016) extended phenyl-based inception.
     };
 
+    /** @brief Oxidation kinetics variant. */
     enum class OxidationVariant : int
     {
-        Off             = 0,
-        BrookesMoss     = 1, //!< Original Brookes & Moss (1999) oxidation
-        BrookesMossHall = 2  //!< Hall et al. (2016) extended oxidation
+        Off             = 0, //!< Oxidation disabled.
+        BrookesMoss     = 1, //!< Original Brookes & Moss (1999) O2 oxidation.
+        BrookesMossHall = 2  //!< Hall et al. (2016) extended O2+OH oxidation.
     };
 
-    // ── Construction ─────────────────────────────────────────────────────────
+    // -- Construction ---------------------------------------------------------
 
     explicit BrookesMoss(const Thermo& thermo);
 
@@ -115,7 +127,7 @@ public:
     [[nodiscard]] std::expected<void, std::string> SetupFromDictionary(Dictionary& dict);
 #endif
 
-    // ── MomentMethod concept — state injection ────────────────────────────────
+    // -- MomentMethod concept — state injection --------------------------------
 
     /// @param T    Temperature [K]
     /// @param P_Pa Pressure [Pa]
@@ -129,12 +141,12 @@ public:
     /// Named setter (preferred for BrookesMoss-aware code).
     void SetMoments(double Ys, double bs) noexcept;
 
-    // ── MomentMethod concept — core computation ───────────────────────────────
+    // -- MomentMethod concept — core computation -------------------------------
 
     void CalculateSourceMoments() noexcept;
     void CalculateOmegaGas() noexcept;
 
-    // ── MomentMethod concept — particle properties ────────────────────────────
+    // -- MomentMethod concept — particle properties ----------------------------
 
     [[nodiscard]] double VolumeFraction() const noexcept;
     [[nodiscard]] double ParticleDiameter() const noexcept;  //!< mean particle diameter [m]
@@ -144,14 +156,14 @@ public:
     [[nodiscard]] double SpecificSurface() const noexcept;       //!< [m2/m3]
     [[nodiscard]] double DiffusionCoefficient() const noexcept;  //!< [kg/m/s]
 
-    // ── MomentMethod concept — initial conditions ─────────────────────────────
+    // -- MomentMethod concept — initial conditions -----------------------------
 
     [[nodiscard]] std::span<const double> initial_moments() const noexcept
     {
         return {initial_moments_cache_.data(), 2u};
     }
 
-    // ── MomentMethod concept — precursor ──────────────────────────────────────
+    // -- MomentMethod concept — precursor --------------------------------------
 
     [[nodiscard]] int precursor_index() const noexcept { return prec_index_; }
 
@@ -159,11 +171,11 @@ public:
 
     [[nodiscard]] const std::string& precursor_species() const noexcept { return prec_species_; }
 
-    // ── MomentMethod concept — diagnostics ────────────────────────────────────
+    // -- MomentMethod concept — diagnostics ------------------------------------
 
     void PrintSummary() const;
 
-    // ── Model switches ────────────────────────────────────────────────────────
+    // -- Model switches --------------------------------------------------------
 
     void SetNucleation(int flag) noexcept
     {
@@ -196,7 +208,7 @@ public:
     /// Sets soot particle molecular weight [kg/kmol] (used for diffusion).
     void SetMWp(double mwp) noexcept { mwp_ = mwp; }
 
-    // ── BrookesMoss-Hall model constants ──────────────────────────────────────
+    // -- BrookesMoss-Hall model constants --------------------------------------
 
     void SetCalpha1_MBH(double v) noexcept { Calpha1_MBH_ = v; }
 
@@ -210,7 +222,7 @@ public:
 
     void SetTomega2_MBH(double v) noexcept { Tomega2_MBH_ = v; }
 
-    // ── Model state queries ────────────────────────────────────────────────────
+    // -- Model state queries ----------------------------------------------------
 
     [[nodiscard]] int nucleation_model() const noexcept
     {
@@ -228,11 +240,16 @@ public:
 
     [[nodiscard]] const std::string& sg_species() const noexcept { return sg_species_; }
 
-    // ── CRTP extension points — process source storage owned by BrookesMoss ───
-    //
-    // BrookesMoss models: nucleation, coagulation, growth, oxidation.
-    // NOT modelled: condensation, sintering → base class returns zero span.
+    /**
+     * @name CRTP extension points — per-process source storage
+     *
+     * BrookesMoss models: nucleation, coagulation, growth, oxidation.
+     * Condensation and sintering are **not** modelled; `sources_condensation()`
+     * and `sources_sintering()` return zero spans automatically.
+     * @{
+     */
 
+    /** @brief Nucleation source terms [mol/m³/s], size = n_equations. */
     [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation_impl() const noexcept
     {
         return {source_nucleation_.data(), this->n_equations};
@@ -253,9 +270,11 @@ public:
         return {source_oxidation_.data(), this->n_equations};
     }
 
+    /** @} */
+
 private:
 
-    // ── Private computational methods ──────────────────────────────────────────
+    // -- Private computational methods ------------------------------------------
 
     void MemoryAllocation();
     void NucleationSourceTerms();
@@ -270,28 +289,28 @@ private:
 
 private:
 
-    // ── Thermodynamics reference ───────────────────────────────────────────────
+    // -- Thermodynamics reference -----------------------------------------------
     const Thermo& thermo_;
 
-    // ── Transported variables ──────────────────────────────────────────────────
+    // -- Transported variables --------------------------------------------------
     double Ys_ = 0.; //!< soot mass fraction [-]
     double bs_ = 0.; //!< normalised nuclei concentration [m3/kg]
 
-    // ── Precursor species ──────────────────────────────────────────────────────
+    // -- Precursor species ------------------------------------------------------
     std::string prec_species_;
     int prec_index_   = -1;
     double prec_nc_   = 0.; //!< C atoms per precursor molecule
     double prec_nh_   = 0.; //!< H atoms per precursor molecule
     double conc_prec_ = 0.; //!< precursor concentration [kmol/m3]
 
-    // ── Surface growth species ─────────────────────────────────────────────────
+    // -- Surface growth species -------------------------------------------------
     std::string sg_species_;
     int sg_index_   = -1;
     double sg_nc_   = 0.;
     double sg_nh_   = 0.;
     double conc_sg_ = 0.;
 
-    // ── Key species concentrations [kmol/m3] ───────────────────────────────────
+    // -- Key species concentrations [kmol/m3] -----------------------------------
     double conc_H_ = 0., conc_OH_ = 0., conc_O2_ = 0.;
     double conc_H2_ = 0., conc_H2O_ = 0., conc_C2H2_ = 0.;
 
@@ -304,11 +323,11 @@ private:
     double Y_C2H2_ = 0., Y_C6H5_ = 0., Y_C6H6_ = 0.;
     double Y_H2_ = 0., Y_OH_ = 0., Y_O2_ = 0.;
 
-    // ── Particle properties ────────────────────────────────────────────────────
+    // -- Particle properties ----------------------------------------------------
     double dp_  = 25.e-9; //!< soot particle diameter [m] (default 25 nm)
     double mwp_ = 144.;   //!< soot particle molecular weight [kg/kmol]
 
-    // ── Model constants ────────────────────────────────────────────────────────
+    // -- Model constants --------------------------------------------------------
     double Calpha_  = 0.; //!< inception rate pre-exponential
     double Talpha_  = 0.; //!< inception activation temperature [K]
     double Cbeta_   = 0.; //!< coagulation rate constant
@@ -321,30 +340,30 @@ private:
     double exp_m_   = 0.; //!< exponent for Ys in coagulation
     double exp_n_   = 0.; //!< exponent for Ys in oxidation
 
-    // ── BM-Hall extended constants ─────────────────────────────────────────────
+    // -- BM-Hall extended constants ---------------------------------------------
     double Calpha1_MBH_ = 0., Calpha2_MBH_ = 0.;
     double Talpha1_MBH_ = 0., Talpha2_MBH_ = 0.;
     double Comega2_MBH_ = 0., Tomega2_MBH_ = 0.;
 
-    // ── Model flags ────────────────────────────────────────────────────────────
+    // -- Model flags ------------------------------------------------------------
     NucleationVariant nucleation_variant_ = NucleationVariant::Off;
     OxidationVariant oxidation_variant_   = OxidationVariant::Off;
     int surface_growth_model_             = 0;
     int coagulation_model_                = 0;
 
-    // ── Numerical parameters ───────────────────────────────────────────────────
+    // -- Numerical parameters ---------------------------------------------------
     double Ys_min_  = 1.e-15; //!< minimum Ys used in property calculations
     double bs_min_  = 0.;     //!< minimum bs used in property calculations
     double Ns_norm_ = 1.e15;  //!< normalisation factor for Ns [#/m3]
 
-    // ── Gas consumption intermediate quantities ────────────────────────────────
+    // -- Gas consumption intermediate quantities --------------------------------
     double dMdt_nucleation_       = 0.; //!< [kg/m3/s]
     double dMdt_nucleation_BMH_1_ = 0.;
     double dMdt_nucleation_BMH_2_ = 0.;
     double dMdt_surface_growth_   = 0.;
     double dMdt_oxidation_        = 0.;
 
-    // ── Per-process source storage (owned by BrookesMoss, not by base) ────────
+    // -- Per-process source storage (owned by BrookesMoss, not by base) --------
     //
     // BrookesMoss models: nucleation, coagulation, growth, oxidation.
     // condensation and sintering are absent; base class returns zero span for both.
@@ -354,10 +373,10 @@ private:
     MomentVector source_growth_      = MomentVector::Zero();
     MomentVector source_oxidation_   = MomentVector::Zero();
 
-    // ── Initial moments cache ──────────────────────────────────────────────────
+    // -- Initial moments cache --------------------------------------------------
     MomentVector initial_moments_cache_ = MomentVector::Zero();
 
-    // ── Numerical floors ───────────────────────────────────────────────────────
+    // -- Numerical floors -------------------------------------------------------
     static constexpr double kYsMin = 1.e-15; //!< [-]
     static constexpr double kBsMin = 0.;     //!< [m3/kg]
 };

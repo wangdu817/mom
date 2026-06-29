@@ -55,7 +55,7 @@ namespace MOM
 
 template <ThermoMap Thermo> BrookesMoss<Thermo>::BrookesMoss(const Thermo& thermo) : thermo_(thermo)
 {
-    // ── CRTP base state ───────────────────────────────────────────────────
+    // -- CRTP base state ---------------------------------------------------
     this->is_active_               = true;
     this->gas_consumption_         = false;
     this->radiative_heat_transfer_ = true;
@@ -67,14 +67,14 @@ template <ThermoMap Thermo> BrookesMoss<Thermo>::BrookesMoss(const Thermo& therm
     this->dummy_index_           = -1;
     this->dummy_species_closure_ = false;
 
-    // ── Particle properties ───────────────────────────────────────────────
+    // -- Particle properties -----------------------------------------------
     dp_      = 1.e-9;
     mwp_     = 144.;
     Ns_norm_ = 1.e15;
     Ys_min_  = 1.e-30;
     bs_min_  = 1.e-30;
 
-    // ── Model constants ───────────────────────────────────────────────────
+    // -- Model constants ---------------------------------------------------
     Calpha_  = 54.;
     Talpha_  = 21000.;
     Cbeta_   = 1.0;
@@ -87,7 +87,7 @@ template <ThermoMap Thermo> BrookesMoss<Thermo>::BrookesMoss(const Thermo& therm
     exp_m_   = 1.;
     exp_n_   = 1.;
 
-    // ── BM-Hall extended constants ─────────────────────────────────────────
+    // -- BM-Hall extended constants -----------------------------------------
     Calpha1_MBH_ = 127. * std::pow(10., 8.88);
     Calpha2_MBH_ = 178. * std::pow(10., 9.50);
     Talpha1_MBH_ = 4378.;
@@ -95,20 +95,20 @@ template <ThermoMap Thermo> BrookesMoss<Thermo>::BrookesMoss(const Thermo& therm
     Comega2_MBH_ = 8903.51;
     Tomega2_MBH_ = 19778.;
 
-    // ── Model flags ───────────────────────────────────────────────────────
+    // -- Model flags -------------------------------------------------------
     nucleation_variant_   = NucleationVariant::Off;
     oxidation_variant_    = OxidationVariant::Off;
     surface_growth_model_ = 0;
     coagulation_model_    = 0;
 
-    // ── Gas consumption intermediates ─────────────────────────────────────
+    // -- Gas consumption intermediates -------------------------------------
     dMdt_nucleation_       = 0.;
     dMdt_nucleation_BMH_1_ = 0.;
     dMdt_nucleation_BMH_2_ = 0.;
     dMdt_surface_growth_   = 0.;
     dMdt_oxidation_        = 0.;
 
-    // ── Default precursor: C2H2 ───────────────────────────────────────────
+    // -- Default precursor: C2H2 -------------------------------------------
     prec_species_ = "C2H2";
     prec_index_   = thermo_.IndexOfSpecies("C2H2");
     if (prec_index_ >= 0)
@@ -125,14 +125,14 @@ template <ThermoMap Thermo> BrookesMoss<Thermo>::BrookesMoss(const Thermo& therm
     }
     conc_prec_ = 0.;
 
-    // ── Default surface growth species: C2H2 ──────────────────────────────
+    // -- Default surface growth species: C2H2 ------------------------------
     sg_species_ = "C2H2";
     sg_index_   = prec_index_;
     sg_nc_      = prec_nc_;
     sg_nh_      = prec_nh_;
     conc_sg_    = 0.;
 
-    // ── Key species indices (0-based, -1 if absent) ───────────────────────
+    // -- Key species indices (0-based, -1 if absent) -----------------------
     index_H_    = thermo_.IndexOfSpecies("H");
     index_OH_   = thermo_.IndexOfSpecies("OH");
     index_O2_   = thermo_.IndexOfSpecies("O2");
@@ -142,7 +142,7 @@ template <ThermoMap Thermo> BrookesMoss<Thermo>::BrookesMoss(const Thermo& therm
     index_C6H5_ = thermo_.IndexOfSpecies("A1-");
     index_C6H6_ = thermo_.IndexOfSpecies("A1");
 
-    // ── Key species concentrations ────────────────────────────────────────
+    // -- Key species concentrations ----------------------------------------
     conc_H_ = conc_OH_ = conc_O2_ = conc_H2_ = conc_H2O_ = conc_C2H2_ = 0.;
     Y_C2H2_ = Y_C6H5_ = Y_C6H6_ = Y_H2_ = Y_OH_ = Y_O2_ = 0.;
 
@@ -677,7 +677,7 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexce
         this->omega_gas_[idx] += omega_kg_m3_s;
     };
 
-    // ── Nucleation coupling ───────────────────────────────────────────────
+    // -- Nucleation coupling -----------------------------------------------
     //
     // For every kg of soot formed:
     //   precursor consumed:  omega_prec = -dMdt * MW_prec / (nc_prec * WC_)
@@ -744,7 +744,7 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexce
         }
     }
 
-    // ── Surface growth coupling ───────────────────────────────────────────
+    // -- Surface growth coupling -------------------------------------------
     if (dMdt_surface_growth_ > 0. && sg_index_ >= 0 && sg_nc_ > 0.)
     {
         const double MW_sg          = thermo_.MolecularWeight(static_cast<unsigned>(sg_index_));
@@ -760,7 +760,7 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexce
         }
     }
 
-    // ── Dummy species closure (enforce mass conservation) ─────────────────
+    // -- Dummy species closure (enforce mass conservation) -----------------
     if (this->dummy_species_closure_)
     {
         // dummy_index_ must be set during setup — a negative value is a programming error.

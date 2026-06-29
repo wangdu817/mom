@@ -36,72 +36,95 @@
 #pragma once
 
 #include <concepts>
-#include <string_view>
-#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
-#include <functional>
 
 namespace MOM
 {
 
-// ============================================================================
-// ThermoMap concept
-// ============================================================================
-//
-// Minimal thermodynamics interface required by any moment method.
-// This concept fully decouples the MOM library core from OpenSMOKE++.
-// Any thermodynamics backend (OpenSMOKE++, Cantera, custom) can be used
-// by providing an adapter that satisfies this concept.
-//
-// All indices are 0-based. IndexOfSpecies returns -1 if absent.
-// Molecular weights are in [kg/kmol].
-// Atom counts return 0.0 for species that do not contain that element.
-// ============================================================================
-
+/**
+ * @concept ThermoMap
+ * @brief Minimal thermodynamics interface required by any moment method variant.
+ *
+ * This concept fully decouples the MOM library core from any specific
+ * thermodynamics backend (OpenSMOKE++, Cantera, custom solvers).  Any backend
+ * can be adapted by wrapping it in a thin adapter class that satisfies these
+ * requirements.
+ *
+ * @par Conventions
+ * - All species indices are **0-based**.
+ * - `IndexOfSpecies` returns **-1** if the species is absent in the mechanism.
+ * - Molecular weights are in **[kg/kmol]**.
+ * - Atom-count methods return **0.0** for species that do not contain that element
+ *   (e.g. `NumberOfTitaniumAtoms` on a carbon species returns 0.0, not NaN).
+ *
+ * @par Requirement summary
+ * | Expression | Return type | Description |
+ * |---|---|---|
+ * | `t.NumberOfSpecies()` | convertible to `unsigned` | Total species count |
+ * | `t.IndexOfSpecies(name)` | convertible to `int` | 0-based index, −1 if absent |
+ * | `t.MolecularWeight(i)` | `double` | MW of species *i* [kg/kmol] |
+ * | `t.NumberOfCarbonAtoms(i)` | `double` | C atoms per molecule of species *i* |
+ * | `t.NumberOfHydrogenAtoms(i)` | `double` | H atoms per molecule |
+ * | `t.NumberOfOxygenAtoms(i)` | `double` | O atoms per molecule |
+ * | `t.NumberOfNitrogenAtoms(i)` | `double` | N atoms per molecule |
+ * | `t.NumberOfTitaniumAtoms(i)` | `double` | Ti atoms per molecule (0 if none) |
+ *
+ * @tparam T  Thermodynamics backend type to check.
+ */
 template <typename T>
 concept ThermoMap = requires(const T& t, unsigned i, std::string_view name) {
-    // Total number of species in the kinetic mechanism
     { t.NumberOfSpecies() } -> std::convertible_to<unsigned>;
-
-    // 0-based species index; returns -1 if species is absent in the mechanism
     { t.IndexOfSpecies(name) } -> std::convertible_to<int>;
-
-    // Molecular weight of species i [kg/kmol]
     { t.MolecularWeight(i) } -> std::same_as<double>;
-
-    // Atom counts per molecule of species i
     { t.NumberOfCarbonAtoms(i) } -> std::same_as<double>;
     { t.NumberOfHydrogenAtoms(i) } -> std::same_as<double>;
     { t.NumberOfOxygenAtoms(i) } -> std::same_as<double>;
     { t.NumberOfNitrogenAtoms(i) } -> std::same_as<double>;
-    { t.NumberOfTitaniumAtoms(i) } -> std::same_as<double>; // returns 0.0 for non-Ti species
+    { t.NumberOfTitaniumAtoms(i) } -> std::same_as<double>;
 };
 
-// ============================================================================
-// BasicThermoData
-// ============================================================================
-//
-// A lightweight, self-contained struct satisfying ThermoMap.
-// Useful for unit tests, standalone executables, and CI.
-// Populate by hand or parse from a minimal input file.
-// ============================================================================
-
+/**
+ * @struct BasicThermoData
+ * @brief Lightweight, self-contained thermodynamics struct satisfying ThermoMap.
+ *
+ * Intended for unit tests, standalone executables, and CI builds where
+ * OpenSMOKE++ is not available.  Populate the public vectors directly or parse
+ * them from a minimal input file before constructing any moment method object.
+ *
+ * @code
+ *   MOM::BasicThermoData thermo;
+ *   thermo.names = {"C2H2", "H2", "O2", "OH", "H2O"};
+ *   thermo.mw    = { 26.04, 2.016, 32.0, 17.008, 18.016 };
+ *   // ... fill nc, nh, no, nn, nti ...
+ *   MOM::HMOM<MOM::BasicThermoData> model(thermo);
+ * @endcode
+ */
 struct BasicThermoData
 {
-    std::vector<std::string> names;
-    std::vector<double> mw;
-    std::vector<double> nc;
-    std::vector<double> nh;
-    std::vector<double> no;
-    std::vector<double> nn;
-    std::vector<double> nti;
+    std::vector<std::string> names; //!< Species names in mechanism order.
+    std::vector<double> mw;         //!< Molecular weights [kg/kmol], same order as names.
+    std::vector<double> nc;         //!< Carbon atom counts per molecule.
+    std::vector<double> nh;         //!< Hydrogen atom counts per molecule.
+    std::vector<double> no;         //!< Oxygen atom counts per molecule.
+    std::vector<double> nn;         //!< Nitrogen atom counts per molecule.
+    std::vector<double> nti;        //!< Titanium atom counts per molecule (0 for most species).
 
+    /**
+     * @brief Returns the total number of species in the mechanism.
+     * @return Species count as unsigned.
+     */
     [[nodiscard]] unsigned NumberOfSpecies() const noexcept
     {
         return static_cast<unsigned>(names.size());
     }
 
+    /**
+     * @brief Returns the 0-based index of a species by name.
+     * @param name Species name to look up.
+     * @return 0-based index, or -1 if the species is not present.
+     */
     [[nodiscard]] int IndexOfSpecies(std::string_view name) const noexcept
     {
         for (unsigned i = 0; i < names.size(); ++i)
@@ -110,38 +133,40 @@ struct BasicThermoData
         return -1;
     }
 
+    /** @brief Molecular weight of species @p i [kg/kmol]. */
     [[nodiscard]] double MolecularWeight(unsigned i) const noexcept { return mw[i]; }
 
+    /** @brief Number of carbon atoms per molecule of species @p i. */
     [[nodiscard]] double NumberOfCarbonAtoms(unsigned i) const noexcept { return nc[i]; }
 
+    /** @brief Number of hydrogen atoms per molecule of species @p i. */
     [[nodiscard]] double NumberOfHydrogenAtoms(unsigned i) const noexcept { return nh[i]; }
 
+    /** @brief Number of oxygen atoms per molecule of species @p i. */
     [[nodiscard]] double NumberOfOxygenAtoms(unsigned i) const noexcept { return no[i]; }
 
+    /** @brief Number of nitrogen atoms per molecule of species @p i. */
     [[nodiscard]] double NumberOfNitrogenAtoms(unsigned i) const noexcept { return nn[i]; }
 
+    /** @brief Number of titanium atoms per molecule of species @p i (0 for non-Ti species). */
     [[nodiscard]] double NumberOfTitaniumAtoms(unsigned i) const noexcept { return nti[i]; }
 };
 
 static_assert(ThermoMap<BasicThermoData>, "BasicThermoData must satisfy ThermoMap");
 
-// ============================================================================
-// Additional thermo adapters
-// ============================================================================
-//
-// Wraps OpenSMOKE::ThermodynamicsMap_CHEMKIN to satisfy the ThermoMap concept.
-// This adapter lives in the compatibility layer; the MOM library core never
-// includes OpenSMOKE++ headers directly.
-//
-// USAGE:
-//   #include "OpenSMOKE++ headers..."
-//   #include "MOM/ThermoProxy.hpp"
-//
-//   OpenSMOKE::ThermodynamicsMap_CHEMKIN osThermo(...);
-//   MOM::OpenSMOKEThermo thermo(osThermo);
-//   MOM::HMOM model(thermo);
-//
-// The implementation of each method is in ThermoProxy.cpp
-// ============================================================================
+/**
+ * @note Additional thermodynamics adapters (e.g. for OpenSMOKE::ThermodynamicsMap_CHEMKIN)
+ * live in the compatibility layer and are not included by this header.  They follow
+ * the same pattern — a thin wrapper that forwards calls to satisfy ThermoMap —
+ * ensuring the MOM library core never includes OpenSMOKE++ headers directly.
+ *
+ * @code
+ *   #include "OpenSMOKE++ headers..."
+ *   #include "MOM/ThermoProxy.hpp"
+ *   OpenSMOKE::ThermodynamicsMap_CHEMKIN osThermo(...);
+ *   MOM::OpenSMOKEThermo thermo(osThermo);
+ *   MOM::HMOM model(thermo);
+ * @endcode
+ */
 
 } // namespace MOM

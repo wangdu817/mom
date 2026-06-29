@@ -35,9 +35,6 @@
 
 #pragma once
 
-#include "MOM/MomentMethodBase.hpp"
-#include "MOM/ThermoProxy.hpp"
-#include "Eigen/Dense"
 #include <span>
 #include <string>
 #include <string_view>
@@ -45,32 +42,55 @@
 #include <expected>
 #endif
 
+#include "Eigen/Dense"
+
+#include "MOM/MomentMethodBase.hpp"
+#include "MOM/ThermoProxy.hpp"
+
 namespace MOM
 {
 
-// ============================================================================
-// ThreeEquations<Thermo> — 3-equation soot model
-// ============================================================================
-//
-// Reference:
-//   Franzelli, Vie', Darabiha, Proc. Combust. Inst. 37 (2019) 5411–5419.
-//
-// Transported variables:
-//   moments[0] = Ys      — soot mass fraction [-]
-//   moments[1] = NsNorm  — scaled soot particle number density [-]
-//                          (NsNorm = Ns / N0_scaling, N0_scaling typically 1e15 #/m3)
-//   moments[2] = Ss      — soot specific surface area [m2/m3]
-//
-// Physical processes modelled:
-//   Nucleation    (PAH dimerization, free-molecular regime)
-//   Surface growth (HACA or RC-PAH surface chemistry model)
-//   Condensation  (PAH adsorption on soot)
-//   Oxidation     (O2 + OH)
-//   Coagulation   (free-molecular + continuum)
-//   Thermophoresis (via effective diffusion coefficient)
-//
-// @tparam Thermo  Must satisfy MOM::ThermoMap.
-// ============================================================================
+/**
+ * @class ThreeEquations
+ * @brief Three-equation soot model of Franzelli, Vié & Darabiha (2019).
+ *
+ * Transports three conserved scalars that characterise the soot phase: mass
+ * fraction, a scaled number density, and specific surface area.  Compared to
+ * two-equation models, the explicit surface area equation enables more accurate
+ * coupling between nucleation, condensation, and surface growth without
+ * requiring an empirical surface density law.
+ *
+ * @par Reference
+ * - Franzelli, Vié & Darabiha, *Proc. Combust. Inst.* **37** (2019) 5411–5419.
+ *
+ * @par Transported variables
+ * | Index | Symbol | Physical meaning |
+ * |---|---|---|
+ * | 0 | Ys     | Soot mass fraction [-] |
+ * | 1 | NsNorm | Scaled number density = Ns / N0_scaling [-] (default N0_scaling = 10¹⁵ #/m³) |
+ * | 2 | Ss     | Soot specific surface area [m²/m³] |
+ *
+ * @par Physical processes modelled
+ * - **Nucleation** — PAH dimerisation in the free-molecular regime.
+ * - **Surface growth** — HACA mechanism or RC-PAH model (Franzelli 2019).
+ * - **Condensation** — PAH adsorption on existing soot particles.
+ * - **Oxidation** — O2 and OH attack.
+ * - **Coagulation** — free-molecular + continuum kernel.
+ * - **Thermophoresis** — encoded in the effective diffusion coefficient.
+ *
+ * @par NDF reconstruction
+ * Uses a combined Pareto + log-normal reconstruction for the marginal NDF:
+ * @code
+ *   n(ν) = Ns · nbar(ν)
+ *   nbar(ν) = α · Pareto(ν; ν_nucl, k) + (1−α) · LogNormal(ν; μ, σ)
+ * @endcode
+ * where ν is the particle volume per particle [m³/#].
+ * Reconstruction parameters are available via `ReconstructedNDFData()`.
+ *
+ * @note Sintering is not modelled; `sources_sintering()` returns a zero span.
+ *
+ * @tparam Thermo  Must satisfy the MOM::ThermoMap concept.
+ */
 
 template <ThermoMap Thermo>
 class ThreeEquations : public MomentMethodBase<ThreeEquations<Thermo>, 3>
@@ -86,48 +106,56 @@ public:
                                                                     "threeequations",
                                                                     "3Eq"};
 
-    // ── Method-specific sub-model enums ─────────────────────────────────────
+    // -- Method-specific sub-model enums -------------------------------------
 
-    /// Surface chemistry model for HACA (surface growth + oxidation).
+    /** @brief Surface chemistry model for HACA surface growth and oxidation. */
     enum class SurfaceChemistryModel : int
     {
-        RCPAH = 0, //!< RC-PAH model (default): Franzelli et al. (2019)
-        HMOM  = 1  //!< HMOM HACA kinetics (for cross-method consistency studies)
+        RCPAH = 0, //!< RC-PAH model (default): Franzelli et al. (2019).
+        HMOM  = 1  //!< HMOM HACA kinetics (for cross-method consistency studies).
     };
 
+    /** @brief PAH sticking coefficient model for nucleation and condensation. */
     enum class StickingModel : int
     {
-        Constant = 0, //!< Fixed sticking coefficient (default: 2e-3)
-        PAH4     = 1  //!< PAH 4-ring sticking model
+        Constant = 0, //!< Fixed sticking coefficient (default: 2×10⁻³).
+        PAH4     = 1  //!< PAH 4-ring sticking model.
     };
 
-    // ── NDF reconstruction data structure ─────────────────────────────────────
-    //
-    // ThreeEquations uses the Franzelli et al. (2019) combined Pareto +
-    // log-normal reconstruction for the marginal NDF n(ν).
-    //
-    //   n(ν) = Ns * nbar(ν)
-    //   nbar(ν) = α * Pareto(ν; ν_nucl, k) + (1-α) * LogNormal(ν; μ, σ)
-    //
-    // where ν is the particle volume [m3/#].
-
+    /**
+     * @struct NDFReconstructionData
+     * @brief Parameters of the Franzelli et al. (2019) Pareto + log-normal NDF reconstruction.
+     *
+     * The marginal NDF n(ν) is reconstructed as:
+     * @code
+     *   n(ν) = Ns · nbar(ν)
+     *   nbar(ν) = α · Pareto(ν; ν_nucl, k) + (1−α) · LogNormal(ν; μ, σ)
+     * @endcode
+     * where ν is the particle volume per particle [m³/#].
+     *
+     * Call `ReconstructedNDFData()` to compute and retrieve these parameters.
+     */
     struct NDFReconstructionData
     {
-        bool valid;     //!< true if reconstruction is physically meaningful
-        double Ns;      //!< soot number density [#/m3]
-        double fv;      //!< soot volume fraction [-]
-        double nus;     //!< mean particle volume [m3/#]
-        double alpha;   //!< Pareto weight [-]
-        double nbar0;   //!< nucleation-peak normalised NDF value [1/m3]
-        double sigma;   //!< log-normal standard deviation [-]
-        double k;       //!< Pareto tail index [-]
-        double nu1mean; //!< mean volume of Pareto contribution [m3/#]
-        double nu2mean; //!< mean volume of log-normal contribution [m3/#]
-        double mu;      //!< log-normal location parameter [log(m3)]
+        bool valid;     //!< True if reconstruction is physically meaningful.
+        double Ns;      //!< Soot number density [#/m³].
+        double fv;      //!< Soot volume fraction [-].
+        double nus;     //!< Mean particle volume [m³/#].
+        double alpha;   //!< Pareto weight α ∈ [0,1] [-].
+        double nbar0;   //!< Nucleation-peak normalised NDF value [1/m³].
+        double sigma;   //!< Log-normal standard deviation σ [-].
+        double k;       //!< Pareto tail index k [-].
+        double nu1mean; //!< Mean volume of the Pareto contribution [m³/#].
+        double nu2mean; //!< Mean volume of the log-normal contribution [m³/#].
+        double mu;      //!< Log-normal location parameter μ [log(m³)].
     };
 
-    // ── Construction ─────────────────────────────────────────────────────────
+    // -- Construction ---------------------------------------------------------
 
+    /**
+     * @brief Constructs ThreeEquations bound to the given thermodynamics map.
+     * @param thermo  Const reference to the thermodynamics map (must outlive this object).
+     */
     explicit ThreeEquations(const Thermo& thermo);
 
     ThreeEquations(const ThreeEquations&)            = delete;
@@ -140,7 +168,7 @@ public:
     [[nodiscard]] std::expected<void, std::string> SetupFromDictionary(Dictionary& dict);
 #endif
 
-    // ── MomentMethod concept — state injection ────────────────────────────────
+    // -- MomentMethod concept — state injection --------------------------------
 
     /// @param T    Temperature [K]
     /// @param P_Pa Pressure [Pa]
@@ -154,12 +182,12 @@ public:
     /// Named setter (preferred for ThreeEquations-aware code).
     void SetMoments(double Ys, double NsNorm, double Ss) noexcept;
 
-    // ── MomentMethod concept — core computation ───────────────────────────────
+    // -- MomentMethod concept — core computation -------------------------------
 
     void CalculateSourceMoments() noexcept;
     void CalculateOmegaGas() noexcept;
 
-    // ── MomentMethod concept — particle properties ────────────────────────────
+    // -- MomentMethod concept — particle properties ----------------------------
 
     [[nodiscard]] double VolumeFraction() const noexcept;
     [[nodiscard]] double ParticleDiameter() const noexcept;  //!< primary particle diameter [m]
@@ -170,14 +198,14 @@ public:
     [[nodiscard]] double NumberOfPrimaryParticles() const noexcept;
     [[nodiscard]] double DiffusionCoefficient() const noexcept; //!< [kg/m/s]
 
-    // ── MomentMethod concept — initial conditions ─────────────────────────────
+    // -- MomentMethod concept — initial conditions -----------------------------
 
     [[nodiscard]] std::span<const double> initial_moments() const noexcept
     {
         return {initial_moments_cache_.data(), 3u};
     }
 
-    // ── MomentMethod concept — precursor ──────────────────────────────────────
+    // -- MomentMethod concept — precursor --------------------------------------
 
     [[nodiscard]] int precursor_index() const noexcept { return pah_index_; }
 
@@ -185,16 +213,16 @@ public:
 
     [[nodiscard]] const std::string& precursor_species() const noexcept { return pah_species_; }
 
-    // ── MomentMethod concept — diagnostics ────────────────────────────────────
+    // -- MomentMethod concept — diagnostics ------------------------------------
 
     void PrintSummary() const;
 
-    // ── Aggregated properties helper ──────────────────────────────────────────
+    // -- Aggregated properties helper ------------------------------------------
 
     /// Returns fv, dp, dc, np, ss, vs in one call (useful for post-processing).
     void Properties(double& fv, double& dp, double& dc, double& np, double& ss, double& vs) const noexcept;
 
-    // ── Reporter output hook (MomentMethodReporter extensibility protocol) ──────
+    // -- Reporter output hook (MomentMethodReporter extensibility protocol) ------
     //
     // Makes ThreeEquations self-describing with respect to output.
     // MomentMethodReporter calls this with a lambda cb(label, value):
@@ -220,7 +248,7 @@ public:
         cb("mu[log(m3)]", ndf.mu);
     }
 
-    // ── NDF reconstruction (ThreeEquations-specific) ──────────────────────────
+    // -- NDF reconstruction (ThreeEquations-specific) --------------------------
 
     /// Computes the Franzelli et al. (2019) NDF reconstruction parameters.
     /// @param use_regularized_moments  If true, uses floor-clipped moments.
@@ -238,7 +266,7 @@ public:
                           Eigen::VectorXd& n,
                           bool use_regularized_moments = false) const;
 
-    // ── Surface area geometry utilities ───────────────────────────────────────
+    // -- Surface area geometry utilities ---------------------------------------
 
     /// Change in surface area for a volume increment deltaV on a sphere.
     [[nodiscard]] static double DeltaSurfaceSpherical(double deltaV, double V, double S) noexcept;
@@ -246,7 +274,7 @@ public:
     /// Change in surface area for a volume increment deltaV on a fractal aggregate.
     [[nodiscard]] static double DeltaSurfaceFractal(double deltaV, double V, double S, double np) noexcept;
 
-    // ── Model switches ────────────────────────────────────────────────────────
+    // -- Model switches --------------------------------------------------------
 
     void SetNucleation(int flag) noexcept { nucleation_model_ = flag; }
 
@@ -292,7 +320,7 @@ public:
     /// Scaling factor for Ns transport variable [#/m3].
     [[nodiscard]] double ScalingFactorNs() const noexcept { return N0_scaling_; }
 
-    // ── Model state queries ────────────────────────────────────────────────────
+    // -- Model state queries ----------------------------------------------------
 
     [[nodiscard]] int nucleation_model() const noexcept { return nucleation_model_; }
 
@@ -304,11 +332,15 @@ public:
 
     [[nodiscard]] int coagulation_model() const noexcept { return coagulation_model_; }
 
-    // ── CRTP extension points — process source storage owned by ThreeEquations ─
-    //
-    // ThreeEquations models: nucleation, coagulation, condensation, growth, oxidation.
-    // NOT modelled: sintering → base class returns zero span automatically.
+    /**
+     * @name CRTP extension points — per-process source storage
+     *
+     * ThreeEquations models: nucleation, coagulation, condensation, growth, oxidation.
+     * Sintering is **not** modelled; `sources_sintering()` returns a zero span.
+     * @{
+     */
 
+    /** @brief Nucleation source terms [mol/m³/s], size = n_equations. */
     [[nodiscard, gnu::always_inline]] std::span<const double> sources_nucleation_impl() const noexcept
     {
         return {source_nucleation_.data(), this->n_equations};
@@ -334,9 +366,11 @@ public:
         return {source_oxidation_.data(), this->n_equations};
     }
 
+    /** @} */
+
 private:
 
-    // ── Private computational methods ──────────────────────────────────────────
+    // -- Private computational methods ------------------------------------------
 
     void MemoryAllocation();
     void Precalculations();
@@ -368,23 +402,23 @@ private:
 
 private:
 
-    // ── Thermodynamics reference ───────────────────────────────────────────────
+    // -- Thermodynamics reference -----------------------------------------------
     const Thermo& thermo_;
 
-    // ── Transported variables ──────────────────────────────────────────────────
+    // -- Transported variables --------------------------------------------------
     double Ys_         = 0.;    //!< soot mass fraction [-]
     double NsNorm_     = 0.;    //!< Ns / N0_scaling [-]
     double Ss_         = 0.;    //!< specific surface area [m2/m3]
     double N0_scaling_ = 1.e15; //!< [#/m3]
 
-    // ── Dimer properties ───────────────────────────────────────────────────────
+    // -- Dimer properties -------------------------------------------------------
     double vdim_ = 0., sdim_ = 0., ddim_ = 0.;
     double vnucl_ = 0., snucl_ = 0., dnucl_ = 0.;
     double vc2_ = 0., sc2_ = 0., dc2_ = 0.;
     double c_dimer_           = 0.; //!< dimer concentration [kmol/m3]
     double dimerization_rate_ = 0.; //!< [#/m3/s]
 
-    // ── PAH properties ─────────────────────────────────────────────────────────
+    // -- PAH properties ---------------------------------------------------------
     std::string pah_species_;
     int pah_index_ = -1;
     double vpah_ = 0., spah_ = 0., dpah_ = 0.;
@@ -392,7 +426,7 @@ private:
     double conc_PAH_                 = 0.;
     double correction_coeff_pah_pah_ = 4.4;
 
-    // ── Species concentrations ─────────────────────────────────────────────────
+    // -- Species concentrations -------------------------------------------------
     double conc_H_ = 0., conc_OH_ = 0., conc_O2_ = 0.;
     double conc_H2_ = 0., conc_H2O_ = 0., conc_C2H2_ = 0.;
 
@@ -402,12 +436,12 @@ private:
     double mass_fraction_H_  = 0.;
     double mass_fraction_OH_ = 0.;
 
-    // ── Collision enhancement factors ──────────────────────────────────────────
+    // -- Collision enhancement factors ------------------------------------------
     double epsilon_nucleation_   = 2.5;
     double epsilon_condensation_ = 1.3;
     double epsilon_coagulation_  = 2.2;
 
-    // ── Model flags ────────────────────────────────────────────────────────────
+    // -- Model flags ------------------------------------------------------------
     int nucleation_model_     = 0;
     int condensation_model_   = 0;
     int coagulation_model_    = 0;
@@ -420,26 +454,26 @@ private:
 
     double Df_ = 1.8; //!< fractal dimension [-]
 
-    // ── Dimer concentration model ──────────────────────────────────────────────
+    // -- Dimer concentration model ----------------------------------------------
     enum class DimerModel : int
     {
         QSSA_Rodrigues = 0
     };
     DimerModel dimer_concentration_model_ = DimerModel::QSSA_Rodrigues;
 
-    // ── Additional model flags ─────────────────────────────────────────────────
+    // -- Additional model flags -------------------------------------------------
     bool smooth_heaviside_oxidation_ =
         true; //!< use smooth Heaviside for oxidation particle destruction
     bool is_debug_mode_          = false; //!< enable verbose diagnostic output
     bool is_simplified_pah_mass_ = false; //!< use Nc*WC instead of full PAH MW
 
-    // ── Numerical floors ───────────────────────────────────────────────────────
+    // -- Numerical floors -------------------------------------------------------
     double Ys_min_ = 1.e-15; //!< [-]
     double Ns_min_ = 1.e6;   //!< [#/m3]
     double Ss_min_ = 1.e-15; //!< [m2/m3]
     double vs_min_ = 1.e-30; //!< [m3/#]
 
-    // ── Per-process source storage (owned by ThreeEquations, not by base) ─────
+    // -- Per-process source storage (owned by ThreeEquations, not by base) -----
     //
     // Only processes ThreeEquations models are declared here.
     // sintering is absent: base class returns zero span for sources_sintering().
@@ -450,13 +484,13 @@ private:
     MomentVector source_growth_       = MomentVector::Zero();
     MomentVector source_oxidation_    = MomentVector::Zero();
 
-    // ── Initial moments cache ──────────────────────────────────────────────────
+    // -- Initial moments cache --------------------------------------------------
     MomentVector initial_moments_cache_ = MomentVector::Zero();
 };
 
 } // namespace MOM
 
-// ── Header-only vs. pre-compiled library mode ─────────────────────────────────
+// -- Header-only vs. pre-compiled library mode ---------------------------------
 //
 // Default (MOM_COMPILED_LIBRARY not defined):
 //   The template bodies are included here, making the class fully usable with

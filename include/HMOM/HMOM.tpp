@@ -122,7 +122,7 @@ template <ThermoMap Thermo> HMOM<Thermo>::HMOM(const Thermo& thermo) : thermo_(t
 {
     const double K_diam = K_diam_HMOM(this->pi_);
 
-    // ── CRTP base state ───────────────────────────────────────────────────
+    // -- CRTP base state ---------------------------------------------------
     this->is_active_               = true;
     this->gas_consumption_         = true;
     this->radiative_heat_transfer_ = true;
@@ -134,11 +134,11 @@ template <ThermoMap Thermo> HMOM<Thermo>::HMOM(const Thermo& thermo) : thermo_(t
     this->dummy_index_           = -1;
     this->dummy_species_closure_ = false;
 
-    // ── Free-molecular pre-factors ─────────────────────────────────────────
+    // -- Free-molecular pre-factors -----------------------------------------
     Cfm_      = std::sqrt(this->pi_ * this->kB_ / 2.0 / this->rho_particle_);
     betaN_TV_ = 2.2 * 4. * this->sqrt2_ * K_diam * K_diam * Cfm_;
 
-    // ── Fractal / collision geometry (defaults: Model1 / Model2) ──────────
+    // -- Fractal / collision geometry (defaults: Model1 / Model2) ----------
     // The HMOM.hpp inline setters only store the enum — they don't compute the
     // geometry members.  We call them for the enum, then populate the geometry.
     SetFractalDiameterModel(1);
@@ -157,7 +157,7 @@ template <ThermoMap Thermo> HMOM<Thermo>::HMOM(const Thermo& thermo) : thermo_(t
         K_collisional_      = K;
     }
 
-    // ── HACA kinetics (default values; E stored as E_kJ/mol * 1e3 / R) ────
+    // -- HACA kinetics (default values; E stored as E_kJ/mol * 1e3 / R) ----
     A1f_  = 6.72e1;
     n1f_  = 3.33;
     E1f_  = 6.09 * 1e3 / R_J_mol_HMOM;
@@ -184,7 +184,7 @@ template <ThermoMap Thermo> HMOM<Thermo>::HMOM(const Thermo& thermo) : thermo_(t
     E5_   = 31.38 * 1e3 / R_J_mol_HMOM;
     eff6_ = 0.13;
 
-    // ── Surface density correction (off by default) ────────────────────────
+    // -- Surface density correction (off by default) ------------------------
     surface_density_correction_ = false;
     surface_density_            = 1.7e19; // [#/m2]
     surf_dens_a1_               = 12.65;
@@ -193,7 +193,7 @@ template <ThermoMap Thermo> HMOM<Thermo>::HMOM(const Thermo& thermo) : thermo_(t
     surf_dens_b2_               = 0.00069;
     alpha_                      = 1.;
 
-    // ── Model switches (all on by default) ────────────────────────────────
+    // -- Model switches (all on by default) --------------------------------
     nucleation_model_             = 1;
     condensation_model_           = 1;
     surface_growth_model_         = 1;
@@ -201,14 +201,14 @@ template <ThermoMap Thermo> HMOM<Thermo>::HMOM(const Thermo& thermo) : thermo_(t
     coagulation_model_            = 1;
     coagulation_continuous_model_ = 1;
 
-    // ── Sticking coefficient ───────────────────────────────────────────────
+    // -- Sticking coefficient -----------------------------------------------
     sticking_model_          = StickingModel::Constant;
     sticking_coeff_constant_ = 2.e-3;
 
     is_simplified_pah_mass_ = false;
     is_debug_mode_          = false;
 
-    // ── Species indices (0-based) ─────────────────────────────────────────
+    // -- Species indices (0-based) -----------------------------------------
     index_H_    = thermo_.IndexOfSpecies("H");
     index_OH_   = thermo_.IndexOfSpecies("OH");
     index_O2_   = thermo_.IndexOfSpecies("O2");
@@ -216,11 +216,11 @@ template <ThermoMap Thermo> HMOM<Thermo>::HMOM(const Thermo& thermo) : thermo_(t
     index_H2O_  = thermo_.IndexOfSpecies("H2O");
     index_C2H2_ = thermo_.IndexOfSpecies("C2H2");
 
-    // ── PAH (default: C2H2) ───────────────────────────────────────────────
+    // -- PAH (default: C2H2) -----------------------------------------------
     pah_species_ = "C2H2";
     SetPAH("C2H2");
 
-    // ── Memory + initial moments ───────────────────────────────────────────
+    // -- Memory + initial moments -------------------------------------------
     MemoryAllocation();
 }
 
@@ -307,7 +307,7 @@ template <ThermoMap Thermo> void HMOM<Thermo>::SetPAH(std::string_view name)
     ncpah_       = static_cast<double>(thermo_.NumberOfCarbonAtoms(pah_index_));
     nhpah_       = static_cast<double>(thermo_.NumberOfHydrogenAtoms(pah_index_));
 
-    // ── PAH mass and geometry ─────────────────────────────────────────────
+    // -- PAH mass and geometry ---------------------------------------------
     mwpah_ = thermo_.MolecularWeight(pah_index_); // [kg/kmol]
     if (is_simplified_pah_mass_)
         mwpah_ = ncpah_ * this->WC_;
