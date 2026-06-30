@@ -586,6 +586,53 @@ static bool validateBrookesMossReporterMissingSpecies()
     return ok;
 }
 
+static bool validateBrookesMossHallConfigDefaults()
+{
+    const auto th = buildBrookesMossHallThermo();
+    const auto Y = X2Y({0.010, 0.020, 0.160, 0.020, 0.080, 0.060, 0.600, 0.030, 0.020}, th);
+
+    bool ok = false;
+
+    try
+    {
+        MOM::BrookesMoss<MOM::BasicThermoData>::Config cfg;
+        cfg.nucleation_model = 2;
+        cfg.oxidation_model = 2;
+
+        MOM::BrookesMoss<MOM::BasicThermoData> from_config(th);
+        from_config.SetupFromConfig(cfg);
+        from_config.SetStatus(1800., 101325., Y.data());
+        from_config.SetMoments(1.e-11, 1.e-2);
+        from_config.CalculateSourceMoments();
+
+        MOM::BrookesMoss<MOM::BasicThermoData> from_setters(th);
+        from_setters.SetNucleation("BrookesMossHall");
+        from_setters.SetOxidation("BrookesMossHall");
+        from_setters.SetStatus(1800., 101325., Y.data());
+        from_setters.SetMoments(1.e-11, 1.e-2);
+        from_setters.CalculateSourceMoments();
+
+        const auto a = from_config.sources();
+        const auto b = from_setters.sources();
+        ok = a.size() == b.size();
+        for (std::size_t i = 0; ok && i < a.size(); ++i)
+        {
+            const double scale = std::max({1., std::abs(a[i]), std::abs(b[i])});
+            ok = std::abs(a[i] - b[i]) <= 1.e-12 * scale;
+        }
+    }
+    catch (const std::runtime_error&)
+    {
+        ok = false;
+    }
+
+    std::cout << "\n=== BrookesMoss-Hall config defaults ===\n";
+    std::cout << (ok ? "  [PASS] Config BM-Hall defaults match string-setter BM-Hall defaults\n"
+                     : "  [FAIL] Config BM-Hall defaults diverge from string-setter setup\n");
+
+    return ok;
+}
+
 // ============================================================================
 // main
 // ============================================================================
@@ -610,6 +657,7 @@ int main()
     all_ok &= validateThreeEquationsSpeciesValidation();
     all_ok &= validateBrookesMossHallSpeciesValidation();
     all_ok &= validateBrookesMossReporterMissingSpecies();
+    all_ok &= validateBrookesMossHallConfigDefaults();
 
     // ════════════════════════════════════════════════════════════════════
     // 1. HMOM  (NEq = 4)

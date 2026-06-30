@@ -1007,6 +1007,24 @@ void BrookesMoss<Thermo>::ApplyConfig(const Config& cfg)
 {
     this->is_active_ = cfg.is_active;
 
+    const Config defaults{};
+    const bool is_bmh_nucleation = cfg.nucleation_model == static_cast<int>(NucleationVariant::BrookesMossHall);
+    const bool is_bmh_oxidation  = cfg.oxidation_model  == static_cast<int>(OxidationVariant::BrookesMossHall);
+    const bool is_bmh_active     = is_bmh_nucleation || is_bmh_oxidation;
+
+    double soot_particle_mw = cfg.soot_particle_mw_kg_kmol;
+    double cgamma           = cfg.cgamma;
+    double eta_coll         = cfg.eta_coll;
+
+    // Keep explicit user values, but make BM-Hall config setup match the string setters
+    // when the Brookes-Moss defaults were left untouched.
+    if (is_bmh_nucleation && soot_particle_mw == defaults.soot_particle_mw_kg_kmol)
+        soot_particle_mw = 1200.;
+    if (is_bmh_active && cgamma == defaults.cgamma)
+        cgamma = 9000.6;
+    if (is_bmh_oxidation && eta_coll == defaults.eta_coll)
+        eta_coll = 0.13;
+
     // -- Process models ----------------------------------------------------
     this->SetNucleation(cfg.nucleation_model);
     this->SetSurfaceGrowth(cfg.surface_growth_model);
@@ -1030,17 +1048,17 @@ void BrookesMoss<Thermo>::ApplyConfig(const Config& cfg)
     // -- Particle properties -----------------------------------------------
     this->SetParticleDensity(cfg.soot_density_kg_m3);
     this->SetDp(cfg.soot_particle_diameter_m);
-    this->SetMWp(cfg.soot_particle_mw_kg_kmol);
+    this->SetMWp(soot_particle_mw);
     this->SetNsNorm(cfg.ns_norm);
 
     // -- Kinetic constants (direct member assignment — no setters) ----------
     Calpha_      = cfg.calpha;
     Talpha_      = cfg.talpha;
     Cbeta_       = cfg.cbeta;
-    Cgamma_      = cfg.cgamma;
+    Cgamma_      = cgamma;
     Tgamma_      = cfg.tgamma;
     Comega_      = cfg.comega;
-    etaColl_     = cfg.eta_coll;
+    etaColl_     = eta_coll;
     Coxid_       = cfg.coxid;
     exp_l_       = cfg.nucleation_exponent;
     exp_m_       = cfg.sg_exponent1;
