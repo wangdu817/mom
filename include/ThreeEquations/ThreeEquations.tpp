@@ -1098,7 +1098,7 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::PrintSummary() const
         << " * Additional parameters\n"
         << "    + PAH-PAH correction: " << correction_coeff_pah_pah_
         << "\n"
-        //<< "    + Chemistry model:    " << SurfaceChemistryModel::RCPAH << "\n"
+    //  << "    + Chemistry model:    " << SurfaceChemistryModel::RCPAH << "\n"
         << "    + Smooth Heavised:    " << smooth_heaviside_oxidation_ << "\n"
         << "\n"
         << " * Numerical floors\n"
@@ -1357,9 +1357,11 @@ ThreeEquations<Thermo>::ParseConfig(DictType& dict)
     {
         std::string m;
         dict.ReadString("@SurfaceChemistryModel", m);
-        if (m != "rcpah" && m != "hmom")
+        if (m != "rcpah" && m != "hmom" &&
+            m != "RCPAH" && m != "HMOM" &&
+            m != "rc-pah" && m != "RC-PAH")
             return std::unexpected(std::string{
-                "@SurfaceChemistryModel: allowed: rcpah | hmom"});
+                "@SurfaceChemistryModel: allowed: rcpah | hmom (and their variants)"});
         cfg.surface_chemistry_model = m;
     }
 
