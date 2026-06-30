@@ -397,6 +397,7 @@ private:
     // -- Private computational methods ------------------------------------------
 
     void MemoryAllocation();
+    void ApplyConfig(const Config& cfg); //!< core of SetupFromConfig, without PrintSummary()
     void NucleationSourceTerms();
     void NucleationSourceTerms_BM();
     void NucleationSourceTerms_BMH();

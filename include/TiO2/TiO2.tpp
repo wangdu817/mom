@@ -52,81 +52,31 @@ namespace MOM
 
 template <ThermoMap Thermo> TiO2<Thermo>::TiO2(const Thermo& thermo) : thermo_(thermo)
 {
-    // -- CRTP base state ---------------------------------------------------
-    this->is_active_       = true;
-    this->gas_consumption_ = false;
-    this->rho_particle_    = rho_TiO2_;
-    this->planck_model_    = PlanckCoeffModel::None; // TiO2 is dielectric
-    this->SetThermophoreticModel(1);
-    this->schmidt_number_        = 50.;
-    this->closure_dummy_species_         = "none";
-    this->closure_dummy_index_           = -1;
-    this->is_closure_dummy_species_ = false;
+    // -- Fixed material / physics constants (not user-configurable) --------
+    // TiO2 density is a known material property; Planck model is None because
+    // TiO2 is a dielectric and does not emit thermally at soot wavelengths.
+    this->rho_particle_ = rho_TiO2_;
+    this->planck_model_ = PlanckCoeffModel::None;
 
-    // -- Nucleation parameters ---------------------------------------------
-    nTiO2_min_   = 2;
-    n0_          = 5;
-    epsilon_nuc_ = 2.5;
-
-    // -- Coagulation / condensation ----------------------------------------
+    // -- Enhancement factors (not exposed in Config; set before ApplyConfig
+    //    so they are ready when Precalculations() runs inside ApplyConfig) --
+    epsilon_nuc_  = 2.5;
     epsilon_coag_ = 2.2;
     epsilon_cond_ = 1.3;
 
-    // -- Model flags -------------------------------------------------------
-    nucleation_variant_ = NucleationVariant::Binary;
-    coagulation_model_  = 1;
-    condensation_model_ = 1;
-    sintering_model_    = 1;
-
-    // -- Sintering kinetics ------------------------------------------------
-    // Kobata et al. AiChe 37:347-358 (1991)
-    As_ = 7.44e16;
-    ns_ = 1.0;
-    Ts_ = 31000.;
-
-    // Alternative kinetics
-    // Seto et al., Aerosol Science and Technology 23:183-200 (1995)
-    // As_ = 9.75e15;
-    // ns_ = 1.0;
-    // Ts_ = 31000.;
-
-    // -- Numerical floors --------------------------------------------------
-    N_min_  = 1.e3;
-    fv_min_ = 1.e-16;
-
-    // -- Precursor (none initially) ----------------------------------------
-    precursor_species_ = "none";
-    precursor_index_   = -1;
-    nti_precursor_ = nh_precursor_ = no_precursor_ = nc_precursor_ = 0.;
-    Y_precursor_                                                   = 0.;
-    c_precursor_                                                   = 0.;
-    W_precursor_                                                   = 0.;
-    m_precursor_                                                   = 0.;
-    v_precursor_                                                   = 0.;
-    d_precursor_                                                   = 0.;
-    vprec_                                                         = 0.;
-    dprec_                                                         = 0.;
-
-    // -- Gas consumption stoichiometry indices -----------------------------
-    H2O_index_ = CO2_index_ = O2_index_ = -1;
-    W_H2O_ = W_CO2_ = W_O2_ = 0.;
-    nu_H2O_from_prec_ = nu_CO2_from_prec_ = nu_O2_from_prec_ = 0.;
-
-    // -- Sintering regularisation ------------------------------------------
-    sintering_dp_min_              = 2.e-9;
+    // -- Internal sintering regularisation (not in Config) -----------------
     sintering_activation_np_       = 1.05;
     sintering_activation_width_np_ = 0.05;
-    sintering_tau_min_             = 1.e-10;
-    sintering_k_max_               = 1.e6;
     sintering_relative_tolerance_  = 1.e-3;
     sintering_tau_qss_             = 1.e-6;
-    is_sintering_deferred_         = false;
 
-    //
-    is_debug_mode_ = false;
+    // -- Apply all tunable parameter defaults from Config{} ----------------
+    // Config{} is the single source of truth for every numerical constant.
+    // ApplyConfig calls Precalculations() internally after setting nTiO2_min_
+    // and the other geometry-affecting parameters.
+    ApplyConfig(Config{});
 
-    // -- Geometry, floors, and initial-moments cache -----------------------
-    Precalculations();
+    // -- Memory allocation (size depends on thermo_.NumberOfSpecies()) -----
     MemoryAllocation();
 }
 
@@ -945,11 +895,11 @@ template <ThermoMap Thermo> void TiO2<Thermo>::PrintSummary() const
 }
 
 // ============================================================================
-// SetupFromConfig
+// ApplyConfig  (private — all parameter assignments, no I/O)
 // ============================================================================
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::SetupFromConfig(const Config& cfg)
+void TiO2<Thermo>::ApplyConfig(const Config& cfg)
 {
     this->is_active_ = cfg.is_active;
 
@@ -979,27 +929,39 @@ void TiO2<Thermo>::SetupFromConfig(const Config& cfg)
         static_cast<unsigned int>(cfg.nucleated_particle_tio2_units));
 
     // -- Sintering kinetics ------------------------------------------------
-    As_  = cfg.sintering_As_s_K_m;
-    Ts_  = cfg.sintering_Ts_K;
-    ns_  = cfg.sintering_ns;
+    As_ = cfg.sintering_As_s_K_m;
+    Ts_ = cfg.sintering_Ts_K;
+    ns_ = cfg.sintering_ns;
 
-    // -- Sintering regularisation ------------------------------------------
+    // -- Sintering regularisation (Config-exposed subset) ------------------
+    // sintering_activation_np_, sintering_activation_width_np_,
+    // sintering_relative_tolerance_, sintering_tau_qss_ are internal
+    // numerical knobs not exposed in Config — they live in the constructor.
     is_sintering_deferred_ = cfg.sintering_deferred;
     sintering_dp_min_      = cfg.sintering_dp_min_m;
     sintering_tau_min_     = cfg.sintering_tau_min_s;
     sintering_k_max_       = cfg.sintering_k_max_per_s;
 
-    // -- Numerical floors --------------------------------------------------
+    // -- Numerical floors + geometry recompute -----------------------------
     N_min_  = cfg.ns_minimum_per_m3;
     fv_min_ = cfg.fv_minimum;
-    Precalculations(); // recompute geometry that depends on N_min_
+    Precalculations(); // recompute geometry that depends on N_min_, nTiO2_min_, epsilon_*
 
     // -- Transport ---------------------------------------------------------
     this->SetSchmidtNumber(cfg.schmidt_number);
 
     // -- Debug mode --------------------------------------------------------
     this->is_debug_mode_ = cfg.debug_mode;
+}
 
+// ============================================================================
+// SetupFromConfig  (public — delegates to ApplyConfig, then prints summary)
+// ============================================================================
+
+template <ThermoMap Thermo>
+void TiO2<Thermo>::SetupFromConfig(const Config& cfg)
+{
+    ApplyConfig(cfg);
     PrintSummary();
 }
 

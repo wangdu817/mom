@@ -118,95 +118,7 @@ inline std::array<double, 4> CollisionGeometry(int model, double pi) noexcept
 
 template <ThermoMap Thermo> HMOM<Thermo>::HMOM(const Thermo& thermo) : thermo_(thermo)
 {
-    const double K_diam = K_diam_HMOM(this->pi_);
-
-    // -- CRTP base state ---------------------------------------------------
-    this->is_active_               = true;
-    this->gas_consumption_         = true;
-    this->radiative_heat_transfer_ = true;
-    this->planck_model_            = PlanckCoeffModel::Smooke;
-    this->SetThermophoreticModel(1);
-    this->schmidt_number_        = 50.;
-    this->rho_particle_          = 1800.;
-    this->closure_dummy_species_         = "none";
-    this->closure_dummy_index_           = -1;
-    this->is_closure_dummy_species_ = false;
-
-    // -- Free-molecular pre-factors -----------------------------------------
-    Cfm_      = std::sqrt(this->pi_ * this->kB_ / 2.0 / this->rho_particle_);
-    betaN_TV_ = 2.2 * 4. * this->sqrt2_ * K_diam * K_diam * Cfm_;
-
-    // -- Fractal / collision geometry (defaults: Model1 / Model2) ----------
-    // The HMOM.hpp inline setters only store the enum — they don't compute the
-    // geometry members.  We call them for the enum, then populate the geometry.
-    SetFractalDiameterModel(1);
-    {
-        auto [Av, As, K] = FractalGeometry(1, this->pi_);
-        Av_fractal_      = Av;
-        As_fractal_      = As;
-        K_fractal_       = K;
-    }
-    SetCollisionDiameterModel(2);
-    {
-        auto [D, Av, As, K] = CollisionGeometry(2, this->pi_);
-        D_collisional_      = D;
-        Av_collisional_     = Av;
-        As_collisional_     = As;
-        K_collisional_      = K;
-    }
-
-    // -- HACA kinetics (default values; E stored as E_kJ/mol * 1e3 / R) ----
-    A1f_  = 6.72e1;
-    n1f_  = 3.33;
-    E1f_  = 6.09 * 1e3 / R_J_mol_HMOM;
-    A1b_  = 6.44e-1;
-    n1b_  = 3.79;
-    E1b_  = 27.96 * 1e3 / R_J_mol_HMOM;
-    A2f_  = 1.00e8;
-    n2f_  = 1.80;
-    E2f_  = 68.42 * 1e3 / R_J_mol_HMOM;
-    A2b_  = 8.68e4;
-    n2b_  = 2.36;
-    E2b_  = 25.46 * 1e3 / R_J_mol_HMOM;
-    A3f_  = 1.13e16;
-    n3f_  = -0.06;
-    E3f_  = 476.05 * 1e3 / R_J_mol_HMOM;
-    A3b_  = 4.17e13;
-    n3b_  = 0.15;
-    E3b_  = 0.00 * 1e3 / R_J_mol_HMOM;
-    A4_   = 2.52e9;
-    n4_   = 1.10;
-    E4_   = 17.13 * 1e3 / R_J_mol_HMOM;
-    A5_   = 2.20e12;
-    n5_   = 0.00;
-    E5_   = 31.38 * 1e3 / R_J_mol_HMOM;
-    eff6_ = 0.13;
-
-    // -- Surface density correction (off by default) ------------------------
-    surface_density_correction_ = false;
-    surface_density_            = 1.7e19; // [#/m2]
-    surf_dens_a1_               = 12.65;
-    surf_dens_a2_               = -0.00563;
-    surf_dens_b1_               = -1.38;
-    surf_dens_b2_               = 0.00069;
-    alpha_                      = 1.;
-
-    // -- Model switches (all on by default) --------------------------------
-    nucleation_model_             = 1;
-    condensation_model_           = 1;
-    surface_growth_model_         = 1;
-    oxidation_model_              = 1;
-    coagulation_model_            = 1;
-    coagulation_continuous_model_ = 1;
-
-    // -- Sticking coefficient -----------------------------------------------
-    sticking_model_          = StickingModel::Constant;
-    sticking_coeff_constant_ = 2.e-3;
-
-    is_simplified_pah_mass_ = false;
-    is_debug_mode_          = false;
-
-    // -- Species indices (0-based) -----------------------------------------
+    // -- Species indices for SetStatus / HACA kinetics (soft lookup: -1 if absent) --
     index_H_    = thermo_.IndexOfSpecies("H");
     index_OH_   = thermo_.IndexOfSpecies("OH");
     index_O2_   = thermo_.IndexOfSpecies("O2");
@@ -214,11 +126,14 @@ template <ThermoMap Thermo> HMOM<Thermo>::HMOM(const Thermo& thermo) : thermo_(t
     index_H2O_  = thermo_.IndexOfSpecies("H2O");
     index_C2H2_ = thermo_.IndexOfSpecies("C2H2");
 
-    // -- PAH (default: C2H2) -----------------------------------------------
-    pah_species_ = "C2H2";
-    SetPAH("C2H2");
+    // -- Apply all tunable parameter defaults from Config{} ----------------
+    // Config{} is the single source of truth for every numerical constant.
+    // ApplyConfig calls Precalculations() after setting rho_particle_ and the
+    // geometry-model enums, so Cfm_, betaN_TV_, and K_collisional_ (etc.) are
+    // correctly computed before CalculateSourceMoments() is ever called.
+    ApplyConfig(Config{});
 
-    // -- Memory + initial moments -------------------------------------------
+    // -- Memory allocation (size depends on thermo_.NumberOfSpecies()) -----
     MemoryAllocation();
 }
 
@@ -1292,28 +1207,41 @@ void HMOM<Thermo>::Properties(
 }
 
 // ============================================================================
-// SetupFromConfig
+// ApplyConfig  (private — all parameter assignments, no I/O)
 // ============================================================================
 
 /**
- * @brief Apply a plain HMOM::Config to this model instance.
+ * @brief Core of SetupFromConfig: apply all Config parameters without printing.
  *
- * All Set*() methods are called unconditionally (they take the config value,
- * which defaults to the constructor default when not overridden by the caller).
- * After all parameters are applied, PrintSummary() emits the configuration log.
+ * In HMOM, SetPAH() does NOT call Precalculations() — the dependency runs the
+ * other way: Precalculations() calls SetPAH(pah_species_) at its end.
+ * Therefore the correct sequence is:
+ *   1. SetParticleDensity  — rho_particle_ is needed by Precalculations()
+ *   2. SetFractalDiameterModel / SetCollisionDiameterModel  — store enums
+ *   3. is_simplified_pah_mass_ + pah_species_  — stored so Precalculations() reads them
+ *   4. Precalculations()  — computes Cfm_, betaN_TV_, fractal/collision geometry,
+ *                           then calls SetPAH(pah_species_) internally
+ * Skipping step 4 leaves K_collisional_ == 0, which causes ÷0 → ±∞ in
+ * the continuum coagulation kernels.
  */
 template <ThermoMap Thermo>
-void HMOM<Thermo>::SetupFromConfig(const Config& cfg)
+void HMOM<Thermo>::ApplyConfig(const Config& cfg)
 {
     this->is_active_ = cfg.is_active;
 
-    // -- Geometry models ---------------------------------------------------
+    // -- Particle density FIRST (Precalculations() uses rho_particle_) ----
+    this->SetParticleDensity(cfg.soot_density_kg_m3);
+
+    // -- Geometry model enums (actual geometry computed by Precalculations) -
     this->SetFractalDiameterModel(cfg.fractal_diameter_model);
     this->SetCollisionDiameterModel(cfg.collision_diameter_model);
 
-    // -- PAH / gas setup ---------------------------------------------------
+    // -- PAH: store species name, then let Precalculations() do the work ---
     this->is_simplified_pah_mass_ = cfg.simplified_pah_mass;
-    this->SetPAH(cfg.pah_species);
+    pah_species_ = std::string(cfg.pah_species); // read by Precalculations()
+    Precalculations(); // sets Cfm_, betaN_TV_, geometry → calls SetPAH(pah_species_)
+
+    // -- Gas setup ---------------------------------------------------------
     this->SetGasConsumption(cfg.gas_consumption);
     this->SetGasClosureDummySpecies(cfg.gas_closure_dummy_species);
 
@@ -1331,8 +1259,7 @@ void HMOM<Thermo>::SetupFromConfig(const Config& cfg)
     this->SetPlanckAbsorptionCoefficient(cfg.planck_coefficient);
     this->SetSchmidtNumber(cfg.schmidt_number);
 
-    // -- Particle properties -----------------------------------------------
-    this->SetParticleDensity(cfg.soot_density_kg_m3);
+    // -- Remaining particle properties -------------------------------------
     this->SetSurfaceDensity(cfg.surface_density_per_m2);
     this->SetSurfaceDensityCorrectionCoefficient(cfg.surface_density_correction);
     this->SetSurfaceDensityCorrectionCoefficientA1(cfg.surf_dens_a1);
@@ -1357,7 +1284,16 @@ void HMOM<Thermo>::SetupFromConfig(const Config& cfg)
 
     // -- Debug mode --------------------------------------------------------
     this->is_debug_mode_ = cfg.debug_mode;
+}
 
+// ============================================================================
+// SetupFromConfig  (public — delegates to ApplyConfig, then prints summary)
+// ============================================================================
+
+template <ThermoMap Thermo>
+void HMOM<Thermo>::SetupFromConfig(const Config& cfg)
+{
+    ApplyConfig(cfg);
     PrintSummary();
 }
 

@@ -91,67 +91,23 @@ int RequireSpeciesIndexThreeEquations(const Thermo& thermo,
 template <ThermoMap Thermo>
 ThreeEquations<Thermo>::ThreeEquations(const Thermo& thermo) : thermo_(thermo)
 {
-    // -- CRTP base state ---------------------------------------------------
-    this->is_active_               = true;
-    this->gas_consumption_         = false;
-    this->radiative_heat_transfer_ = true;
-    this->schmidt_number_          = 50.;
-    this->rho_particle_            = 1800.; // soot density [kg/m3]
-    this->planck_model_            = PlanckCoeffModel::Smooke;
-    this->SetThermophoreticModel(1);
-    this->closure_dummy_species_    = "none";
-    this->closure_dummy_index_      = -1;
-    this->is_closure_dummy_species_ = false;
-
-    // -- Model defaults ----------------------------------------------------
-    Df_                         = 1.8;
-    N0_scaling_                 = 1.e15;
-    epsilon_nucleation_         = 2.5;
-    epsilon_condensation_       = 1.3;
-    epsilon_coagulation_        = 2.2;
-    correction_coeff_pah_pah_   = 4.4;
-    nucleation_model_           = 1;
-    condensation_model_         = 1;
-    coagulation_model_          = 1;
-    surface_growth_model_       = 1;
-    oxidation_model_            = 1;
-    surface_chem_model_         = SurfaceChemistryModel::RCPAH;
-    dimer_concentration_model_  = DimerModel::QSSA_Rodrigues;
-    sticking_model_             = StickingModel::Constant;
-    sticking_coeff_constant_    = 2.e-3;
-    smooth_heaviside_oxidation_ = true;
-    is_simplified_pah_mass_     = false;
-    is_debug_mode_              = false;
-
-    // -- PAH: default to C2H2 ---------------------------------------------
-    pah_species_ = "C2H2";
-    pah_index_   = RequireSpeciesIndexThreeEquations(thermo_, pah_species_, "constructor");
-    const auto pah_index_u = static_cast<unsigned>(pah_index_);
-    mwpah_       = thermo_.MolecularWeight(pah_index_u);
-    vpah_        = mwpah_ / this->rho_particle_ / this->Nav_kmol_;
-    dpah_        = std::pow(6. / this->pi_ * vpah_, 1. / 3.);
-    spah_        = this->pi_ * dpah_ * dpah_;
-    mpah_        = mwpah_ / this->Nav_kmol_;
-    ncpah_       = 2.;
-    nhpah_       = 2.;
-    conc_PAH_    = 0.;
-
-    // -- Gas species indices -----------------------------------------------
-    index_H_    = RequireSpeciesIndexThreeEquations(thermo_, "H", "constructor");
-    index_OH_   = RequireSpeciesIndexThreeEquations(thermo_, "OH", "constructor");
-    index_O2_   = RequireSpeciesIndexThreeEquations(thermo_, "O2", "constructor");
-    index_H2_   = RequireSpeciesIndexThreeEquations(thermo_, "H2", "constructor");
-    index_H2O_  = RequireSpeciesIndexThreeEquations(thermo_, "H2O", "constructor");
+    // -- Species indices for SetStatus / HACA kinetics ---------------------
+    // Required species: throws at construction if absent (ThreeEquations
+    // cannot function without H, OH, O2, H2, H2O, C2H2).
+    index_H_    = RequireSpeciesIndexThreeEquations(thermo_, "H",    "constructor");
+    index_OH_   = RequireSpeciesIndexThreeEquations(thermo_, "OH",   "constructor");
+    index_O2_   = RequireSpeciesIndexThreeEquations(thermo_, "O2",   "constructor");
+    index_H2_   = RequireSpeciesIndexThreeEquations(thermo_, "H2",   "constructor");
+    index_H2O_  = RequireSpeciesIndexThreeEquations(thermo_, "H2O",  "constructor");
     index_C2H2_ = RequireSpeciesIndexThreeEquations(thermo_, "C2H2", "constructor");
 
-    conc_H_ = conc_OH_ = conc_O2_ = conc_H2_ = conc_H2O_ = conc_C2H2_ = 0.;
-    mass_fraction_H_ = mass_fraction_OH_ = 0.;
+    // -- Apply all tunable parameter defaults from Config{} ----------------
+    // Config{} is the single source of truth for every numerical constant.
+    // NOTE: ApplyConfig sets rho_particle_ via SetParticleDensity BEFORE
+    //       calling SetPAH, so Precalculations() uses the correct density.
+    ApplyConfig(Config{});
 
-    // -- Numerical floor for Ns must be set before Precalculations() -------
-    Ns_min_ = 1.e6;
-
-    // -- Geometry, floors, and initial-moments cache ------------------------
-    Precalculations();
+    // -- Memory allocation (size depends on thermo_.NumberOfSpecies()) -----
     MemoryAllocation();
 }
 
@@ -281,9 +237,9 @@ void ThreeEquations<Thermo>::SetGasClosureDummySpecies(std::string_view name)
 template <ThermoMap Thermo>
 void ThreeEquations<Thermo>::SetSurfaceChemistryModel(std::string_view label)
 {
-    if (label == "RC-PAH")
+    if (label == "RC-PAH" || label == "rc-pah" || label == "RCPAH" || label == "rcpah")
         surface_chem_model_ = SurfaceChemistryModel::RCPAH;
-    else if (label == "HMOM")
+    else if (label == "HMOM" || label == "hmom")
         surface_chem_model_ = SurfaceChemistryModel::HMOM;
     else
         throw std::runtime_error("[ThreeEquations] @SurfaceChemistryModel: allowed: RC-PAH | HMOM");
@@ -1155,17 +1111,21 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::PrintSummary() const
 }
 
 // ============================================================================
-// SetupFromConfig
+// ApplyConfig  (private — all parameter assignments, no I/O)
 // ============================================================================
 
 template <ThermoMap Thermo>
-void ThreeEquations<Thermo>::SetupFromConfig(const Config& cfg)
+void ThreeEquations<Thermo>::ApplyConfig(const Config& cfg)
 {
     this->is_active_ = cfg.is_active;
 
+    // -- Particle properties (set BEFORE SetPAH so Precalculations() uses  --
+    //    the correct density when computing PAH geometry)  ------------------
+    this->SetParticleDensity(cfg.soot_density_kg_m3);
+
     // -- PAH / gas setup ---------------------------------------------------
     this->is_simplified_pah_mass_ = cfg.simplified_pah_mass;
-    SetPAH(cfg.pah_species);
+    SetPAH(cfg.pah_species);  // calls Precalculations() — needs rho_particle_ set above
     this->SetGasConsumption(cfg.gas_consumption);
     this->SetGasClosureDummySpecies(cfg.gas_closure_dummy_species);
 
@@ -1189,7 +1149,7 @@ void ThreeEquations<Thermo>::SetupFromConfig(const Config& cfg)
         dimer_concentration_model_ = DimerModel::QSSA_Rodrigues;
     else
         throw std::invalid_argument(
-            "ThreeEquations::SetupFromConfig: unknown dimer_model \"" + cfg.dimer_model +
+            "ThreeEquations::ApplyConfig: unknown dimer_model \"" + cfg.dimer_model +
             "\" — allowed: qssa-rodrigues");
 
     // -- Numerical floor ---------------------------------------------------
@@ -1199,9 +1159,6 @@ void ThreeEquations<Thermo>::SetupFromConfig(const Config& cfg)
     SetStickingCoefficientModel(cfg.sticking_model);
     SetStickingCoefficientConstant(cfg.sticking_coeff_constant);
 
-    // -- Particle properties -----------------------------------------------
-    this->SetParticleDensity(cfg.soot_density_kg_m3);
-
     // -- Radiation / transport ---------------------------------------------
     this->SetRadiativeHeatTransfer(cfg.radiative_heat_transfer);
     this->SetPlanckAbsorptionCoefficient(cfg.planck_coefficient);
@@ -1209,7 +1166,16 @@ void ThreeEquations<Thermo>::SetupFromConfig(const Config& cfg)
 
     // -- Debug mode --------------------------------------------------------
     this->is_debug_mode_ = cfg.debug_mode;
+}
 
+// ============================================================================
+// SetupFromConfig  (public — delegates to ApplyConfig, then prints summary)
+// ============================================================================
+
+template <ThermoMap Thermo>
+void ThreeEquations<Thermo>::SetupFromConfig(const Config& cfg)
+{
+    ApplyConfig(cfg);
     PrintSummary();
 }
 

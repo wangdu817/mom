@@ -815,6 +815,7 @@ private:
 
     void MemoryAllocation();
     void Precalculations();
+    void ApplyConfig(const Config& cfg); //!< core of SetupFromConfig, without PrintSummary()
     void GetMoments();
     void DimerConcentration();
     void SootKineticConstants();

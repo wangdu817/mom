@@ -51,99 +51,24 @@ namespace MOM
 
 template <ThermoMap Thermo> BrookesMoss<Thermo>::BrookesMoss(const Thermo& thermo) : thermo_(thermo)
 {
-    // -- CRTP base state ---------------------------------------------------
-    this->is_active_               = true;
-    this->gas_consumption_         = false;
-    this->radiative_heat_transfer_ = true;
-    this->schmidt_number_          = 50.;
-    this->rho_particle_            = 1800.;
-    this->planck_model_            = PlanckCoeffModel::Smooke;
-    this->SetThermophoreticModel(0);
-    this->closure_dummy_species_ = "none";
-    this->closure_dummy_index_   = -1;
-    this->is_closure_dummy_species_ = false;
-
-    // -- Particle properties -----------------------------------------------
-    dp_      = 1.e-9;
-    mwp_     = 144.;
-    Ns_norm_ = 1.e15;
-    Ys_min_  = 1.e-30;
-    bs_min_  = 1.e-30;
-
-    // -- Model constants ---------------------------------------------------
-    Calpha_  = 54.;
-    Talpha_  = 21000.;
-    Cbeta_   = 1.0;
-    Cgamma_  = 11700.;
-    Tgamma_  = 12100.;
-    Comega_  = 105.8125;
-    etaColl_ = 0.04;
-    Coxid_   = 0.015;
-    exp_l_   = 1.;
-    exp_m_   = 1.;
-    exp_n_   = 1.;
-
-    // -- BM-Hall extended constants -----------------------------------------
-    Calpha1_BMH_ = 127. * std::pow(10., 8.88);
-    Calpha2_BMH_ = 178. * std::pow(10., 9.50);
-    Talpha1_BMH_ = 4378.;
-    Talpha2_BMH_ = 6390.;
-    Comega2_BMH_ = 8903.51;
-    Tomega2_BMH_ = 19778.;
-
-    // -- Model flags -------------------------------------------------------
-    nucleation_variant_   = NucleationVariant::Off;
-    oxidation_variant_    = OxidationVariant::Off;
-    surface_growth_model_ = 0;
-    coagulation_model_    = 0;
-
-    // -- Gas consumption intermediates -------------------------------------
-    dMdt_nucleation_       = 0.;
-    dMdt_nucleation_BMH_1_ = 0.;
-    dMdt_nucleation_BMH_2_ = 0.;
-    dMdt_surface_growth_   = 0.;
-    dMdt_oxidation_        = 0.;
-
-    // -- Default precursor: C2H2 -------------------------------------------
-    prec_species_ = "C2H2";
-    prec_index_   = thermo_.IndexOfSpecies("C2H2");
-    if (prec_index_ >= 0)
-    {
-        prec_nc_ =
-            static_cast<double>(thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(prec_index_)));
-        prec_nh_ =
-            static_cast<double>(thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(prec_index_)));
-    }
-    else
-    {
-        prec_nc_ = 2.;
-        prec_nh_ = 2.;
-    }
-    conc_prec_ = 0.;
-
-    // -- Default surface growth species: C2H2 ------------------------------
-    sg_species_ = "C2H2";
-    sg_index_   = prec_index_;
-    sg_nc_      = prec_nc_;
-    sg_nh_      = prec_nh_;
-    conc_sg_    = 0.;
-
-    // -- Key species indices (0-based, -1 if absent) -----------------------
+    // -- Species indices for SetStatus / gas-coupling ----------------------
+    // These are mechanism lookups, not user-configurable parameters.
+    // index_C6H5_ and index_C6H6_ stay at their in-class default of -1
+    // until SetBenzeneSpecies / SetPhenylRadicalSpecies are called.
     index_OH_   = thermo_.IndexOfSpecies("OH");
     index_O2_   = thermo_.IndexOfSpecies("O2");
     index_H2_   = thermo_.IndexOfSpecies("H2");
     index_C2H2_ = thermo_.IndexOfSpecies("C2H2");
-    index_C6H5_ = -1;
-    index_C6H6_ = -1;
 
-    // -- Key species concentrations ----------------------------------------
-    conc_H2_ = 0.;
-    conc_C2H2_ = 0.;
-    conc_C6H5_ = 0.;
-    conc_C6H6_ = 0.;
-    conc_OH_ = 0.;
-    conc_O2_ = 0.;    
+    // -- Internal numerical floors (not user-configurable via Config) ------
+    Ys_min_ = 1.e-30;
+    bs_min_ = 1.e-30;
 
+    // -- Apply all tunable parameter defaults from Config{} ----------------
+    // Config{} is the single source of truth for every numerical constant.
+    ApplyConfig(Config{});
+
+    // -- Memory allocation (size depends on thermo_.NumberOfSpecies()) -----
     MemoryAllocation();
 }
 
@@ -918,11 +843,11 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::PrintSummary() const
 }
 
 // ============================================================================
-// SetupFromConfig
+// ApplyConfig  (private — all parameter assignments, no I/O)
 // ============================================================================
 
 template <ThermoMap Thermo>
-void BrookesMoss<Thermo>::SetupFromConfig(const Config& cfg)
+void BrookesMoss<Thermo>::ApplyConfig(const Config& cfg)
 {
     this->is_active_ = cfg.is_active;
 
@@ -953,24 +878,23 @@ void BrookesMoss<Thermo>::SetupFromConfig(const Config& cfg)
     this->SetNsNorm(cfg.ns_norm);
 
     // -- Kinetic constants (direct member assignment — no setters) ----------
-    Calpha_  = cfg.calpha;
-    Talpha_  = cfg.talpha;
-    Cbeta_   = cfg.cbeta;
-    Cgamma_  = cfg.cgamma;
-    Tgamma_  = cfg.tgamma;
-    Comega_  = cfg.comega;
-    etaColl_ = cfg.eta_coll;
-    Coxid_   = cfg.coxid;
-    exp_l_   = cfg.nucleation_exponent;
-    exp_m_   = cfg.sg_exponent1;
-    exp_n_   = cfg.sg_exponent2;
+    Calpha_      = cfg.calpha;
+    Talpha_      = cfg.talpha;
+    Cbeta_       = cfg.cbeta;
+    Cgamma_      = cfg.cgamma;
+    Tgamma_      = cfg.tgamma;
+    Comega_      = cfg.comega;
+    etaColl_     = cfg.eta_coll;
+    Coxid_       = cfg.coxid;
+    exp_l_       = cfg.nucleation_exponent;
+    exp_m_       = cfg.sg_exponent1;
+    exp_n_       = cfg.sg_exponent2;
     Calpha1_BMH_ = cfg.calpha1_bmh;
     Calpha2_BMH_ = cfg.calpha2_bmh;
     Comega2_BMH_ = cfg.comega2_bmh;
     Talpha1_BMH_ = cfg.talpha1_bmh;
     Talpha2_BMH_ = cfg.talpha2_bmh;
     Tomega2_BMH_ = cfg.tomega2_bmh;
-
 
     // -- Radiation / transport ---------------------------------------------
     this->SetRadiativeHeatTransfer(cfg.radiative_heat_transfer);
@@ -979,7 +903,16 @@ void BrookesMoss<Thermo>::SetupFromConfig(const Config& cfg)
 
     // -- Debug -------------------------------------------------------------
     is_debug_mode_ = cfg.debug_mode;
+}
 
+// ============================================================================
+// SetupFromConfig  (public — delegates to ApplyConfig, then prints summary)
+// ============================================================================
+
+template <ThermoMap Thermo>
+void BrookesMoss<Thermo>::SetupFromConfig(const Config& cfg)
+{
+    ApplyConfig(cfg);
     PrintSummary();
 }
 
