@@ -57,6 +57,19 @@ static MOM::BasicThermoData buildSootThermo()
     return th;
 }
 
+static MOM::BasicThermoData buildBrookesMossHallThermo()
+{
+    auto th = buildSootThermo();
+    th.names.insert(th.names.end(), {"C6H6", "C6H5"});
+    th.mw.insert(th.mw.end(), {78.114, 77.106});
+    th.nc.insert(th.nc.end(), {6, 6});
+    th.nh.insert(th.nh.end(), {6, 5});
+    th.no.insert(th.no.end(), {0, 0});
+    th.nn.insert(th.nn.end(), {0, 0});
+    th.nti.insert(th.nti.end(), {0, 0});
+    return th;
+}
+
 static MOM::BasicThermoData buildTiO2Thermo()
 {
     // Species: TiOH4  N2
@@ -464,6 +477,72 @@ static bool validateThreeEquationsSpeciesValidation()
     return ok;
 }
 
+static bool validateBrookesMossHallSpeciesValidation()
+{
+    const auto th = buildBrookesMossHallThermo();
+
+    bool configured_names_ok = false;
+    try
+    {
+        MOM::BrookesMoss<MOM::BasicThermoData> model(th);
+        model.SetNucleation("BrookesMossHall");
+        model.SetOxidation("BrookesMossHall");
+        configured_names_ok = model.nucleation_model() == 2 && model.oxidation_model() == 2;
+    }
+    catch (const std::runtime_error&)
+    {
+        configured_names_ok = false;
+    }
+
+    bool composition_ok = false;
+    try
+    {
+        MOM::BrookesMoss<MOM::BasicThermoData> model(th);
+        model.SetBenzeneSpecies("C6H5");
+    }
+    catch (const std::runtime_error& e)
+    {
+        composition_ok = std::string(e.what()).find("wrong atomic composition") != std::string::npos;
+    }
+
+    bool reporter_label_ok = false;
+    try
+    {
+        MOM::BrookesMoss<MOM::BasicThermoData> model(th);
+        model.SetNucleation("BrookesMossHall");
+
+        std::vector<std::string> labels;
+        model.variant_prefix_output(
+            [&labels](const char* label, double)
+            {
+                labels.emplace_back(label);
+            });
+
+        reporter_label_ok =
+            std::find(labels.begin(), labels.end(), "omegaC6H5[kg/m3/s]") != labels.end() &&
+            std::find(labels.begin(), labels.end(), "omegaC6H4[kg/m3/s]") == labels.end();
+    }
+    catch (const std::runtime_error&)
+    {
+        reporter_label_ok = false;
+    }
+
+    const bool ok = configured_names_ok && composition_ok && reporter_label_ok;
+
+    std::cout << "\n=== BrookesMoss-Hall species validation ===\n";
+    std::cout << (configured_names_ok
+                      ? "  [PASS] Configured C6H6/C6H5 names are accepted\n"
+                      : "  [FAIL] Configured C6H6/C6H5 names were rejected\n");
+    std::cout << (composition_ok
+                      ? "  [PASS] Wrong benzene composition is rejected\n"
+                      : "  [FAIL] Wrong benzene composition was accepted\n");
+    std::cout << (reporter_label_ok
+                      ? "  [PASS] Reporter uses omegaC6H5 label\n"
+                      : "  [FAIL] Reporter label for phenyl radical is wrong\n");
+
+    return ok;
+}
+
 // ============================================================================
 // main
 // ============================================================================
@@ -486,6 +565,7 @@ int main()
 
     all_ok &= validateAnyMomentMethodAccessors(thS);
     all_ok &= validateThreeEquationsSpeciesValidation();
+    all_ok &= validateBrookesMossHallSpeciesValidation();
 
     // ════════════════════════════════════════════════════════════════════
     // 1. HMOM  (NEq = 4)

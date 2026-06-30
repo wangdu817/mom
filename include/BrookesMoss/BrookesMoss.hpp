@@ -283,12 +283,12 @@ public:
 
         if (nucleation_variant_ == NucleationVariant::BrookesMossHall)
         {
-            cb("omegaC6H4[kg/m3/s]", this->omega_gas_[index_C6H5_]);
+            cb("omegaC6H5[kg/m3/s]", this->omega_gas_[index_C6H5_]);
             cb("omegaC6H6[kg/m3/s]", this->omega_gas_[index_C6H6_]);
         }
         else
         {
-            cb("omegaC6H4[kg/m3/s]", 0.);
+            cb("omegaC6H5[kg/m3/s]", 0.);
             cb("omegaC6H6[kg/m3/s]", 0.);
         }        
     }    
@@ -444,6 +444,8 @@ private:
     int index_H2_   = -1; //!< H₂        — nucleation/surface-growth/oxidation (OH) coupling
     int index_CO_   = -1; //!< CO         — oxidation gas coupling (both variants)
     int index_C2H2_ = -1;
+    std::string phenylradical_species_ = "C6H5";
+    std::string benzene_species_       = "C6H6";
     int index_C6H5_ = -1;
     int index_C6H6_ = -1;
     int index_OH_   = -1;

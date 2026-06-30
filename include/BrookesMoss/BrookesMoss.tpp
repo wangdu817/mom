@@ -212,17 +212,21 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetSurfaceGrowthSpecies(st
 template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetBenzeneSpecies(std::string_view name)
 {
     const std::string species_name = std::string(name);
-    index_C6H6_ = thermo_.IndexOfSpecies(name);
+    const int species_index = thermo_.IndexOfSpecies(name);
 
-    if (index_C6H6_ < 0)
+    if (species_index < 0)
         throw std::runtime_error("[BrookesMoss] Benzene species not found in mechanism: " +
                                  species_name);
 
-    double nc = static_cast<double>(thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(index_C6H6_)));
-    double nh = static_cast<double>(thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(index_C6H6_)));
+    const double nc = static_cast<double>(thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(species_index)));
+    const double nh = static_cast<double>(thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(species_index)));
 
-    if (nc != 6. && nh != 6.)
-        throw std::runtime_error("[BrookesMoss] Benzene species has wrong atomic composition");
+    if (nc != 6. || nh != 6.)
+        throw std::runtime_error("[BrookesMoss] Benzene species has wrong atomic composition: " +
+                                 species_name);
+
+    benzene_species_ = species_name;
+    index_C6H6_     = species_index;
 }
 
 // ============================================================================
@@ -232,17 +236,21 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetBenzeneSpecies(std::str
 template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetPhenylRadicalSpecies(std::string_view name)
 {
     const std::string species_name = std::string(name);
-    index_C6H5_ = thermo_.IndexOfSpecies(name);
+    const int species_index = thermo_.IndexOfSpecies(name);
 
-    if (index_C6H5_ < 0)
+    if (species_index < 0)
         throw std::runtime_error("[BrookesMoss] Phenyl radical species not found in mechanism: " +
                                  species_name);
 
-    double nc = static_cast<double>(thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(index_C6H5_)));
-    double nh = static_cast<double>(thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(index_C6H5_)));
+    const double nc = static_cast<double>(thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(species_index)));
+    const double nh = static_cast<double>(thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(species_index)));
 
-    if (nc != 6. && nh != 5.)
-        throw std::runtime_error("[BrookesMoss] Phenyl radical species has wrong atomic composition");
+    if (nc != 6. || nh != 5.)
+        throw std::runtime_error("[BrookesMoss] Phenyl radical species has wrong atomic composition: " +
+                                 species_name);
+
+    phenylradical_species_ = species_name;
+    index_C6H5_            = species_index;
 }
 
 // ============================================================================
@@ -334,16 +342,8 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::SetOxidation(std::string_v
 
 template <ThermoMap Thermo> void BrookesMoss<Thermo>::CheckBrookesMossHallSpecies()
 {
-    // Update all BMH-relevant indices (0-based, no -1 subtraction)
-    index_C6H5_ = thermo_.IndexOfSpecies("A1-");
-    index_C6H6_ = thermo_.IndexOfSpecies("A1");
-
-    if (index_C6H5_ < 0)
-        throw std::runtime_error("[BrookesMoss] BrookesMossHall requires species A1- "
-                                 "(phenyl radical) in the mechanism.");
-    if (index_C6H6_ < 0)
-        throw std::runtime_error("[BrookesMoss] BrookesMossHall requires species A1 "
-                                 "(benzene) in the mechanism.");
+    SetBenzeneSpecies(benzene_species_);
+    SetPhenylRadicalSpecies(phenylradical_species_);
 
     // Adjust surface growth activation temperature for BMH
     Cgamma_ = 9000.6;
