@@ -439,13 +439,14 @@ private:
     double conc_OH_ = 0.;
     double conc_O2_ = 0.;    
 
-    // 0-based species indices
-    int index_H2_ = -1; 
+    // 0-based species indices (−1 = not found in mechanism, safely ignored)
+    int index_H_    = -1; //!< H radical — needed for BM-Hall channel 2 gas coupling
+    int index_H2_   = -1;
     int index_C2H2_ = -1;
     int index_C6H5_ = -1;
     int index_C6H6_ = -1;
-    int index_OH_ = -1; 
-    int index_O2_ = -1;    
+    int index_OH_   = -1;
+    int index_O2_   = -1;
 
     // -- Particle properties ----------------------------------------------------
     double dp_  = 0.; //!< soot particle diameter [m]

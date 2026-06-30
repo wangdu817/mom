@@ -55,6 +55,7 @@ template <ThermoMap Thermo> BrookesMoss<Thermo>::BrookesMoss(const Thermo& therm
     // These are mechanism lookups, not user-configurable parameters.
     // index_C6H5_ and index_C6H6_ stay at their in-class default of -1
     // until SetBenzeneSpecies / SetPhenylRadicalSpecies are called.
+    index_H_    = thermo_.IndexOfSpecies("H");
     index_OH_   = thermo_.IndexOfSpecies("OH");
     index_O2_   = thermo_.IndexOfSpecies("O2");
     index_H2_   = thermo_.IndexOfSpecies("H2");
@@ -636,17 +637,23 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexce
 
     // -- Nucleation coupling -----------------------------------------------
     //
-    // For every kg of soot formed:
-    //   precursor consumed:  omega_prec = -dMdt * MW_prec / (nc_prec * WC_)
-    //   H2 produced:         omega_H2   = +dMdt * (nh_prec/2) * MW_H2 / (nc_prec * WC_)
+    // BrookesMoss variant
+    // -------------------
+    // Net reaction:  Precursor  →  nC × [C]_soot  +  (nH/2) × H₂
     //
-    // [kg/m3/s] = [kg/m3/s] * [kmol_prec/kg_soot] * [kg/kmol_prec]
+    // Per kg of soot formed, the stoichiometric factor is
+    //   prec_per_kg_soot = 1 / (nC_prec × W_C)   [kmol_prec / kg_soot]
+    //
+    // Mass balance (pure hydrocarbon CₙHₘ, MW = 12n+m):
+    //   precursor consumed  = (12n+m)/(n·12) kg/kg_soot
+    //   H₂ produced        =  m / (n·12)     kg/kg_soot
+    //   net gas removed    = 1.0              kg/kg_soot  → absorbed by dummy closure  ✓
 
     if (nucleation_variant_ == NucleationVariant::BrookesMoss)
     {
         if (dMdt_nucleation_ > 0. && prec_index_ >= 0 && prec_nc_ > 0.)
         {
-            const double MW_prec = thermo_.MolecularWeight(static_cast<unsigned>(prec_index_));
+            const double MW_prec       = thermo_.MolecularWeight(static_cast<unsigned>(prec_index_));
             const double prec_per_kg_soot = 1. / (prec_nc_ * this->WC_);
 
             AddMass(prec_index_, -dMdt_nucleation_ * prec_per_kg_soot * MW_prec);
@@ -658,54 +665,90 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexce
             }
         }
     }
+
+    // BM-Hall variant (Hall et al. 2016) — two-channel inception
+    // -----------------------------------------------------------
+    // The stoichiometry is derived per inception event (one soot nucleus of mass mwp_):
+    //   events_per_s = dMdt / mwp_   [kmol_events / m³ / s]
+    //
+    // Channel 1:  2 C₂H₂  +  C₆H₅•  →  C₁₀H₇(soot)  +  H₂
+    //   Atom check — C: 4+6=10 ✓   H: 4+5=9=7+2 ✓   MW: 52+77=129=127+2 ✓
+    //   Consumed: 2 mol C₂H₂, 1 mol C₆H₅
+    //   Produced: 1 mol H₂  (C₁₀H₇ absorbed by dummy closure)
+    //
+    // Channel 2:  C₂H₂  +  C₆H₆  +  C₆H₅•  →  C₁₄H₁₀(soot)  +  H•  +  H₂
+    //   Atom check — C: 2+6+6=14 ✓  H: 2+6+5=13=10+1+2 ✓  MW: 26+78+77=181=178+1+2 ✓
+    //   Consumed: 1 mol C₂H₂, 1 mol C₆H₆, 1 mol C₆H₅
+    //   Produced: 1 mol H•, 1 mol H₂  (C₁₄H₁₀ absorbed by dummy closure)
+
     else if (nucleation_variant_ == NucleationVariant::BrookesMossHall)
     {
-        // Channel 1: C2H2-based (TODO)
-        if (dMdt_nucleation_BMH_1_ > 0. && prec_index_ >= 0 && prec_nc_ > 0.)
+        // Channel 1: 2 C₂H₂ + C₆H₅ → C₁₀H₇(soot) + H₂
+        if (dMdt_nucleation_BMH_1_ > 0. && mwp_ > 0.)
         {
-            /*
-            const double MW_prec = thermo_.MolecularWeight(static_cast<unsigned>(prec_index_));
-            const double prec_per_kg_soot = 1. / (prec_nc_ * this->WC_);
+            // [kmol_events/m³/s] — each event consumes exactly 2 C₂H₂ + 1 C₆H₅
+            const double ev1 = dMdt_nucleation_BMH_1_ / mwp_;
 
-            AddMass(prec_index_, -dMdt_nucleation_BMH_1_ * prec_per_kg_soot * MW_prec);
-
-            if (index_H2_ >= 0 && prec_nh_ > 0.)
+            if (prec_index_ >= 0)   // C₂H₂ (precursor species)
+            {
+                const double MW_C2H2 = thermo_.MolecularWeight(static_cast<unsigned>(prec_index_));
+                AddMass(prec_index_, -ev1 * 2. * MW_C2H2);
+            }
+            if (index_C6H5_ >= 0)
+            {
+                const double MW_C6H5 = thermo_.MolecularWeight(static_cast<unsigned>(index_C6H5_));
+                AddMass(index_C6H5_, -ev1 * MW_C6H5);
+            }
+            if (index_H2_ >= 0)
             {
                 const double MW_H2 = thermo_.MolecularWeight(static_cast<unsigned>(index_H2_));
-                AddMass(index_H2_,
-                        dMdt_nucleation_BMH_1_ * prec_per_kg_soot * (prec_nh_ / 2.) * MW_H2);
+                AddMass(index_H2_, ev1 * MW_H2);
             }
-            */
+            // C₁₀H₇ soot product (MW=127) is absorbed by the dummy closure
         }
 
-        // Channel 2: C6H6-based (TODO)
-        if (dMdt_nucleation_BMH_2_ > 0. && index_C6H6_ >= 0)
+        // Channel 2: C₂H₂ + C₆H₆ + C₆H₅ → C₁₄H₁₀(soot) + H• + H₂
+        if (dMdt_nucleation_BMH_2_ > 0. && mwp_ > 0.)
         {
-            /*
-            const double nc_C6H6 =
-                static_cast<double>(thermo_.NumberOfCarbonAtoms(static_cast<unsigned>(index_C6H6_)));
-            const double nh_C6H6 = static_cast<double>(
-                thermo_.NumberOfHydrogenAtoms(static_cast<unsigned>(index_C6H6_)));
+            const double ev2 = dMdt_nucleation_BMH_2_ / mwp_;
 
-            if (nc_C6H6 > 0.)
+            if (prec_index_ >= 0)   // C₂H₂ (precursor species)
+            {
+                const double MW_C2H2 = thermo_.MolecularWeight(static_cast<unsigned>(prec_index_));
+                AddMass(prec_index_, -ev2 * MW_C2H2);
+            }
+            if (index_C6H6_ >= 0)
             {
                 const double MW_C6H6 = thermo_.MolecularWeight(static_cast<unsigned>(index_C6H6_));
-                const double C6H6_per_kg_soot = 1. / (nc_C6H6 * this->WC_);
-
-                AddMass(index_C6H6_, -dMdt_nucleation_BMH_2_ * C6H6_per_kg_soot * MW_A1);
-
-                if (index_H2_ >= 0 && nh_C6H6 > 0.)
-                {
-                    const double MW_H2 = thermo_.MolecularWeight(static_cast<unsigned>(index_H2_));
-                    AddMass(index_H2_,
-                            dMdt_nucleation_BMH_2_ * A1_per_kg_soot * (nh_C6H6 / 2.) * MW_H2);
-                }
+                AddMass(index_C6H6_, -ev2 * MW_C6H6);
             }
-            */
+            if (index_C6H5_ >= 0)
+            {
+                const double MW_C6H5 = thermo_.MolecularWeight(static_cast<unsigned>(index_C6H5_));
+                AddMass(index_C6H5_, -ev2 * MW_C6H5);
+            }
+            if (index_H_ >= 0)
+            {
+                const double MW_H = thermo_.MolecularWeight(static_cast<unsigned>(index_H_));
+                AddMass(index_H_, ev2 * MW_H);
+            }
+            if (index_H2_ >= 0)
+            {
+                const double MW_H2 = thermo_.MolecularWeight(static_cast<unsigned>(index_H2_));
+                AddMass(index_H2_, ev2 * MW_H2);
+            }
+            // C₁₄H₁₀ soot product (MW=178) is absorbed by the dummy closure
         }
     }
 
     // -- Surface growth coupling -------------------------------------------
+    //
+    // Net reaction:  sg_species  →  nC_sg × [C]_soot  +  (nH_sg/2) × H₂
+    //
+    // Same stoichiometric logic as BM nucleation.  For C₂H₂ (nC=2, nH=2):
+    //   C₂H₂ consumed = 26/24 kg/kg_soot,  H₂ produced = 2/24 kg/kg_soot
+    //   net gas removed = 1.0 kg/kg_soot  → absorbed by dummy closure  ✓
+
     if (dMdt_surface_growth_ > 0. && sg_index_ >= 0 && sg_nc_ > 0.)
     {
         const double MW_sg          = thermo_.MolecularWeight(static_cast<unsigned>(sg_index_));
@@ -713,7 +756,6 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexce
 
         AddMass(sg_index_, -dMdt_surface_growth_ * sg_per_kg_soot * MW_sg);
 
-        // H2 production from H atoms in surface growth species
         if (index_H2_ >= 0 && sg_nh_ > 0.)
         {
             const double MW_H2 = thermo_.MolecularWeight(static_cast<unsigned>(index_H2_));
@@ -838,9 +880,10 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::PrintSummary() const
         << " [Species]\n"
         << "    + Precursor:       " << prec_species_ << "  (nC=" << prec_nc_ << ", nH=" << prec_nh_ << ")\n"
         << "    + Surface growth:  " << sg_species_   << "  (nC=" << sg_nc_   << ", nH=" << sg_nh_   << ")\n"
-        << "    + C6H6 index (-):  " << index_C6H6_ << "  (< 0 = not found; required for BM-Hall nucleation)\n"
+        << "    + C6H6 index (-):  " << index_C6H6_ << "  (< 0 = not found; required for BM-Hall nucleation ch.2)\n"
         << "    + C6H5 index (-):  " << index_C6H5_ << "  (< 0 = not found; required for BM-Hall nucleation)\n"
-        << "    + H2   index (-):  " << index_H2_   << "  (< 0 = not found; required for BM-Hall nucleation)\n"
+        << "    + H2   index (-):  " << index_H2_   << "  (< 0 = not found; required for BM/BM-Hall gas coupling)\n"
+        << "    + H    index (-):  " << index_H_    << "  (< 0 = not found; required for BM-Hall nucleation ch.2)\n"
         << "\n"
         << " [Processes]\n"
         << "    + Nucleation:      " << static_cast<int>(nucleation_variant_) << "  (" << nuc_str(nucleation_variant_) << ")\n"
