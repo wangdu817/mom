@@ -270,21 +270,28 @@ public:
     //   • header mode — lambda uses label to register the column
     //   • row mode    — lambda uses value to write the data
 
-    /// ThreeEquations-specific prefix columns: np, ss, vs, NDF parameters.
+    /// BrookesMoss-specific prefix columns: gas-phase source diagnostics.
     template <typename CB> void variant_prefix_output(CB&& cb) const
     {
+        const auto omega = [this](int idx) noexcept -> double
+        {
+            if (idx < 0 || static_cast<Eigen::Index>(idx) >= this->omega_gas_.size())
+                return 0.;
+            return this->omega_gas_[idx];
+        };
+
         cb("omegaTot[kg/m3/s]", this->omega_gas_.sum());
-        cb("omegaPrec[kg/m3/s]", this->omega_gas_[prec_index_]);
-        cb("omegaSg[kg/m3/s]", this->omega_gas_[sg_index_]);
-        cb("omegaH2[kg/m3/s]", this->omega_gas_[index_H2_]);
-        cb("omegaC2H2[kg/m3/s]", this->omega_gas_[index_C2H2_]);
-        cb("omegaOH[kg/m3/s]", this->omega_gas_[index_OH_]);
-        cb("omegaO2[kg/m3/s]", this->omega_gas_[index_O2_]);
+        cb("omegaPrec[kg/m3/s]", omega(prec_index_));
+        cb("omegaSg[kg/m3/s]", omega(sg_index_));
+        cb("omegaH2[kg/m3/s]", omega(index_H2_));
+        cb("omegaC2H2[kg/m3/s]", omega(index_C2H2_));
+        cb("omegaOH[kg/m3/s]", omega(index_OH_));
+        cb("omegaO2[kg/m3/s]", omega(index_O2_));
 
         if (nucleation_variant_ == NucleationVariant::BrookesMossHall)
         {
-            cb("omegaC6H5[kg/m3/s]", this->omega_gas_[index_C6H5_]);
-            cb("omegaC6H6[kg/m3/s]", this->omega_gas_[index_C6H6_]);
+            cb("omegaC6H5[kg/m3/s]", omega(index_C6H5_));
+            cb("omegaC6H6[kg/m3/s]", omega(index_C6H6_));
         }
         else
         {

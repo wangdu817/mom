@@ -543,6 +543,49 @@ static bool validateBrookesMossHallSpeciesValidation()
     return ok;
 }
 
+static bool validateBrookesMossReporterMissingSpecies()
+{
+    auto th = buildSootThermo();
+
+    constexpr std::size_t h2_index = 3u;
+    th.names.erase(th.names.begin() + static_cast<std::ptrdiff_t>(h2_index));
+    th.mw.erase(th.mw.begin() + static_cast<std::ptrdiff_t>(h2_index));
+    th.nc.erase(th.nc.begin() + static_cast<std::ptrdiff_t>(h2_index));
+    th.nh.erase(th.nh.begin() + static_cast<std::ptrdiff_t>(h2_index));
+    th.no.erase(th.no.begin() + static_cast<std::ptrdiff_t>(h2_index));
+    th.nn.erase(th.nn.begin() + static_cast<std::ptrdiff_t>(h2_index));
+    th.nti.erase(th.nti.begin() + static_cast<std::ptrdiff_t>(h2_index));
+
+    bool h2_reported = false;
+    double h2_value = 1.;
+    bool ok = false;
+
+    try
+    {
+        MOM::BrookesMoss<MOM::BasicThermoData> model(th);
+        model.variant_prefix_output(
+            [&h2_reported, &h2_value](const char* label, double value)
+            {
+                if (std::string(label) == "omegaH2[kg/m3/s]")
+                {
+                    h2_reported = true;
+                    h2_value = value;
+                }
+            });
+        ok = h2_reported && h2_value == 0.;
+    }
+    catch (const std::runtime_error&)
+    {
+        ok = false;
+    }
+
+    std::cout << "\n=== BrookesMoss reporter missing-species handling ===\n";
+    std::cout << (ok ? "  [PASS] Missing H2 reports omegaH2=0 without invalid indexing\n"
+                     : "  [FAIL] Missing H2 reporter output is unsafe or incorrect\n");
+
+    return ok;
+}
+
 // ============================================================================
 // main
 // ============================================================================
@@ -566,6 +609,7 @@ int main()
     all_ok &= validateAnyMomentMethodAccessors(thS);
     all_ok &= validateThreeEquationsSpeciesValidation();
     all_ok &= validateBrookesMossHallSpeciesValidation();
+    all_ok &= validateBrookesMossReporterMissingSpecies();
 
     // ════════════════════════════════════════════════════════════════════
     // 1. HMOM  (NEq = 4)
