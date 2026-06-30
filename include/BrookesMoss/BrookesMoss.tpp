@@ -929,13 +929,14 @@ template <typename DictType>
 std::expected<typename BrookesMoss<Thermo>::Config, std::string>
 BrookesMoss<Thermo>::ParseConfig(DictType& dict)
 {
+    // SetGrammar validates the dictionary against the grammar rules defined in
+    // BrookesMoss_Grammar::DefineRules().  On any violation (missing mandatory
+    // keyword, unknown keyword, duplicate, conflicting keyword) it calls
+    // Dictionary::ErrorMessage() which throws std::runtime_error.
+    // That exception is intentionally NOT caught here so it propagates to the
+    // caller and stops the simulation.
     BrookesMoss_Grammar grammar;
-    if (!dict.SetGrammar(grammar))
-        return std::unexpected(std::string{
-            "BrookesMoss::ParseConfig: dictionary grammar check failed.\n"
-            "Possible causes: missing mandatory keyword, unknown keyword, or "
-            "duplicate keyword.\n"
-            "Review the messages printed above for details."});
+    dict.SetGrammar(grammar);
 
     Config cfg;
 

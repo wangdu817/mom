@@ -1122,13 +1122,14 @@ template <typename DictType>
 std::expected<typename TiO2<Thermo>::Config, std::string>
 TiO2<Thermo>::ParseConfig(DictType& dict)
 {
+    // SetGrammar validates the dictionary against the grammar rules defined in
+    // TiO2_Grammar::DefineRules().  On any violation (missing mandatory
+    // keyword, unknown keyword, duplicate, conflicting keyword) it calls
+    // Dictionary::ErrorMessage() which throws std::runtime_error.
+    // That exception is intentionally NOT caught here so it propagates to the
+    // caller and stops the simulation.
     TiO2_Grammar grammar;
-    if (!dict.SetGrammar(grammar))
-        return std::unexpected(std::string{
-            "TiO2::ParseConfig: dictionary grammar check failed.\n"
-            "Possible causes: missing mandatory keyword, unknown keyword, or "
-            "duplicate keyword.\n"
-            "Review the messages printed above for details."});
+    dict.SetGrammar(grammar);
 
     Config cfg;
 

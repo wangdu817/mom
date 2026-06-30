@@ -1678,13 +1678,14 @@ template <typename DictType>
 std::expected<typename HMOM<Thermo>::Config, std::string>
 HMOM<Thermo>::ParseConfig(DictType& dict)
 {
+    // SetGrammar validates the dictionary against the grammar rules defined in
+    // HMOM_Grammar::DefineRules().  On any violation (missing mandatory
+    // keyword, unknown keyword, duplicate, conflicting keyword) it calls
+    // Dictionary::ErrorMessage() which throws std::runtime_error.
+    // That exception is intentionally NOT caught here so it propagates to the
+    // caller and stops the simulation.
     HMOM_Grammar grammar;
-    if (!dict.SetGrammar(grammar))
-        return std::unexpected(std::string{
-            "HMOM::ParseConfig: dictionary grammar check failed.\n"
-            "Possible causes: missing mandatory keyword, unknown keyword, or "
-            "duplicate keyword.\n"
-            "Review the messages printed above for details."});
+    dict.SetGrammar(grammar);
 
     Config cfg; // start from library defaults
 

@@ -1331,13 +1331,15 @@ template <typename DictType>
 std::expected<typename ThreeEquations<Thermo>::Config, std::string>
 ThreeEquations<Thermo>::ParseConfig(DictType& dict)
 {
+    // SetGrammar validates the dictionary against the grammar rules defined in
+    // ThreeEquations_Grammar::DefineRules().  On any violation (missing
+    // mandatory keyword, unknown keyword, duplicate, conflicting keyword) it
+    // calls Dictionary::ErrorMessage() which throws std::runtime_error.
+    // That exception is intentionally NOT caught here so it propagates to the
+    // caller and stops the simulation — silently continuing with default values
+    // when the input file is malformed is never acceptable.
     ThreeEquations_Grammar grammar;
-    if (!dict.SetGrammar(grammar))
-        return std::unexpected(std::string{
-            "ThreeEquations::ParseConfig: dictionary grammar check failed.\n"
-            "Possible causes: missing mandatory keyword, unknown keyword, or "
-            "duplicate keyword.\n"
-            "Review the messages printed above for details."});
+    dict.SetGrammar(grammar);
 
     Config cfg;
 
