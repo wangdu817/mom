@@ -1679,7 +1679,12 @@ std::expected<typename HMOM<Thermo>::Config, std::string>
 HMOM<Thermo>::ParseConfig(DictType& dict)
 {
     HMOM_Grammar grammar;
-    dict.SetGrammar(grammar);
+    if (!dict.SetGrammar(grammar))
+        return std::unexpected(std::string{
+            "HMOM::ParseConfig: dictionary grammar check failed.\n"
+            "Possible causes: missing mandatory keyword, unknown keyword, or "
+            "duplicate keyword.\n"
+            "Review the messages printed above for details."});
 
     Config cfg; // start from library defaults
 

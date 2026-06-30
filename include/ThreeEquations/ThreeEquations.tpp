@@ -1332,7 +1332,12 @@ std::expected<typename ThreeEquations<Thermo>::Config, std::string>
 ThreeEquations<Thermo>::ParseConfig(DictType& dict)
 {
     ThreeEquations_Grammar grammar;
-    dict.SetGrammar(grammar);
+    if (!dict.SetGrammar(grammar))
+        return std::unexpected(std::string{
+            "ThreeEquations::ParseConfig: dictionary grammar check failed.\n"
+            "Possible causes: missing mandatory keyword, unknown keyword, or "
+            "duplicate keyword.\n"
+            "Review the messages printed above for details."});
 
     Config cfg;
 

@@ -1123,7 +1123,12 @@ std::expected<typename TiO2<Thermo>::Config, std::string>
 TiO2<Thermo>::ParseConfig(DictType& dict)
 {
     TiO2_Grammar grammar;
-    dict.SetGrammar(grammar);
+    if (!dict.SetGrammar(grammar))
+        return std::unexpected(std::string{
+            "TiO2::ParseConfig: dictionary grammar check failed.\n"
+            "Possible causes: missing mandatory keyword, unknown keyword, or "
+            "duplicate keyword.\n"
+            "Review the messages printed above for details."});
 
     Config cfg;
 

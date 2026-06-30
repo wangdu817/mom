@@ -305,38 +305,29 @@ inline void ForEachCell(AnyMomentMethod<Thermo>& m, CellCallback&& callback)
  *
  * Dispatches to the concrete variant's `ParseConfig(dict)` static member
  * template, then calls `SetupFromConfig()` on success.
- * Parser and setup validation exceptions are converted to `std::unexpected`
- * so callers can handle dictionary setup through one error channel.
  *
  * @tparam Dictionary  OpenSMOKE++ dictionary type (deduced).
- * @return `std::expected<void, std::string>` — holds an error string on the
- *         first malformed key, unsupported option, or setup validation failure.
+ *
+ * @throws std::runtime_error if the dictionary grammar check fails (missing
+ *         mandatory keyword, unknown keyword, duplicate keyword), if a keyword
+ *         value is invalid, or if `SetupFromConfig` raises an exception.
+ *         Dictionary errors are always fatal — the solver must not continue
+ *         with silently-defaulted parameters.
  */
 template <ThermoMap Thermo, typename Dictionary>
-[[nodiscard]] inline std::expected<void, std::string>
-SetupFromDictionary(AnyMomentMethod<Thermo>& m, Dictionary& dict)
+inline void SetupFromDictionary(AnyMomentMethod<Thermo>& m, Dictionary& dict)
 {
-    return std::visit(
-        [&dict](auto& mm) -> std::expected<void, std::string>
+    std::visit(
+        [&dict](auto& mm)
         {
-            try
-            {
-                // ParseConfig is a static member template on the concrete variant type.
-                // Calling it via the instance is valid C++ and avoids spelling out the type.
-                auto cfg = mm.ParseConfig(dict);
-                if (!cfg) return std::unexpected(cfg.error());
-                mm.SetupFromConfig(*cfg);
-                return {};
-            }
-            catch (const std::exception& e)
-            {
-                return std::unexpected(std::string{"MOM::SetupFromDictionary: "} + e.what());
-            }
-            catch (...)
-            {
-                return std::unexpected(
-                    std::string{"MOM::SetupFromDictionary: unknown exception during setup."});
-            }
+            // ParseConfig validates the grammar and reads all keyword values.
+            // On failure it returns std::unexpected with a diagnostic string.
+            auto cfg = mm.ParseConfig(dict);
+            if (!cfg)
+                throw std::runtime_error(cfg.error());
+
+            // Apply the validated configuration.
+            mm.SetupFromConfig(*cfg);
         },
         m);
 }
