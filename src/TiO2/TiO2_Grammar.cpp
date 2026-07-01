@@ -44,13 +44,13 @@ void TiO2_Grammar::DefineRules()
         "@TiO2", 
         OpenSMOKEpp::SINGLE_BOOL, 
         "Legacy activation key for the solid oxide model: on/off (default: true)", 
-        true));
+        false));
 
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
         "@MetalOxide",
         OpenSMOKEpp::SINGLE_BOOL,
         "Solid oxide model: on/off (default: true)",
-        true));
+        false));
 
     // ----------------------------------------------------------------------------------------------------------- //
     // Process models

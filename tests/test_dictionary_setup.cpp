@@ -263,7 +263,7 @@ FakeDictionary buildTiO2GasDictionary()
     dict.strings["@Precursor"] = "TiOH4";
     dict.strings["@GasClosureDummySpecies"] = "none";
     dict.strings["@NucleationModel"] = "binary";
-    dict.strings["@GasStoichiometry"] = "TiOH4:-1,H2O:2";
+    dict.strings["@GasStoichiometry"] = "\"TiOH4:-1,H2O:2\"";
 
     return dict;
 }

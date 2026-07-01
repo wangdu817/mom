@@ -1463,6 +1463,8 @@ TiO2<Thermo>::ParseConfig(DictType& dict)
     {
         std::string spec;
         dict.ReadString("@GasStoichiometry", spec);
+        std::ranges::replace(spec, '"', ' ');
+        std::ranges::replace(spec, '\'', ' ');
         std::ranges::replace(spec, ',', ' ');
         std::ranges::replace(spec, ';', ' ');
 
