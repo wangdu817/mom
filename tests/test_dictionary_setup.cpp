@@ -214,17 +214,21 @@ FakeDictionary buildTiO2Dictionary()
     dict.ints["@CoagulationModel"] = 1;
     dict.ints["@CondensationModel"] = 0;
     dict.ints["@ThermophoreticModel"] = 0;
-    dict.ints["@MinimumTiO2Units"] = 3;
-    dict.ints["@NucleatedParticleTiO2Units"] = 6;
+    dict.ints["@MinimumFormulaUnits"] = 3;
+    dict.ints["@NucleatedParticleFormulaUnits"] = 6;
 
     dict.doubles["@SchmidtNumber"] = 39.0;
     dict.doubles["@MinimumFv"] = 1.e-20;
     dict.doubles["@ns"] = 1.25;
+    dict.doubles["@SolidFormulaUnitsPerPrecursor"] = 2.0;
 
     dict.strings["@Precursor"] = "TiOH4";
+    dict.strings["@SolidName"] = "GenericOxide";
     dict.strings["@GasClosureDummySpecies"] = "none";
     dict.strings["@NucleationModel"] = "fixed-cluster";
 
+    dict.measures["@SolidMolecularWeight"] = {100.0, "kg/kmol"};
+    dict.measures["@SolidDensity"] = {4.5, "g/cm3"};
     dict.measures["@SinteringDpMinimum"] = {3.0, "nm"};
     dict.measures["@SinteringTauMinimum"] = {1.e-8, "s"};
     dict.measures["@SinteringKMaximum"] = {1.e9, "1/s"};
@@ -384,6 +388,12 @@ void checkTiO2DictionarySetup()
     require(cfg.has_value(), "TiO2 ParseConfig returned an unexpected error");
     require(cfg->is_active, "TiO2 activation flag was not parsed");
     require(cfg->precursor_species == "TiOH4", "TiO2 @Precursor was not parsed");
+    require(cfg->solid_name == "GenericOxide", "TiO2 @SolidName was not parsed");
+    requireNear(cfg->solid_molecular_weight_kg_kmol, 100.0,
+                "TiO2 @SolidMolecularWeight was not parsed");
+    requireNear(cfg->solid_density_kg_m3, 4500.0, "TiO2 @SolidDensity conversion failed");
+    requireNear(cfg->solid_formula_units_per_precursor, 2.0,
+                "TiO2 @SolidFormulaUnitsPerPrecursor was not parsed");
     require(cfg->nucleation_model == "fixed-cluster", "TiO2 @NucleationModel was not parsed");
     require(cfg->sintering_model == 0, "TiO2 @SinteringModel was not parsed");
     require(cfg->coagulation_model == 1, "TiO2 @CoagulationModel was not parsed");
@@ -404,6 +414,11 @@ void checkTiO2DictionarySetup()
     const auto& tio2 = std::get<MOM::TiO2<MOM::BasicThermoData>>(model);
     require(tio2.is_active(), "TiO2 model was not activated");
     require(tio2.precursor_species() == "TiOH4", "TiO2 precursor species was not applied");
+    require(tio2.solid_name() == "GenericOxide", "TiO2 solid name was not applied");
+    requireNear(tio2.solid_molecular_weight(), 100.0, "TiO2 solid molecular weight was not applied");
+    requireNear(tio2.solid_density(), 4500.0, "TiO2 solid density was not applied");
+    requireNear(tio2.solid_formula_units_per_precursor(), 2.0,
+                "TiO2 formula units per precursor was not applied");
     require(tio2.nucleation_model() == 2, "TiO2 nucleation flag was not applied");
     require(tio2.sintering_model() == 0, "TiO2 sintering flag was not applied");
     require(tio2.coagulation_model() == 1, "TiO2 coagulation flag was not applied");

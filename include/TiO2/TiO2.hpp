@@ -154,6 +154,12 @@ public:
         bool        is_active         = true;   //!< Enable this variant
         std::string precursor_species = "none"; //!< TiO2 precursor species
 
+        // ---- Solid material -------------------------------------------------
+        std::string solid_name                       = "TiO2";   //!< Solid product label
+        double      solid_molecular_weight_kg_kmol   = 79.866;   //!< Solid formula-unit molecular weight [kg/kmol]
+        double      solid_density_kg_m3              = 3900.;    //!< Solid density [kg/m3]
+        double      solid_formula_units_per_precursor = 1.;      //!< Solid formula units formed per precursor molecule
+
         // ---- Gas consumption / closure -------------------------------------
         bool        gas_consumption           = false;  //!< Consume gas-phase species
         std::string gas_closure_dummy_species = "none"; //!< Dummy mass-closure species
@@ -167,8 +173,13 @@ public:
         int thermophoretic_model     = 1; //!< Thermophoretic model index
 
         // ---- Particle cluster sizes ----------------------------------------
-        int minimum_tio2_units            = 2; //!< Minimum TiO2 units per aggregate
-        int nucleated_particle_tio2_units = 5; //!< TiO2 units per nucleated particle
+        int minimum_formula_units            = 2; //!< Minimum solid formula units per aggregate
+        int nucleated_particle_formula_units = 5; //!< Solid formula units per nucleated particle
+
+        // Legacy aliases kept for existing programmatic configuration and
+        // dictionary files.  Prefer the formula-unit names above for new code.
+        int minimum_tio2_units            = 2; //!< Legacy alias for minimum_formula_units
+        int nucleated_particle_tio2_units = 5; //!< Legacy alias for nucleated_particle_formula_units
 
         // ---- Sintering kinetics: τ_s = As · T^ns · d_p^4 · exp(Ts/T) -----
         double sintering_As_s_K_m = 7.44e16; //!< Pre-exponential [s,K,m]
@@ -347,7 +358,21 @@ public:
 
     // -- Material / geometry accessors -----------------------------------------
 
-    [[nodiscard]] double rhoTiO2() const noexcept { return rho_TiO2_; }
+    [[nodiscard]] const std::string& solid_name() const noexcept { return solid_name_; }
+
+    [[nodiscard]] double solid_density() const noexcept { return solid_density_kg_m3_; }
+
+    [[nodiscard]] double solid_molecular_weight() const noexcept
+    {
+        return solid_molecular_weight_kg_kmol_;
+    }
+
+    [[nodiscard]] double solid_formula_units_per_precursor() const noexcept
+    {
+        return solid_formula_units_per_precursor_;
+    }
+
+    [[nodiscard]] double rhoTiO2() const noexcept { return solid_density_kg_m3_; }
 
     [[nodiscard]] double NucleationParticleVolume() const noexcept;
 
@@ -370,9 +395,20 @@ public:
 
     void SetSintering(int flag) noexcept { sintering_model_ = flag; }
 
-    void SetNumberOfTiO2UnitsPerNucleatedParticle(unsigned n) noexcept { n0_ = n; }
+    void SetSolidMaterial(std::string_view name, double molecular_weight_kg_kmol, double density_kg_m3);
 
-    void SetMinimumNumberOfTiO2Units(unsigned n) noexcept { nTiO2_min_ = n; }
+    void SetSolidFormulaUnitsPerPrecursor(double n);
+
+    void SetNumberOfFormulaUnitsPerNucleatedParticle(unsigned n);
+
+    void SetMinimumNumberOfFormulaUnits(unsigned n);
+
+    void SetNumberOfTiO2UnitsPerNucleatedParticle(unsigned n)
+    {
+        SetNumberOfFormulaUnitsPerNucleatedParticle(n);
+    }
+
+    void SetMinimumNumberOfTiO2Units(unsigned n) { SetMinimumNumberOfFormulaUnits(n); }
 
     void SetNucleationCollisionEnhancementFactor(double eps) noexcept { epsilon_nuc_ = eps; }
 
@@ -471,9 +507,17 @@ private:
     double N0_scaling_ = 1.e15; //!< [#/m3]
 
     // -- Material properties ----------------------------------------------------
-    static constexpr double W_TiO2_  = 79.866; //!< TiO2 molecular weight [kg/kmol]
-    static constexpr double rho_TiO2_ = 3900.;  //!< solid anatase density [kg/m3]
-    static constexpr double m_TiO2_  = W_TiO2_ / (6.02214076e26); //!< [kg/molecule]
+    static constexpr double default_solid_molecular_weight_kg_kmol_ = 79.866;
+    static constexpr double default_solid_density_kg_m3_            = 3900.;
+
+    std::string solid_name_ = "TiO2";
+    double solid_molecular_weight_kg_kmol_ = default_solid_molecular_weight_kg_kmol_;
+    double solid_density_kg_m3_            = default_solid_density_kg_m3_;
+    double solid_formula_unit_mass_kg_ =
+        default_solid_molecular_weight_kg_kmol_ / (6.02214076e26);
+    double solid_formula_unit_volume_m3_ =
+        solid_formula_unit_mass_kg_ / default_solid_density_kg_m3_;
+    double solid_formula_units_per_precursor_ = 1.;
 
     // -- Monomer/nucleus geometry -----------------------------------------------
     double v0_ = 0.; //!< monomer volume [m3]
@@ -483,7 +527,7 @@ private:
     // -- Precursor properties ---------------------------------------------------
     std::string precursor_species_ = "none";
     int precursor_index_  = -1;
-    double nti_precursor_ = 0.; //!< Ti atoms per precursor molecule
+    double nti_precursor_ = 0.; //!< Ti atoms per precursor molecule (legacy TiO2 diagnostics/fallback)
     double nh_precursor_  = 0.; //!< H atoms
     double no_precursor_  = 0.; //!< O atoms
     double nc_precursor_  = 0.; //!< C atoms
@@ -497,11 +541,11 @@ private:
     double d_precursor_ = 0.; //!< collision diameter [m]
 
     // Effective precursor geometry used by nucleation/condensation kernels
-    double vprec_ = 0.; //!< solid TiO2 volume added per precursor molecule [m3]
+    double vprec_ = 0.; //!< solid volume added per precursor molecule [m3]
     double dprec_ = 0.; //!< collision diameter for beta_nuc / beta_cond [m]
 
     // -- Gas consumption stoichiometry ------------------------------------------
-    // Derived from atom balance: Ti_a C_b H_c O_d + x O2 → TiO2(s) + y CO2 + z H2O
+    // Legacy TiO2 fallback balance: Ti_a C_b H_c O_d + x O2 -> TiO2(s) + y CO2 + z H2O
     int H2O_index_ = -1;
     int CO2_index_ = -1; 
     int O2_index_ = -1;
@@ -514,8 +558,8 @@ private:
 
     // -- Nucleation parameters --------------------------------------------------
     NucleationVariant nucleation_variant_ = NucleationVariant::Off;
-    unsigned int nTiO2_min_               = 1;   //!< minimum reference size for regularization
-    unsigned int n0_                      = 5;   //!< TiO2 units per newly nucleated particle
+    unsigned int n_formula_units_min_     = 1;   //!< minimum reference size for regularization
+    unsigned int n0_                      = 5;   //!< solid formula units per newly nucleated particle
     double epsilon_nuc_                   = 2.5; //!< nucleation collision enhancement factor
 
     // -- Sintering parameters ---------------------------------------------------
@@ -550,7 +594,7 @@ private:
     // -- Numerical regularisation floors ---------------------------------------
     double N_min_  = 1.;     //!< [#/m3]
     double fv_min_ = 1.e-15; //!< [-]
-    double v_min_  = 0.;     //!< [m3] set in Precalculations from nTiO2_min_
+    double v_min_  = 0.;     //!< [m3] set in Precalculations from n_formula_units_min_
     double S_min_  = 0.;     //!< [m2/m3]
 
     // -- Per-process source storage (owned by TiO2, not by base) --------------

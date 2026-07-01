@@ -92,6 +92,30 @@ void TiO2_Grammar::DefineRules()
         true));
 
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@SolidName",
+        OpenSMOKEpp::SINGLE_STRING,
+        "Solid product name/label (default: TiO2)",
+        false));
+
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@SolidMolecularWeight",
+        OpenSMOKEpp::SINGLE_MEASURE,
+        "Solid formula-unit molecular weight (kg/kmol). Default: 79.866 kg/kmol",
+        false));
+
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@SolidDensity",
+        OpenSMOKEpp::SINGLE_MEASURE,
+        "Solid density (kg/m3 or g/cm3). Default: 3900 kg/m3",
+        false));
+
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@SolidFormulaUnitsPerPrecursor",
+        OpenSMOKEpp::SINGLE_DOUBLE,
+        "Solid formula units formed per precursor molecule. Default: 1",
+        false));
+
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
         "@GasClosureDummySpecies",
         OpenSMOKEpp::SINGLE_STRING,
         "Species to be assumed as gaseous dummy species (example: @GasClosureDummySpecies TIO2RU;)",
@@ -166,13 +190,25 @@ void TiO2_Grammar::DefineRules()
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
         "@MinimumTiO2Units", 
         OpenSMOKEpp::SINGLE_INT, 
-        "Minimum TiO2 units (default: 2)", 
+        "Legacy alias for @MinimumFormulaUnits (default: 2)", 
+        false));
+
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@MinimumFormulaUnits",
+        OpenSMOKEpp::SINGLE_INT,
+        "Minimum solid formula units (default: 2)",
         false));
 
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
         "@NucleatedParticleTiO2Units",
         OpenSMOKEpp::SINGLE_INT,
-        "Number of TiO2 units in the nucleated particle (default: 5)",
+        "Legacy alias for @NucleatedParticleFormulaUnits (default: 5)",
+        false));
+
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@NucleatedParticleFormulaUnits",
+        OpenSMOKEpp::SINGLE_INT,
+        "Number of solid formula units in the nucleated particle (default: 5)",
         false));
 
     // ----------------------------------------------------------------------------------------------------------- //
