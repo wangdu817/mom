@@ -472,7 +472,7 @@ private:
 
     // -- Material properties ----------------------------------------------------
     static constexpr double W_TiO2_  = 79.866; //!< TiO2 molecular weight [kg/kmol]
-    static constexpr double rho_TiO2_ = 3900.;  //!< solid anatase density [kg/m3]
+    static constexpr double rho_TiO2_ = 4230.;  //!< solid anatase density [kg/m3]
     static constexpr double m_TiO2_  = W_TiO2_ / (6.02214076e26); //!< [kg/molecule]
 
     // -- Monomer/nucleus geometry -----------------------------------------------
