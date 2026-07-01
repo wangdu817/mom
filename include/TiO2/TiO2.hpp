@@ -38,6 +38,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "Eigen/Dense"
 
@@ -141,6 +142,20 @@ public:
     // -- Configuration struct ------------------------------------------------
 
     /**
+     * @struct GasStoichiometryTerm
+     * @brief Gas-phase stoichiometric coefficient per precursor molecule.
+     *
+     * Coefficients are positive for produced gas species and negative for
+     * consumed gas species.  The condensed solid is not listed here; it is
+     * represented by @c solid_formula_units_per_precursor.
+     */
+    struct GasStoichiometryTerm
+    {
+        std::string species; //!< Gas species name
+        double coefficient = 0.; //!< Stoichiometric coefficient [kmol/kmol precursor]
+    };
+
+    /**
      * @struct Config
      * @brief Plain configuration parameters for the TiO2 variant.
      *
@@ -157,12 +172,14 @@ public:
         // ---- Solid material -------------------------------------------------
         std::string solid_name                       = "TiO2";   //!< Solid product label
         double      solid_molecular_weight_kg_kmol   = 79.866;   //!< Solid formula-unit molecular weight [kg/kmol]
-        double      solid_density_kg_m3              = 3900.;    //!< Solid density [kg/m3]
+        double      solid_density_kg_m3              = 4230.;    //!< Solid density [kg/m3]
         double      solid_formula_units_per_precursor = 1.;      //!< Solid formula units formed per precursor molecule
 
         // ---- Gas consumption / closure -------------------------------------
         bool        gas_consumption           = false;  //!< Consume gas-phase species
         std::string gas_closure_dummy_species = "none"; //!< Dummy mass-closure species
+        std::vector<GasStoichiometryTerm> gas_stoichiometry; //!< Explicit gas reaction terms
+        double gas_stoichiometry_mass_tolerance = 1.e-3; //!< Relative mass-balance tolerance
 
         // ---- Process model selection ---------------------------------------
         /// Nucleation model: "none" | "binary" (default) | "fixed-cluster"
@@ -336,11 +353,17 @@ public:
         cb("nu2mean[m3/#]", ndf.nu2mean);
         cb("mu[log(m3)]", ndf.mu);
 
+        const auto omega_at = [this](int idx) noexcept {
+            if (idx < 0 || static_cast<Eigen::Index>(idx) >= this->omega_gas_.size())
+                return 0.;
+            return this->omega_gas_[idx];
+        };
+
         cb("omegaTot[kg/m3/s]", this->omega_gas_.sum());
-        cb("omegaPrec[kg/m3/s]", this->omega_gas_[precursor_index_]);
-        cb("omegaO2[kg/m3/s]", this->omega_gas_[O2_index_]);
-        cb("omegaH2O[kg/m3/s]", this->omega_gas_[H2O_index_]);
-        cb("omegaCO2[kg/m3/s]", this->omega_gas_[CO2_index_]);
+        cb("omegaPrec[kg/m3/s]", omega_at(precursor_index_));
+        cb("omegaO2[kg/m3/s]", omega_at(O2_index_));
+        cb("omegaH2O[kg/m3/s]", omega_at(H2O_index_));
+        cb("omegaCO2[kg/m3/s]", omega_at(CO2_index_));
     }
 
     // -- NDF reconstruction (TiO2-specific) -----------------------------------
@@ -430,7 +453,11 @@ public:
     void SetPrecursor(std::string_view name);
     void SetGasClosureDummySpecies(std::string_view name);
 
-    /// Configure stoichiometry for gas-phase consumption from precursor formula.
+    /// Configure explicit gas-phase stoichiometry. Empty input restores legacy TiO2 fallback.
+    void SetGasStoichiometry(std::span<const GasStoichiometryTerm> terms,
+                             double relative_mass_tolerance = 1.e-3);
+
+    /// Configure legacy TiO2 gas-phase stoichiometry from precursor formula.
     void SetupGasConsumptionStoichiometry();
 
     // -- Model state queries ----------------------------------------------------
@@ -494,6 +521,11 @@ private:
     void CondensationSourceTerms();
     void SinteringSourceTerms();
     void CalculateOmegaGas_internal() noexcept;
+    void ClearGasStoichiometry() noexcept;
+    void AddGasStoichiometryTerm(std::string_view species,
+                                 double coefficient,
+                                 bool require_species);
+    void ValidateGasStoichiometryMassBalance() const;
 
 private:
 
@@ -555,6 +587,18 @@ private:
     double nu_H2O_from_prec_ = 0.; //!< H2O stoichiometric coefficient
     double nu_CO2_from_prec_ = 0.; //!< CO2 stoichiometric coefficient
     double nu_O2_from_prec_  = 0.; //!< O2 stoichiometric coefficient (negative = consumed)
+
+    struct RuntimeGasStoichiometryTerm
+    {
+        int index = -1;
+        double coefficient = 0.;
+        double molecular_weight_kg_kmol = 0.;
+        std::string species;
+    };
+
+    std::vector<RuntimeGasStoichiometryTerm> gas_stoichiometry_;
+    bool gas_stoichiometry_is_explicit_ = false;
+    double gas_stoichiometry_mass_tolerance_ = 1.e-3;
 
     // -- Nucleation parameters --------------------------------------------------
     NucleationVariant nucleation_variant_ = NucleationVariant::Off;

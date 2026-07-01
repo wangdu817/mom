@@ -41,8 +41,9 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <span>
 #include <numeric>
+#include <span>
+#include <sstream>
 namespace MOM
 {
 
@@ -296,58 +297,173 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SetPrecursor(std::string_view nam
 }
 
 // ============================================================================
-// SetupGasConsumptionStoichiometry
+// Gas stoichiometry setup
 // ============================================================================
-//
-// Atom balance for precursor Ti_a C_b H_c O_d decomposing to TiO2(s):
-//
-//   Ti_a C_b H_c O_d + x O2  →  a TiO2(s) + b CO2 + (c/2) H2O
-//
-//   O balance: d + 2x = 2a + 2b + c/2
-//              x = (2a + 2b + c/2 - d) / 2
-//
-// nu_O2_from_prec_ is positive when O2 is produced, negative when consumed.
-// (x > 0 means O2 is consumed, so we store -x)
 
-template <ThermoMap Thermo> void TiO2<Thermo>::SetupGasConsumptionStoichiometry()
+template <ThermoMap Thermo> void TiO2<Thermo>::ClearGasStoichiometry() noexcept
 {
+    gas_stoichiometry_.clear();
+    gas_stoichiometry_is_explicit_ = false;
+
     nu_H2O_from_prec_ = 0.;
     nu_CO2_from_prec_ = 0.;
     nu_O2_from_prec_  = 0.;
     H2O_index_ = CO2_index_ = O2_index_ = -1;
     W_H2O_ = W_CO2_ = W_O2_ = 0.;
+}
+
+template <ThermoMap Thermo>
+void TiO2<Thermo>::AddGasStoichiometryTerm(std::string_view species,
+                                           double coefficient,
+                                           bool require_species)
+{
+    if (!std::isfinite(coefficient))
+        throw std::invalid_argument("[TiO2] Gas stoichiometric coefficient must be finite.");
+    if (std::fabs(coefficient) <= 1.e-14)
+        return;
+
+    const int index = thermo_.IndexOfSpecies(species);
+    if (index < 0)
+    {
+        if (require_species)
+            throw std::runtime_error("[TiO2] Gas stoichiometry species not found: " +
+                                     std::string(species));
+        return;
+    }
+
+    const double mw = thermo_.MolecularWeight(static_cast<unsigned>(index));
+
+    double combined_coefficient = coefficient;
+    bool found = false;
+    for (auto& term : gas_stoichiometry_)
+    {
+        if (term.index == index)
+        {
+            term.coefficient += coefficient;
+            combined_coefficient = term.coefficient;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        gas_stoichiometry_.push_back(
+            RuntimeGasStoichiometryTerm{index, coefficient, mw, std::string(species)});
+    }
+
+    if (species == "H2O")
+    {
+        H2O_index_ = index;
+        W_H2O_ = mw;
+        nu_H2O_from_prec_ = combined_coefficient;
+    }
+    else if (species == "CO2")
+    {
+        CO2_index_ = index;
+        W_CO2_ = mw;
+        nu_CO2_from_prec_ = combined_coefficient;
+    }
+    else if (species == "O2")
+    {
+        O2_index_ = index;
+        W_O2_ = mw;
+        nu_O2_from_prec_ = combined_coefficient;
+    }
+}
+
+template <ThermoMap Thermo> void TiO2<Thermo>::ValidateGasStoichiometryMassBalance() const
+{
+    if (gas_stoichiometry_.empty() || precursor_index_ < 0)
+        return;
+
+    bool has_precursor = false;
+    double precursor_coefficient = 0.;
+    double gas_mass = 0.;
+
+    for (const auto& term : gas_stoichiometry_)
+    {
+        gas_mass += term.coefficient * term.molecular_weight_kg_kmol;
+        if (term.index == precursor_index_)
+        {
+            has_precursor = true;
+            precursor_coefficient += term.coefficient;
+        }
+    }
+
+    if (!has_precursor)
+        throw std::runtime_error("[TiO2] Gas stoichiometry must include precursor species '" +
+                                 precursor_species_ + "' with coefficient -1.");
+
+    if (std::fabs(precursor_coefficient + 1.) > 1.e-12)
+        throw std::runtime_error("[TiO2] Gas stoichiometry is normalized per precursor; species '" +
+                                 precursor_species_ + "' must have coefficient -1.");
+
+    const double solid_mass =
+        solid_formula_units_per_precursor_ * solid_molecular_weight_kg_kmol_;
+    const double residual = gas_mass + solid_mass;
+    const double scale = std::max({std::fabs(gas_mass), std::fabs(solid_mass), 1.});
+
+    if (std::fabs(residual) > gas_stoichiometry_mass_tolerance_ * scale)
+    {
+        std::ostringstream msg;
+        msg << "[TiO2] Gas stoichiometry is not mass balanced: gas_mass=" << gas_mass
+            << " kg/kmol_precursor, solid_mass=" << solid_mass
+            << " kg/kmol_precursor, residual=" << residual
+            << " kg/kmol_precursor, tolerance=" << gas_stoichiometry_mass_tolerance_;
+        throw std::runtime_error(msg.str());
+    }
+}
+
+template <ThermoMap Thermo>
+void TiO2<Thermo>::SetGasStoichiometry(std::span<const GasStoichiometryTerm> terms,
+                                       double relative_mass_tolerance)
+{
+    if (!std::isfinite(relative_mass_tolerance) || relative_mass_tolerance < 0.)
+        throw std::invalid_argument("[TiO2] Gas stoichiometry mass tolerance must be non-negative.");
+
+    gas_stoichiometry_mass_tolerance_ = relative_mass_tolerance;
+    ClearGasStoichiometry();
+
+    if (terms.empty())
+    {
+        SetupGasConsumptionStoichiometry();
+        return;
+    }
+
+    gas_stoichiometry_is_explicit_ = true;
+    for (const auto& term : terms)
+    {
+        if (term.species.empty())
+            throw std::invalid_argument("[TiO2] Gas stoichiometry species name cannot be empty.");
+        AddGasStoichiometryTerm(term.species, term.coefficient, true);
+    }
+
+    ValidateGasStoichiometryMassBalance();
+}
+
+// Legacy TiO2 fallback.  This preserves the original Ti(OH)4-style path when
+// no explicit gas reaction is supplied.  Coefficients are still stored in the
+// generic gas_stoichiometry_ vector used by CalculateOmegaGas_internal().
+template <ThermoMap Thermo> void TiO2<Thermo>::SetupGasConsumptionStoichiometry()
+{
+    ClearGasStoichiometry();
 
     if (precursor_index_ < 0 || nti_precursor_ <= 0.)
         return;
 
-    // Legacy TiO2 fallback only.  Generic oxide gas stoichiometry should be
-    // provided explicitly in the next configuration layer.
-    const double a = nti_precursor_;
+    const double product_units = solid_formula_units_per_precursor_;
     const double b = nc_precursor_;
     const double c = nh_precursor_;
     const double d = no_precursor_;
 
-    // Stoichiometric coefficients per precursor molecule
-    nu_H2O_from_prec_ = 0.5 * c;
-    nu_CO2_from_prec_ = b;
+    AddGasStoichiometryTerm(precursor_species_, -1., true);
+    AddGasStoichiometryTerm("H2O", 0.5 * c, false);
+    AddGasStoichiometryTerm("CO2", b, false);
 
-    // x = moles of O2 consumed per precursor molecule
-    // Positive x = O2 consumed; store as negative convention (consumed < 0)
-    const double x_O2 = (2. * a + 2. * b + 0.5 * c - d) / 2.;
-    nu_O2_from_prec_  = -x_O2; // negative = consumed, positive = produced
-
-    // Look up gas species indices and molecular weights
-    H2O_index_ = thermo_.IndexOfSpecies("H2O");
-    if (H2O_index_ >= 0)
-        W_H2O_ = thermo_.MolecularWeight(static_cast<unsigned>(H2O_index_));
-
-    CO2_index_ = thermo_.IndexOfSpecies("CO2");
-    if (CO2_index_ >= 0)
-        W_CO2_ = thermo_.MolecularWeight(static_cast<unsigned>(CO2_index_));
-
-    O2_index_ = thermo_.IndexOfSpecies("O2");
-    if (O2_index_ >= 0)
-        W_O2_ = thermo_.MolecularWeight(static_cast<unsigned>(O2_index_));
+    // Positive x means O2 is consumed.  Stored convention: consumed < 0.
+    const double x_O2 = (2. * product_units + 2. * b + 0.5 * c - d) / 2.;
+    AddGasStoichiometryTerm("O2", -x_O2, false);
 }
 
 // ============================================================================
@@ -860,6 +976,8 @@ template <ThermoMap Thermo> void TiO2<Thermo>::CalculateOmegaGas_internal() noex
         return;
     if (precursor_index_ < 0)
         return;
+    if (gas_stoichiometry_.empty())
+        return;
 
     if (solid_formula_units_per_precursor_ <= 0.)
         return;
@@ -878,20 +996,9 @@ template <ThermoMap Thermo> void TiO2<Thermo>::CalculateOmegaGas_internal() noex
     // Each precursor molecule yields the configured number of solid formula units.
     const double Rprec = Rsolid / solid_formula_units_per_precursor_;
 
-    // Precursor consumption
-    this->omega_gas_[precursor_index_] -= Rprec * W_precursor_;
-
-    // H2O production
-    if (nu_H2O_from_prec_ > 0. && H2O_index_ >= 0)
-        this->omega_gas_[H2O_index_] += nu_H2O_from_prec_ * Rprec * W_H2O_;
-
-    // CO2 production
-    if (nu_CO2_from_prec_ > 0. && CO2_index_ >= 0)
-        this->omega_gas_[CO2_index_] += nu_CO2_from_prec_ * Rprec * W_CO2_;
-
-    // O2 production/consumption (nu_O2_from_prec_ negative = consumed)
-    if (std::fabs(nu_O2_from_prec_) > 1.e-14 && O2_index_ >= 0)
-        this->omega_gas_[O2_index_] += nu_O2_from_prec_ * Rprec * W_O2_;
+    for (const auto& term : gas_stoichiometry_)
+        this->omega_gas_[term.index] +=
+            term.coefficient * Rprec * term.molecular_weight_kg_kmol;
 
     // Dummy species closure: adjust to enforce sum(omega_gas) = 0
     if (this->is_closure_dummy_species_ && this->closure_dummy_index_ >= 0)
@@ -996,6 +1103,24 @@ template <ThermoMap Thermo> void TiO2<Thermo>::PrintSummary() const
 
     std::cout
         << "\n"
+        << " [Gas stoichiometry]\n"
+        << "    + Source:                        "
+        << (gas_stoichiometry_is_explicit_ ? "explicit" : "legacy TiO2 fallback") << "\n"
+        << "    + Mass tolerance (-):            " << gas_stoichiometry_mass_tolerance_ << "\n";
+    if (gas_stoichiometry_.empty())
+    {
+        std::cout << "    + Terms:                         none\n";
+    }
+    else
+    {
+        for (const auto& term : gas_stoichiometry_)
+            std::cout << "    + nu(" << term.species << "):"
+                      << std::string(term.species.size() < 24 ? 24 - term.species.size() : 1, ' ')
+                      << term.coefficient << "\n";
+    }
+
+    std::cout
+        << "\n"
         << " [Effective precursor]\n"
             << "    + v (m3):                        " << vprec_ << "\n"
             << "    + d (m):                         " << dprec_ << "\n";
@@ -1041,8 +1166,19 @@ void TiO2<Thermo>::ApplyConfig(const Config& cfg)
     // which resets all precursor-derived geometry (vprec_, dprec_, etc.) to 0.
     // This ensures a subsequent SetupFromConfig("none") can clear a prior precursor.
     this->SetPrecursor(cfg.precursor_species);
+    this->SetGasStoichiometry(cfg.gas_stoichiometry,
+                              cfg.gas_stoichiometry_mass_tolerance);
     this->SetGasClosureDummySpecies(cfg.gas_closure_dummy_species);
     this->SetGasConsumption(cfg.gas_consumption);
+
+    if (cfg.gas_consumption && precursor_index_ >= 0)
+    {
+        if (gas_stoichiometry_.empty())
+            throw std::runtime_error(
+                "[TiO2] Gas consumption is enabled but no gas stoichiometry is available. "
+                "Provide explicit gas stoichiometry for non-TiO2 systems.");
+        ValidateGasStoichiometryMassBalance();
+    }
 
     // -- Nucleation model (string → enum → int) ----------------------------
     if (cfg.nucleation_model == "none" || cfg.nucleation_model == "0")
@@ -1318,6 +1454,48 @@ TiO2<Thermo>::ParseConfig(DictType& dict)
 
     if (dict.CheckOption("@GasConsumption"))
         dict.ReadBool("@GasConsumption", cfg.gas_consumption);
+
+    if (dict.CheckOption("@GasStoichiometry"))
+    {
+        std::string spec;
+        dict.ReadString("@GasStoichiometry", spec);
+        std::ranges::replace(spec, ',', ' ');
+        std::ranges::replace(spec, ';', ' ');
+
+        std::istringstream iss(spec);
+        std::string token;
+        while (iss >> token)
+        {
+            auto pos = token.find(':');
+            if (pos == std::string::npos)
+                pos = token.find('=');
+            if (pos == std::string::npos || pos == 0u || pos + 1u >= token.size())
+                return std::unexpected(
+                    std::string{"@GasStoichiometry: expected entries like Species:-1"});
+
+            const std::string species = token.substr(0u, pos);
+            const std::string coefficient_text = token.substr(pos + 1u);
+
+            try
+            {
+                std::size_t parsed = 0u;
+                const double coefficient = std::stod(coefficient_text, &parsed);
+                if (parsed != coefficient_text.size())
+                    return std::unexpected(
+                        std::string{"@GasStoichiometry: invalid coefficient in entry "} + token);
+                cfg.gas_stoichiometry.push_back(GasStoichiometryTerm{species, coefficient});
+            }
+            catch (const std::exception&)
+            {
+                return std::unexpected(
+                    std::string{"@GasStoichiometry: invalid coefficient in entry "} + token);
+            }
+        }
+    }
+
+    if (dict.CheckOption("@GasStoichiometryMassTolerance"))
+        dict.ReadDouble("@GasStoichiometryMassTolerance",
+                        cfg.gas_stoichiometry_mass_tolerance);
 
     if (dict.CheckOption("@NucleationModel"))
         dict.ReadString("@NucleationModel", cfg.nucleation_model);

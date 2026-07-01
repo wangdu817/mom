@@ -90,6 +90,19 @@ MOM::BasicThermoData buildTiO2Thermo()
     return th;
 }
 
+MOM::BasicThermoData buildTiO2GasThermo()
+{
+    MOM::BasicThermoData th;
+    th.names = {"TiOH4", "H2O", "N2"};
+    th.mw    = {115.899, 18.015, 28.014};
+    th.nc    = {0, 0, 0};
+    th.nh    = {4, 2, 0};
+    th.no    = {4, 1, 0};
+    th.nn    = {0, 0, 2};
+    th.nti   = {1, 0, 0};
+    return th;
+}
+
 FakeDictionary buildHMOMDictionary()
 {
     FakeDictionary dict;
@@ -235,6 +248,21 @@ FakeDictionary buildTiO2Dictionary()
     dict.measures["@As"] = {8.0e16, "s,K,m"};
     dict.measures["@Ts"] = {32000.0, "K"};
     dict.measures["@MinimumNs"] = {4.0, "#/cm3"};
+
+    return dict;
+}
+
+FakeDictionary buildTiO2GasDictionary()
+{
+    FakeDictionary dict;
+
+    dict.bools["@TiO2"] = true;
+    dict.bools["@GasConsumption"] = true;
+
+    dict.strings["@Precursor"] = "TiOH4";
+    dict.strings["@GasClosureDummySpecies"] = "none";
+    dict.strings["@NucleationModel"] = "binary";
+    dict.strings["@GasStoichiometry"] = "TiOH4:-1,H2O:2";
 
     return dict;
 }
@@ -428,6 +456,62 @@ void checkTiO2DictionarySetup()
     requireNear(tio2.schmidt_number(), 39.0, "TiO2 Schmidt number was not applied");
 }
 
+void checkTiO2GasStoichiometrySetup()
+{
+    const auto thermo = buildTiO2GasThermo();
+
+    auto parse_dict = buildTiO2GasDictionary();
+    auto cfg = MOM::TiO2<MOM::BasicThermoData>::ParseConfig(parse_dict);
+
+    require(parse_dict.grammar_was_set, "ParseConfig did not install the TiO2 gas grammar");
+    require(cfg.has_value(), "TiO2 gas ParseConfig returned an unexpected error");
+    require(cfg->gas_consumption, "TiO2 gas @GasConsumption was not parsed");
+    require(cfg->gas_stoichiometry.size() == 2u, "TiO2 @GasStoichiometry was not parsed");
+    require(cfg->gas_stoichiometry[0].species == "TiOH4",
+            "TiO2 first gas-stoichiometry species was not parsed");
+    requireNear(cfg->gas_stoichiometry[0].coefficient, -1.0,
+                "TiO2 first gas-stoichiometry coefficient was not parsed");
+    require(cfg->gas_stoichiometry[1].species == "H2O",
+            "TiO2 second gas-stoichiometry species was not parsed");
+    requireNear(cfg->gas_stoichiometry[1].coefficient, 2.0,
+                "TiO2 second gas-stoichiometry coefficient was not parsed");
+
+    auto setup_dict = buildTiO2GasDictionary();
+    auto model = MOM::MakeAnyMomentMethod<MOM::BasicThermoData>(thermo, "TiO2");
+    MOM::SetupFromDictionary(model, setup_dict);
+
+    auto& tio2 = std::get<MOM::TiO2<MOM::BasicThermoData>>(model);
+    require(tio2.gas_consumption(), "TiO2 explicit gas-consumption flag was not applied");
+
+    const double Y[] = {0.10, 0.0, 0.90};
+    tio2.SetStatus(1500.0, 101325.0, Y);
+    tio2.CalculateSourceMoments();
+
+    const auto omega = tio2.omega_gas();
+    require(omega.size() == 3u, "TiO2 omega_gas size is wrong");
+    require(omega[0] < 0.0, "TiO2 explicit stoichiometry did not consume precursor");
+    require(omega[1] > 0.0, "TiO2 explicit stoichiometry did not produce H2O");
+    requireNear(omega[1] / (-omega[0]), 2.0 * 18.015 / 115.899,
+                "TiO2 explicit gas stoichiometry produced the wrong H2O/precursor mass ratio");
+
+    bool rejected_unbalanced = false;
+    try
+    {
+        MOM::TiO2<MOM::BasicThermoData>::Config bad;
+        bad.precursor_species = "TiOH4";
+        bad.gas_consumption = true;
+        bad.gas_stoichiometry = {{"TiOH4", -1.0}};
+
+        MOM::TiO2<MOM::BasicThermoData> bad_model(thermo);
+        bad_model.SetupFromConfig(bad);
+    }
+    catch (const std::runtime_error&)
+    {
+        rejected_unbalanced = true;
+    }
+    require(rejected_unbalanced, "TiO2 accepted an unbalanced explicit gas stoichiometry");
+}
+
 } // namespace
 
 int main()
@@ -438,6 +522,7 @@ int main()
         checkThreeEquationsDictionarySetup();
         checkBrookesMossDictionarySetup();
         checkTiO2DictionarySetup();
+        checkTiO2GasStoichiometrySetup();
 
         std::cout << "[PASS] Dictionary parsing and setup paths for all MOM variants\n";
         return 0;

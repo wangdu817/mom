@@ -106,7 +106,7 @@ void TiO2_Grammar::DefineRules()
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
         "@SolidDensity",
         OpenSMOKEpp::SINGLE_MEASURE,
-        "Solid density (kg/m3 or g/cm3). Default: 3900 kg/m3",
+        "Solid density (kg/m3 or g/cm3). Default: 4230 kg/m3",
         false));
 
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
@@ -127,6 +127,18 @@ void TiO2_Grammar::DefineRules()
             OpenSMOKEpp::SINGLE_BOOL,
             "Consumption of gaseous species is accounted for (default: false)",
             true));
+
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@GasStoichiometry",
+        OpenSMOKEpp::SINGLE_STRING,
+        "Explicit gas stoichiometry per precursor, e.g. TiOH4:-1,H2O:2",
+        false));
+
+    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
+        "@GasStoichiometryMassTolerance",
+        OpenSMOKEpp::SINGLE_DOUBLE,
+        "Relative mass-balance tolerance for explicit gas stoichiometry (default: 1e-3)",
+        false));
 
     // ----------------------------------------------------------------------------------------------------------- //
     // Sintering kinetics
