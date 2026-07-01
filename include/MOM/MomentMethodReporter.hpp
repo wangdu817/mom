@@ -155,7 +155,7 @@ public:
         std::visit([&](const auto& m) { this->WriteRow(m); }, any);
     }
 
-    // -- NDF snapshot API (ThreeEquations, TiO2, HMOM) ------------------------
+    // -- NDF snapshot API (ThreeEquations, MetalOxide, HMOM) ------------------------
     //
     // Writes a self-contained NDF output file: header + Complete() + data rows.
     // The caller is responsible for opening @p ndf_out before calling and for
@@ -180,7 +180,7 @@ public:
     //   six core columns.  Currently only HMOM implements this hook,
     //   adding: N0, V0, dp0, NL, VL, dpL_mean, sigma_ndf.
     //
-    //   ThreeEquations and TiO2 do NOT implement ndf_extra_output; their
+    //   ThreeEquations and MetalOxide do NOT implement ndf_extra_output; their
     //   NDF parameters (alpha, sigma, k, …) are already written in the main
     //   per-timestep reporter output (variant_prefix_output hook).
     //

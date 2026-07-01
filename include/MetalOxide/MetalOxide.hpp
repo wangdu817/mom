@@ -53,13 +53,13 @@ namespace MOM
 {
 
 /**
- * @class TiO2
+ * @class MetalOxide
  * @brief Three-equation method of moments for solid oxide nanoparticle formation and evolution.
  *
- * Historically named TiO2, this class models a configurable solid oxide
- * material from a gas-phase precursor via nucleation, condensation, coagulation,
- * and sintering.  The default material constants are TiO2/anatase and can be
- * replaced explicitly through Config or the dictionary interface.
+ * Models a configurable solid oxide material from a gas-phase precursor via
+ * nucleation, condensation, coagulation, and sintering. The default material
+ * constants are TiO2/anatase and can be replaced explicitly through Config or
+ * the dictionary interface.
  *
  * @par References
  * - Kruis, Kusters & Pratsinis, *Aerosol Sci. Technol.* **19** (1993) 514–526.
@@ -93,16 +93,16 @@ namespace MOM
  * @tparam Thermo  Must satisfy the MOM::ThermoMap concept.
  */
 
-template <ThermoMap Thermo> class TiO2 : public MomentMethodBase<TiO2<Thermo>, 3>
+template <ThermoMap Thermo> class MetalOxide : public MomentMethodBase<MetalOxide<Thermo>, 3>
 {
-    using Base = MomentMethodBase<TiO2<Thermo>, 3>;
+    using Base = MomentMethodBase<MetalOxide<Thermo>, 3>;
 
 public:
 
     using typename Base::MomentVector;
 
     /// Labels accepted by MOM::MakeAnyMomentMethod for runtime variant selection.
-    static constexpr std::array<std::string_view, 2> variant_labels{"TiO2", "tio2"};
+    static constexpr std::array<std::string_view, 2> variant_labels{"MetalOxide", "metaloxide"};
 
     // -- Method-specific sub-model enums -------------------------------------
 
@@ -217,12 +217,12 @@ public:
 
     // -- Construction ---------------------------------------------------------
 
-    explicit TiO2(const Thermo& thermo);
+    explicit MetalOxide(const Thermo& thermo);
 
-    TiO2(const TiO2&)            = delete;
-    TiO2& operator=(const TiO2&) = delete;
-    TiO2(TiO2&&)                 = default;
-    TiO2& operator=(TiO2&&)      = default;
+    MetalOxide(const MetalOxide&)            = delete;
+    MetalOxide& operator=(const MetalOxide&) = delete;
+    MetalOxide(MetalOxide&&)                 = default;
+    MetalOxide& operator=(MetalOxide&&)      = default;
 
     /**
      * @brief Configure all solid oxide parameters from a plain configuration struct.
@@ -238,7 +238,7 @@ public:
 
 #if defined(MOM_USE_DICTIONARY)
     /**
-     * @brief Parse an OpenSMOKE++ dictionary into a TiO2 Config.
+     * @brief Parse an OpenSMOKE++ dictionary into a MetalOxide Config.
      * @tparam DictType  OpenSMOKE++ dictionary type — no include-time dependency.
      */
     template <typename DictType>
@@ -326,7 +326,7 @@ public:
 
     // -- Reporter output hook (MomentMethodReporter extensibility protocol) ------
     //
-    // Makes TiO2 self-describing with respect to output.
+    // Makes MetalOxide self-describing with respect to output.
     // MomentMethodReporter calls this with a lambda cb(label, value):
     //   • header mode — lambda uses label to register the column
     //   • row mode    — lambda uses value to write the data
@@ -612,7 +612,7 @@ private:
     double v_min_  = 0.;     //!< [m3] set in Precalculations from n_formula_units_min_
     double S_min_  = 0.;     //!< [m2/m3]
 
-    // -- Per-process source storage (owned by TiO2, not by base) --------------
+    // -- Per-process source storage (owned by MetalOxide, not by base) --------------
     //
     // Solid oxide models: nucleation, coagulation, condensation, sintering.
     // growth and oxidation are absent; base class returns zero span for both.
@@ -631,14 +631,14 @@ private:
 } // namespace MOM
 
 #if defined(MOM_USE_DICTIONARY)
-#include "TiO2_Grammar.h"
+#include "MetalOxide_Grammar.h"
 #endif
 
 #if !defined(MOM_COMPILED_LIBRARY)
-#include "TiO2.tpp"
+#include "MetalOxide.tpp"
 #else
 namespace MOM
 {
-extern template class TiO2<BasicThermoData>;
+extern template class MetalOxide<BasicThermoData>;
 }
 #endif

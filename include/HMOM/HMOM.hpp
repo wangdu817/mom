@@ -562,7 +562,7 @@ public:
      * @brief Normalised smeared NDF  nbar(v) = n_vis(v) / (N0 + NL)  [1/m³].
      *
      * Satisfies the MOM::HasReconstructedNDF concept — same call signature as
-     * ThreeEquations and TiO2, enabling transparent dispatch through
+     * ThreeEquations and MetalOxide, enabling transparent dispatch through
      * MomentMethodReporter::WriteReconstructedNDF().
      *
      * @par Formula

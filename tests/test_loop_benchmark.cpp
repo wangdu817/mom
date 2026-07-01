@@ -422,7 +422,7 @@ int main()
  *     Adds auto-vectorisation.  For HMOM (NEq=4), the 4-double source vector
  *     fits in a single 256-bit AVX register (vmovupd ymm0,...).  The compiler
  *     can process all 4 equations in one instruction per arithmetic op.
- *     For ThreeEquations / TiO2 (NEq=3), you get 192-bit partial packing;
+ *     For ThreeEquations / MetalOxide (NEq=3), you get 192-bit partial packing;
  *     padding to 4 would allow full 256-bit use.
  *
  *   -march=native

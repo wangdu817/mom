@@ -33,12 +33,12 @@
 |                                                                         |
 \*-----------------------------------------------------------------------*/
 
-#include "TiO2/TiO2_Grammar.h"
+#include "MetalOxide/MetalOxide_Grammar.h"
 
 namespace MOM
 {
 
-void TiO2_Grammar::DefineRules()
+void MetalOxide_Grammar::DefineRules()
 {
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
         "@MetalOxide",

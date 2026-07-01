@@ -44,7 +44,7 @@
 |     #include "MOM/MOM.hpp"                                              |
 |                                                                         |
 |     using ParticleModel = MOM::ThreeEquations<MOM::Thermo>;             |
-|     // ↑ change this one line to switch to HMOM, BrookesMoss, or TiO2  |
+|     // ↑ change this one line to switch to HMOM, BrookesMoss, or MetalOxide  |
 |     static_assert(MOM::MomentMethod<ParticleModel>);                   |
 |                                                                         |
 |   USAGE (runtime method selection — one indirect branch per call):      |

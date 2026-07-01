@@ -96,7 +96,7 @@ void ThreeEquations_Grammar::DefineRules()
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
         "@GasClosureDummySpecies",
         OpenSMOKEpp::SINGLE_STRING,
-        "Species to be assumed as gaseous dummy species (example: @GasClosureDummySpecies TIO2RU;)",
+        "Species to be assumed as gaseous dummy species (example: @GasClosureDummySpecies N2;)",
         true));
 
     AddKeyWord(

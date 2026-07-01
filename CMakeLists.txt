@@ -58,7 +58,7 @@ set(_MOM_SOURCES
     src/ThreeEquations/ThreeEquations_BasicThermoData.cpp
     src/HMOM/HMOM_BasicThermoData.cpp
     src/BrookesMoss/BrookesMoss_BasicThermoData.cpp
-    src/TiO2/TiO2_BasicThermoData.cpp
+    src/MetalOxide/MetalOxide_BasicThermoData.cpp
     src/Utilities/OutputFileColumns.cpp
 )
 
@@ -78,7 +78,7 @@ if(MOM_USE_DICTIONARY)
         src/ThreeEquations/ThreeEquations_Grammar.cpp
         src/HMOM/HMOM_Grammar.cpp
         src/BrookesMoss/BrookesMoss_Grammar.cpp
-        src/TiO2/TiO2_Grammar.cpp
+        src/MetalOxide/MetalOxide_Grammar.cpp
     )
 
     message(STATUS "MOM: Dictionary support enabled")

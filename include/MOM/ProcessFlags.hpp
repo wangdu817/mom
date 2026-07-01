@@ -93,7 +93,7 @@ enum class CondensationModel : int
     Standard = 1  //!< PAH adsorption on existing soot particles.
 };
 
-/** @brief Sintering sub-model selector (used by TiO2). */
+/** @brief Sintering sub-model selector (used by MetalOxide). */
 enum class SinteringModel : int
 {
     Off      = 0, //!< Sintering disabled.
@@ -112,7 +112,7 @@ enum class ThermophoreticModel : int
  *
  * Selects the empirical correlation used to compute the Planck mean absorption
  * coefficient κ_P [1/m] of the particle phase, needed by radiation solvers.
- * TiO2 particles are dielectric and should use `None`.
+ * MetalOxide particles are dielectric and should use `None`.
  */
 enum class PlanckCoeffModel : int
 {

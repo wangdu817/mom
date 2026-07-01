@@ -1570,7 +1570,7 @@ HMOM<Thermo>::ReconstructedNDFData(bool use_regularized_moments) const
     {
         // Apply a floor to the nucleation-mode density so that the
         // reconstruction is well-defined even in particle-free cells.
-        // Mirrors the regularization used by ThreeEquations and TiO2.
+        // Mirrors the regularization used by ThreeEquations and MetalOxide.
         N0 = std::max(N0, kTinyNumberDensity);
         NL = std::max(NL, 0.);
     }

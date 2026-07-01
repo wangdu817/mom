@@ -53,7 +53,7 @@ namespace MOM
  *   static_assert(MOM::MomentMethod<ParticleModel>);
  * @endcode
  *
- * All concrete variants (HMOM, BrookesMoss, ThreeEquations, TiO2) derive from
+ * All concrete variants (HMOM, BrookesMoss, ThreeEquations, MetalOxide) derive from
  * MomentMethodBase<Derived, NEq> and are checked against this concept at compile
  * time.  The concept is intentionally free of implementation details — it specifies
  * only observable behaviour.
@@ -185,7 +185,7 @@ concept MomentMethod =
  * @concept HasReconstructedNDF
  * @brief Satisfied by models that provide a Pareto + log-normal NDF reconstruction.
  *
- * Currently satisfied by ThreeEquations and TiO2.  Not satisfied by HMOM or
+ * Currently satisfied by ThreeEquations and MetalOxide.  Not satisfied by HMOM or
  * BrookesMoss, which do not reconstruct the particle size distribution.
  *
  * Used by MomentMethodReporter::WriteReconstructedNDF to conditionally enable

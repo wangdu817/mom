@@ -68,7 +68,7 @@
 #include "HMOM/HMOM.hpp"
 #include "BrookesMoss/BrookesMoss.hpp"
 #include "ThreeEquations/ThreeEquations.hpp"
-#include "TiO2/TiO2.hpp"
+#include "MetalOxide/MetalOxide.hpp"
 
 namespace MOM
 {
@@ -140,6 +140,6 @@ template <template <typename> class... Variants> struct TypeList
  * @note **To add a new variant**: add its class template to this alias and add
  *       its `#include` above.  No other file requires modification.
  */
-using AllVariants = detail::TypeList<HMOM, BrookesMoss, ThreeEquations, TiO2>;
+using AllVariants = detail::TypeList<HMOM, BrookesMoss, ThreeEquations, MetalOxide>;
 
 } // namespace MOM

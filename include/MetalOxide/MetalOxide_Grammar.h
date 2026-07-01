@@ -33,14 +33,22 @@
 |                                                                         |
 \*-----------------------------------------------------------------------*/
 
-#if defined(MOM_COMPILED_LIBRARY)
-#error "Do not define MOM_COMPILED_LIBRARY when compiling library sources"
-#endif
+#ifndef MOM_METALOXIDE_GRAMMAR_H
+#define MOM_METALOXIDE_GRAMMAR_H
 
-#include "TiO2/TiO2.hpp"
+#include "Dictionary.h"
+#include "DictionaryManager.h"
+#include "DictionaryGrammar.h"
+#include "DictionaryKeyWord.h"
 
 namespace MOM
 {
-template class TiO2<BasicThermoData>;
-}
+class MetalOxide_Grammar : public OpenSMOKEpp::DictionaryGrammar
+{
+protected:
 
+    virtual void DefineRules();
+};
+} // namespace MOM
+
+#endif // MOM_METALOXIDE_GRAMMAR_H

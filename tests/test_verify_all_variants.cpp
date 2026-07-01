@@ -1,7 +1,7 @@
 /*-----------------------------------------------------------------------*\
 |   MOM Library — Comprehensive variant verification                       |
 |                                                                          |
-|   Verifies all 4 variants (HMOM, ThreeEquations, BrookesMoss, TiO2)    |
+|   Verifies all 4 variants (HMOM, ThreeEquations, BrookesMoss, MetalOxide)    |
 |   for structural and mathematical correctness after the CRTP refactoring.|
 |                                                                          |
 |   Checks performed:                                                      |
@@ -15,7 +15,7 @@
 |     g++ -std=c++20 -O2                                                  |
 |         -I ../include -I ../include/MOM                                  |
 |         -I ../include/HMOM -I ../include/BrookesMoss                    |
-|         -I ../include/ThreeEquations -I ../include/TiO2                  |
+|         -I ../include/ThreeEquations -I ../include/MetalOxide                  |
 |         -I /path/to/eigen3                                               |
 |         verify_all_variants.cpp -o verify_all_variants                  |
 \*-----------------------------------------------------------------------*/
@@ -40,7 +40,7 @@
 // ============================================================================
 // Two separate thermos:
 //   thermo_soot — for HMOM, ThreeEquations, BrookesMoss (soot chemistry)
-//   thermo_tio2 — for TiO2 (titanium oxide chemistry)
+//   thermo_metaloxide — for MetalOxide (titanium oxide chemistry)
 // ============================================================================
 
 static MOM::BasicThermoData buildSootThermo()
@@ -70,7 +70,7 @@ static MOM::BasicThermoData buildBrookesMossHallThermo()
     return th;
 }
 
-static MOM::BasicThermoData buildTiO2Thermo()
+static MOM::BasicThermoData buildMetalOxideThermo()
 {
     // Species: TiOH4  N2
     // Ti(OH)4 : MW = 47.867 (Ti) + 4×17.008 (OH) = 115.899 kg/kmol
@@ -362,7 +362,7 @@ static void printOwnershipMatrix()
     using H  = MOM::HMOM<MOM::BasicThermoData>;
     using TE = MOM::ThreeEquations<MOM::BasicThermoData>;
     using BM = MOM::BrookesMoss<MOM::BasicThermoData>;
-    using T2 = MOM::TiO2<MOM::BasicThermoData>;
+    using T2 = MOM::MetalOxide<MOM::BasicThermoData>;
 
     // ── Static assertions — catches regressions at compile time ──────────
     // HMOM: nucleation coagulation condensation growth oxidation  NO sintering
@@ -377,10 +377,10 @@ static void printOwnershipMatrix()
     static_assert(hasNucleation<BM>() && hasCoagulation<BM>() && !hasCondensation<BM>() &&
                       hasGrowth<BM>() && hasOxidation<BM>() && !hasSintering<BM>(),
                   "BrookesMoss ownership mismatch");
-    // TiO2: nucleation coagulation condensation sintering  NO growth NO oxidation
+    // MetalOxide: nucleation coagulation condensation sintering  NO growth NO oxidation
     static_assert(hasNucleation<T2>() && hasCoagulation<T2>() && hasCondensation<T2>() &&
                       !hasGrowth<T2>() && !hasOxidation<T2>() && hasSintering<T2>(),
-                  "TiO2 ownership mismatch");
+                  "MetalOxide ownership mismatch");
 
     // ── Print the matrix ──────────────────────────────────────────────────
     constexpr auto Y = "  ✓  ";
@@ -388,7 +388,7 @@ static void printOwnershipMatrix()
 
     std::cout << "\n";
     std::cout << "┌────────────────┬──────────┬──────────────┬─────────────┬──────────┐\n";
-    std::cout << "│ Process        │   HMOM   │ ThreeEqns    │ BrookesMoss │   TiO2   │\n";
+    std::cout << "│ Process        │   HMOM   │ ThreeEqns    │ BrookesMoss │   MetalOxide   │\n";
     std::cout << "├────────────────┼──────────┼──────────────┼─────────────┼──────────┤\n";
 
     auto row = [&](const char* proc, bool h, bool te, bool bm, bool t2)
@@ -835,38 +835,38 @@ int main()
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // 4. TiO2  (NEq = 3)
-    // Moments: [YTiO2, NTiO2N, STiO2]
+    // 4. MetalOxide  (NEq = 3)
+    // Moments: [YMetalOxide, NMetalOxideN, SMetalOxide]
     // growth + oxidation NOT modelled → kZeroData fallback expected
     // ════════════════════════════════════════════════════════════════════
     std::cout << "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-    std::cout << "  Variant 4: TiO2\n";
+    std::cout << "  Variant 4: MetalOxide\n";
     std::cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
     {
-        auto thT = buildTiO2Thermo();
+        auto thT = buildMetalOxideThermo();
         // 5% TiOH4 precursor, balance N2 (flame synthesis conditions)
-        const auto Y_tio2   = X2Y({0.05, 0.95}, thT);
-        const double T_tio2 = 1500.; // [K] — typical TiO2 synthesis temperature
+        const auto Y_metaloxide   = X2Y({0.05, 0.95}, thT);
+        const double T_metaloxide = 1500.; // [K] — typical MetalOxide synthesis temperature
 
-        MOM::TiO2<MOM::BasicThermoData> model(thT);
+        MOM::MetalOxide<MOM::BasicThermoData> model(thT);
         model.SetPrecursor("TiOH4");
         model.SetNucleation(1);
         model.SetCoagulation(1);
         model.SetCondensation(1);
         model.SetSintering(1);
         model.SetViscosity(mu);
-        model.SetStatus(T_tio2, P_atm, Y_tio2.data());
+        model.SetStatus(T_metaloxide, P_atm, Y_metaloxide.data());
         auto ic = model.initial_moments();
         // Use well-above-floor values: 1e12 #/m3 particles, fv~1e-6
         model.SetMoments(ic[0] * 1e6, ic[1] * 1e6, ic[2] * 1e6);
 
-        std::cout << "  State: T=" << T_tio2 << " K, P=" << P_atm << " Pa\n";
+        std::cout << "  State: T=" << T_metaloxide << " K, P=" << P_atm << " Pa\n";
         std::cout << "  Precursor: TiOH4  (5 mol%)\n";
-        std::cout << "  Moments: YTiO2=" << std::scientific << ic[0] * 1e6
-                  << "  NTiO2N=" << ic[1] * 1e6 << "  STiO2=" << ic[2] * 1e6 << "\n";
+        std::cout << "  Moments: YMetalOxide=" << std::scientific << ic[0] * 1e6
+                  << "  NMetalOxideN=" << ic[1] * 1e6 << "  SMetalOxide=" << ic[2] * 1e6 << "\n";
 
         all_ok &= verifyVariant(model,
-                                "TiO2",
+                                "MetalOxide",
                                 /*nucleation*/ true,
                                 /*coagulation*/ true,
                                 /*condensation*/ true,

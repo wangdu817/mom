@@ -260,18 +260,18 @@ MomentMethodBase<Derived, NEq>          ← CRTP base (MomentMethodBase.hpp)
 ├── HMOM<Thermo>           : Base<HMOM<Thermo>,           4>
 ├── ThreeEquations<Thermo> : Base<ThreeEquations<Thermo>, 3>
 ├── BrookesMoss<Thermo>    : Base<BrookesMoss<Thermo>,    2>
-└── TiO2<Thermo>           : Base<TiO2<Thermo>,           3>
+└── MetalOxide<Thermo>           : Base<MetalOxide<Thermo>,           3>
 
 MomentMethod<M>                         ← C++20 Concept (MomentMethodConcept.hpp)
     requires: all public API methods and types
 
 AnyMomentMethod<Thermo>                 ← type-erased runtime wrapper
-    = std::variant<HMOM<T>, BrookesMoss<T>, ThreeEquations<T>, TiO2<T>>
-    MakeAnyMomentMethod(thermo, label)  ← factory (label = "HMOM", "TiO2", ...)
+    = std::variant<HMOM<T>, BrookesMoss<T>, ThreeEquations<T>, MetalOxide<T>>
+    MakeAnyMomentMethod(thermo, label)  ← factory (label = "HMOM", "MetalOxide", ...)
     ForEachCell(variant, lambda)        ← hoisted std::visit pattern
 
 AllVariants                             ← single authoritative registry
-    = detail::TypeList<HMOM, BrookesMoss, ThreeEquations, TiO2>
+    = detail::TypeList<HMOM, BrookesMoss, ThreeEquations, MetalOxide>
       (MomVariantList.hpp — the only file to edit when adding a variant)
 ```
 
@@ -314,7 +314,7 @@ using AllVariants = detail::TypeList<
     HMOM,
     BrookesMoss,
     ThreeEquations,
-    TiO2,
+    MetalOxide,
     MyNewVariant    // ← add here
 >;
 ```
@@ -436,7 +436,7 @@ alternative) and selects the correct one with a single branch before the loop.
 ```cpp
 // Solver initialisation — one runtime branch at startup
 MOM::AnyMomentMethod<MyThermo> model = MOM::MakeAnyMomentMethod(thermo, variant_name);
-// variant_name = "HMOM" | "ThreeEquations" | "BrookesMoss" | "TiO2"
+// variant_name = "HMOM" | "ThreeEquations" | "BrookesMoss" | "MetalOxide"
 
 // CFD sweep — std::visit fires ONCE here, not inside the loop
 MOM::ForEachCell(model, [&](auto& m)

@@ -50,7 +50,7 @@
  * @code
  *   MakeAnyMomentMethod(thermo, "HMOM")
  *     └─ detail::make_from_type_list(AllVariants{}, thermo, "HMOM")
- *          └─ FactoryHelper<HMOM, BrookesMoss, ThreeEquations, TiO2>
+ *          └─ FactoryHelper<HMOM, BrookesMoss, ThreeEquations, MetalOxide>
  *                            ::make(thermo, "HMOM")
  *               ├─ HMOM::variant_labels contains "HMOM"? yes → return HMOM<Thermo>{thermo}
  *               └─ (would otherwise recurse into FactoryHelper<BrookesMoss, ...>)
@@ -109,7 +109,7 @@ namespace MOM
  * @param  thermo  Constructed thermo object; stored by reference inside the
  *                 returned variant's active alternative.
  * @param  label   Case-sensitive string key for the desired variant, e.g.
- *                 `"HMOM"`, `"BrookesMoss"`, `"ThreeEquations"`, `"TiO2"`.
+ *                 `"HMOM"`, `"BrookesMoss"`, `"ThreeEquations"`, `"MetalOxide"`.
  * @return         An `AnyMomentMethod<Thermo>` whose active alternative is the
  *                 variant whose `variant_labels` array contains @p label.
  * @throws std::invalid_argument  If @p label is not found in any registered
@@ -118,8 +118,8 @@ namespace MOM
 template <ThermoMap Thermo>
 AnyMomentMethod<Thermo> MakeAnyMomentMethod(const Thermo& thermo, std::string_view label)
 {
-    // Unpack AllVariants (TypeList<HMOM, BrookesMoss, ThreeEquations, TiO2>)
-    // into FactoryHelper<HMOM, BrookesMoss, ThreeEquations, TiO2>::make().
+    // Unpack AllVariants (TypeList<HMOM, BrookesMoss, ThreeEquations, MetalOxide>)
+    // into FactoryHelper<HMOM, BrookesMoss, ThreeEquations, MetalOxide>::make().
     // The helper walks the type list recursively at compile time, comparing
     // `label` against each variant's variant_labels at runtime until a match
     // is found or the base-case (empty list) throws.

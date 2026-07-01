@@ -51,7 +51,7 @@ namespace MOM
 // Constructor
 // ============================================================================
 
-template <ThermoMap Thermo> TiO2<Thermo>::TiO2(const Thermo& thermo) : thermo_(thermo)
+template <ThermoMap Thermo> MetalOxide<Thermo>::MetalOxide(const Thermo& thermo) : thermo_(thermo)
 {
     // -- Default material / physics constants -----------------------------
     // Config{} keeps TiO2/anatase as the default material. The material can be
@@ -86,10 +86,10 @@ template <ThermoMap Thermo> TiO2<Thermo>::TiO2(const Thermo& thermo) : thermo_(t
 // MemoryAllocation
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::MemoryAllocation()
+template <ThermoMap Thermo> void MetalOxide<Thermo>::MemoryAllocation()
 {
     this->ZeroSources();          // zeros source_all_, omega_gas_ (base class)
-    source_nucleation_.setZero(); // owned by TiO2 — zeroed explicitly
+    source_nucleation_.setZero(); // owned by MetalOxide — zeroed explicitly
     source_coagulation_.setZero();
     source_condensation_.setZero();
     source_sintering_.setZero();
@@ -111,7 +111,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::MemoryAllocation()
 // Precalculations  (call whenever n_formula_units_min_ or vprec_/dprec_ change)
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::Precalculations()
+template <ThermoMap Thermo> void MetalOxide<Thermo>::Precalculations()
 {
     v0_ = static_cast<double>(n_formula_units_min_) * solid_formula_unit_volume_m3_;
     d0_ = std::pow(6. * v0_ / this->pi_, 1. / 3.);
@@ -137,16 +137,16 @@ template <ThermoMap Thermo> void TiO2<Thermo>::Precalculations()
 // ============================================================================
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::SetSolidMaterial(std::string_view name,
+void MetalOxide<Thermo>::SetSolidMaterial(std::string_view name,
                                     double molecular_weight_kg_kmol,
                                     double density_kg_m3)
 {
     if (name.empty())
-        throw std::invalid_argument("[TiO2] Solid material name cannot be empty.");
+        throw std::invalid_argument("[MetalOxide] Solid material name cannot be empty.");
     if (!std::isfinite(molecular_weight_kg_kmol) || molecular_weight_kg_kmol <= 0.)
-        throw std::invalid_argument("[TiO2] Solid molecular weight must be positive.");
+        throw std::invalid_argument("[MetalOxide] Solid molecular weight must be positive.");
     if (!std::isfinite(density_kg_m3) || density_kg_m3 <= 0.)
-        throw std::invalid_argument("[TiO2] Solid density must be positive.");
+        throw std::invalid_argument("[MetalOxide] Solid density must be positive.");
 
     solid_name_                       = std::string{name};
     solid_molecular_weight_kg_kmol_   = molecular_weight_kg_kmol;
@@ -161,10 +161,10 @@ void TiO2<Thermo>::SetSolidMaterial(std::string_view name,
 }
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::SetSolidFormulaUnitsPerPrecursor(double n)
+void MetalOxide<Thermo>::SetSolidFormulaUnitsPerPrecursor(double n)
 {
     if (!std::isfinite(n) || n <= 0.)
-        throw std::invalid_argument("[TiO2] Solid formula units per precursor must be positive.");
+        throw std::invalid_argument("[MetalOxide] Solid formula units per precursor must be positive.");
 
     solid_formula_units_per_precursor_ = n;
     vprec_ = (precursor_index_ >= 0) ? solid_formula_units_per_precursor_ * solid_formula_unit_volume_m3_ : 0.;
@@ -172,21 +172,21 @@ void TiO2<Thermo>::SetSolidFormulaUnitsPerPrecursor(double n)
 }
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::SetNumberOfFormulaUnitsPerNucleatedParticle(unsigned n)
+void MetalOxide<Thermo>::SetNumberOfFormulaUnitsPerNucleatedParticle(unsigned n)
 {
     if (n == 0u)
         throw std::invalid_argument(
-            "[TiO2] Number of formula units per nucleated particle must be positive.");
+            "[MetalOxide] Number of formula units per nucleated particle must be positive.");
 
     n0_ = n;
     Precalculations();
 }
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::SetMinimumNumberOfFormulaUnits(unsigned n)
+void MetalOxide<Thermo>::SetMinimumNumberOfFormulaUnits(unsigned n)
 {
     if (n == 0u)
-        throw std::invalid_argument("[TiO2] Minimum number of formula units must be positive.");
+        throw std::invalid_argument("[MetalOxide] Minimum number of formula units must be positive.");
 
     n_formula_units_min_ = n;
     Precalculations();
@@ -197,7 +197,7 @@ void TiO2<Thermo>::SetMinimumNumberOfFormulaUnits(unsigned n)
 // ============================================================================
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noexcept
+void MetalOxide<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noexcept
 {
     this->T_    = T;
     this->P_Pa_ = P_Pa;
@@ -228,15 +228,15 @@ void TiO2<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noexcept
 // SetMoments
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::SetMoments(std::span<const double> m) noexcept
+template <ThermoMap Thermo> void MetalOxide<Thermo>::SetMoments(std::span<const double> m) noexcept
 {
     assert(m.size() == static_cast<std::size_t>(Base::n_equations) &&
-           "[TiO2::SetMoments] expected exactly 3 moment values.");
+           "[MetalOxide::SetMoments] expected exactly 3 moment values.");
     SetMoments(m[0], m[1], m[2]);
 }
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::SetMoments(double solid_mass_fraction,
+void MetalOxide<Thermo>::SetMoments(double solid_mass_fraction,
                               double scaled_number_density,
                               double surface_area_concentration) noexcept
 {
@@ -249,7 +249,7 @@ void TiO2<Thermo>::SetMoments(double solid_mass_fraction,
 // SetPrecursor
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::SetPrecursor(std::string_view name)
+template <ThermoMap Thermo> void MetalOxide<Thermo>::SetPrecursor(std::string_view name)
 {
     precursor_species_ = std::string(name);
 
@@ -270,7 +270,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SetPrecursor(std::string_view nam
 
     precursor_index_ = thermo_.IndexOfSpecies(name);
     if (precursor_index_ < 0)
-        throw std::runtime_error("[TiO2] Precursor species not found in mechanism: " +
+        throw std::runtime_error("[MetalOxide] Precursor species not found in mechanism: " +
                                  precursor_species_);
 
     const unsigned ui = static_cast<unsigned>(precursor_index_);
@@ -293,22 +293,22 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SetPrecursor(std::string_view nam
 // Gas stoichiometry setup
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::ClearGasStoichiometry() noexcept
+template <ThermoMap Thermo> void MetalOxide<Thermo>::ClearGasStoichiometry() noexcept
 {
     gas_stoichiometry_.clear();
 }
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::AddGasStoichiometryTerm(std::string_view species, double coefficient)
+void MetalOxide<Thermo>::AddGasStoichiometryTerm(std::string_view species, double coefficient)
 {
     if (!std::isfinite(coefficient))
-        throw std::invalid_argument("[TiO2] Gas stoichiometric coefficient must be finite.");
+        throw std::invalid_argument("[MetalOxide] Gas stoichiometric coefficient must be finite.");
     if (std::fabs(coefficient) <= 1.e-14)
         return;
 
     const int index = thermo_.IndexOfSpecies(species);
     if (index < 0)
-        throw std::runtime_error("[TiO2] Gas stoichiometry species not found: " +
+        throw std::runtime_error("[MetalOxide] Gas stoichiometry species not found: " +
                                  std::string(species));
 
     const double mw = thermo_.MolecularWeight(static_cast<unsigned>(index));
@@ -326,7 +326,7 @@ void TiO2<Thermo>::AddGasStoichiometryTerm(std::string_view species, double coef
         RuntimeGasStoichiometryTerm{index, coefficient, mw, std::string(species)});
 }
 
-template <ThermoMap Thermo> void TiO2<Thermo>::ValidateGasStoichiometryMassBalance() const
+template <ThermoMap Thermo> void MetalOxide<Thermo>::ValidateGasStoichiometryMassBalance() const
 {
     if (gas_stoichiometry_.empty() || precursor_index_ < 0)
         return;
@@ -346,11 +346,11 @@ template <ThermoMap Thermo> void TiO2<Thermo>::ValidateGasStoichiometryMassBalan
     }
 
     if (!has_precursor)
-        throw std::runtime_error("[TiO2] Gas stoichiometry must include precursor species '" +
+        throw std::runtime_error("[MetalOxide] Gas stoichiometry must include precursor species '" +
                                  precursor_species_ + "' with coefficient -1.");
 
     if (std::fabs(precursor_coefficient + 1.) > 1.e-12)
-        throw std::runtime_error("[TiO2] Gas stoichiometry is normalized per precursor; species '" +
+        throw std::runtime_error("[MetalOxide] Gas stoichiometry is normalized per precursor; species '" +
                                  precursor_species_ + "' must have coefficient -1.");
 
     const double solid_mass =
@@ -361,7 +361,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::ValidateGasStoichiometryMassBalan
     if (std::fabs(residual) > gas_stoichiometry_mass_tolerance_ * scale)
     {
         std::ostringstream msg;
-        msg << "[TiO2] Gas stoichiometry is not mass balanced: gas_mass=" << gas_mass
+        msg << "[MetalOxide] Gas stoichiometry is not mass balanced: gas_mass=" << gas_mass
             << " kg/kmol_precursor, solid_mass=" << solid_mass
             << " kg/kmol_precursor, residual=" << residual
             << " kg/kmol_precursor, tolerance=" << gas_stoichiometry_mass_tolerance_;
@@ -370,11 +370,11 @@ template <ThermoMap Thermo> void TiO2<Thermo>::ValidateGasStoichiometryMassBalan
 }
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::SetGasStoichiometry(std::span<const GasStoichiometryTerm> terms,
+void MetalOxide<Thermo>::SetGasStoichiometry(std::span<const GasStoichiometryTerm> terms,
                                        double relative_mass_tolerance)
 {
     if (!std::isfinite(relative_mass_tolerance) || relative_mass_tolerance < 0.)
-        throw std::invalid_argument("[TiO2] Gas stoichiometry mass tolerance must be non-negative.");
+        throw std::invalid_argument("[MetalOxide] Gas stoichiometry mass tolerance must be non-negative.");
 
     gas_stoichiometry_mass_tolerance_ = relative_mass_tolerance;
     ClearGasStoichiometry();
@@ -385,7 +385,7 @@ void TiO2<Thermo>::SetGasStoichiometry(std::span<const GasStoichiometryTerm> ter
     for (const auto& term : terms)
     {
         if (term.species.empty())
-            throw std::invalid_argument("[TiO2] Gas stoichiometry species name cannot be empty.");
+            throw std::invalid_argument("[MetalOxide] Gas stoichiometry species name cannot be empty.");
         AddGasStoichiometryTerm(term.species, term.coefficient);
     }
 
@@ -396,7 +396,7 @@ void TiO2<Thermo>::SetGasStoichiometry(std::span<const GasStoichiometryTerm> ter
 // SetGasClosureDummySpecies
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::SetGasClosureDummySpecies(std::string_view name)
+template <ThermoMap Thermo> void MetalOxide<Thermo>::SetGasClosureDummySpecies(std::string_view name)
 {
     this->closure_dummy_species_ = std::string(name);
 
@@ -409,11 +409,11 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SetGasClosureDummySpecies(std::st
 
     this->closure_dummy_index_ = thermo_.IndexOfSpecies(this->closure_dummy_species_);
     if (this->closure_dummy_index_ < 0)
-        throw std::runtime_error("[TiO2] Dummy species not found in mechanism: " +
+        throw std::runtime_error("[MetalOxide] Dummy species not found in mechanism: " +
                                  this->closure_dummy_species_);
 
     if (this->closure_dummy_index_ == precursor_index_)
-        throw std::runtime_error("[TiO2] Dummy species cannot be the precursor species.");
+        throw std::runtime_error("[MetalOxide] Dummy species cannot be the precursor species.");
 
     this->is_closure_dummy_species_ = true;
 }
@@ -423,7 +423,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SetGasClosureDummySpecies(std::st
 // ============================================================================
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::Properties(double& fv,
+void MetalOxide<Thermo>::Properties(double& fv,
                               double& dp,
                               double& dc,
                               double& da,
@@ -482,22 +482,22 @@ void TiO2<Thermo>::Properties(double& fv,
 // VolumeFraction, MassFraction, ParticleNumberDensity, SpecificSurface
 // ============================================================================
 
-template <ThermoMap Thermo> double TiO2<Thermo>::volume_fraction() const noexcept
+template <ThermoMap Thermo> double MetalOxide<Thermo>::volume_fraction() const noexcept
 {
     return this->rho_ / solid_density_kg_m3_ * std::max(solid_mass_fraction_, 0.);
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::mass_fraction() const noexcept
+template <ThermoMap Thermo> double MetalOxide<Thermo>::mass_fraction() const noexcept
 {
     return std::max(solid_mass_fraction_, 0.);
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::particle_number_density() const noexcept
+template <ThermoMap Thermo> double MetalOxide<Thermo>::particle_number_density() const noexcept
 {
     return std::max(scaled_number_density_ * N0_scaling_, 0.);
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::specific_surface() const noexcept
+template <ThermoMap Thermo> double MetalOxide<Thermo>::specific_surface() const noexcept
 {
     return std::max(surface_area_concentration_, 0.);
 }
@@ -507,28 +507,28 @@ template <ThermoMap Thermo> double TiO2<Thermo>::specific_surface() const noexce
 // NumberOfPrimaryParticles
 // ============================================================================
 
-template <ThermoMap Thermo> double TiO2<Thermo>::particle_diameter() const noexcept
+template <ThermoMap Thermo> double MetalOxide<Thermo>::particle_diameter() const noexcept
 {
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
     return dp;
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::collision_diameter() const noexcept
+template <ThermoMap Thermo> double MetalOxide<Thermo>::collision_diameter() const noexcept
 {
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
     return dc;
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::AggregateDiameter() const noexcept
+template <ThermoMap Thermo> double MetalOxide<Thermo>::AggregateDiameter() const noexcept
 {
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
     return da;
 }
 
-template <ThermoMap Thermo> double TiO2<Thermo>::number_primary_particles() const noexcept
+template <ThermoMap Thermo> double MetalOxide<Thermo>::number_primary_particles() const noexcept
 {
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
@@ -539,7 +539,7 @@ template <ThermoMap Thermo> double TiO2<Thermo>::number_primary_particles() cons
 // DiffusionCoefficient  — Cunningham-corrected Brownian + Schmidt fallback
 // ============================================================================
 
-template <ThermoMap Thermo> double TiO2<Thermo>::diffusion_coefficient() const noexcept
+template <ThermoMap Thermo> double MetalOxide<Thermo>::diffusion_coefficient() const noexcept
 {
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
@@ -559,7 +559,7 @@ template <ThermoMap Thermo> double TiO2<Thermo>::diffusion_coefficient() const n
 // NucleationParticleVolume
 // ============================================================================
 
-template <ThermoMap Thermo> double TiO2<Thermo>::NucleationParticleVolume() const noexcept
+template <ThermoMap Thermo> double MetalOxide<Thermo>::NucleationParticleVolume() const noexcept
 {
     if (nucleation_variant_ == NucleationVariant::Binary)
     {
@@ -577,7 +577,7 @@ template <ThermoMap Thermo> double TiO2<Thermo>::NucleationParticleVolume() cons
 // NucleationSourceTerms  — dispatcher
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::NucleationSourceTerms()
+template <ThermoMap Thermo> void MetalOxide<Thermo>::NucleationSourceTerms()
 {
     if (nucleation_variant_ == NucleationVariant::Binary)
         NucleationSourceTerms_Binary();
@@ -589,7 +589,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::NucleationSourceTerms()
 // NucleationSourceTerms_Binary
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::NucleationSourceTerms_Binary()
+template <ThermoMap Thermo> void MetalOxide<Thermo>::NucleationSourceTerms_Binary()
 {
     if (c_precursor_ <= 0. || vprec_ <= 0. || dprec_ <= 0.)
         return;
@@ -624,7 +624,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::NucleationSourceTerms_Binary()
 // NucleationSourceTerms_FixedCluster
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::NucleationSourceTerms_FixedCluster()
+template <ThermoMap Thermo> void MetalOxide<Thermo>::NucleationSourceTerms_FixedCluster()
 {
     if (c_precursor_ <= 0.)
         return;
@@ -657,7 +657,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::NucleationSourceTerms_FixedCluste
 // CoagulationSourceTerms
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::CoagulationSourceTerms()
+template <ThermoMap Thermo> void MetalOxide<Thermo>::CoagulationSourceTerms()
 {
     const double N = scaled_number_density_ * N0_scaling_;
     if (N <= N_min_)
@@ -700,7 +700,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::CoagulationSourceTerms()
 // CondensationSourceTerms
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::CondensationSourceTerms()
+template <ThermoMap Thermo> void MetalOxide<Thermo>::CondensationSourceTerms()
 {
     if (c_precursor_ <= 0. || vprec_ <= 0. || dprec_ <= 0.)
         return;
@@ -744,7 +744,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::CondensationSourceTerms()
 // SinteringSourceTerms
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::SinteringSourceTerms()
+template <ThermoMap Thermo> void MetalOxide<Thermo>::SinteringSourceTerms()
 {
     const double N = scaled_number_density_ * N0_scaling_;
     const double S = surface_area_concentration_;
@@ -792,7 +792,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SinteringSourceTerms()
 // SinteringDeferredUpdate  — analytical ODE solution for stiff sintering
 // ============================================================================
 
-template <ThermoMap Thermo> double TiO2<Thermo>::SinteringDeferredUpdate(double dt_ode)
+template <ThermoMap Thermo> double MetalOxide<Thermo>::SinteringDeferredUpdate(double dt_ode)
 {
     if (sintering_model_ == 0)
         return surface_area_concentration_;
@@ -835,10 +835,10 @@ template <ThermoMap Thermo> double TiO2<Thermo>::SinteringDeferredUpdate(double 
 // CalculateSourceMoments  — master entry point
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::CalculateSourceMoments() noexcept
+template <ThermoMap Thermo> void MetalOxide<Thermo>::CalculateSourceMoments() noexcept
 {
     this->ZeroSources();          // zeros source_all_, omega_gas_ (base class)
-    source_nucleation_.setZero(); // owned by TiO2 — must be zeroed before early return
+    source_nucleation_.setZero(); // owned by MetalOxide — must be zeroed before early return
     source_coagulation_.setZero();
     source_condensation_.setZero();
     source_sintering_.setZero();
@@ -885,7 +885,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::CalculateSourceMoments() noexcept
 // CalculateOmegaGas  — public interface
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::CalculateOmegaGas() noexcept
+template <ThermoMap Thermo> void MetalOxide<Thermo>::CalculateOmegaGas() noexcept
 {
     CalculateOmegaGas_internal();
 }
@@ -894,7 +894,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::CalculateOmegaGas() noexcept
 // CalculateOmegaGas_internal  — gas-phase consumption [kg/m3/s]
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::CalculateOmegaGas_internal() noexcept
+template <ThermoMap Thermo> void MetalOxide<Thermo>::CalculateOmegaGas_internal() noexcept
 {
     this->omega_gas_.setZero();
 
@@ -942,7 +942,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::CalculateOmegaGas_internal() noex
 // PrintSummary
 // ============================================================================
 
-template <ThermoMap Thermo> void TiO2<Thermo>::PrintSummary() const
+template <ThermoMap Thermo> void MetalOxide<Thermo>::PrintSummary() const
 {
     // Helper lambdas — no heap allocation, resolved at compile time
     const auto nuc_str = [](NucleationVariant v) -> const char* {
@@ -1069,7 +1069,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::PrintSummary() const
 // ============================================================================
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::ApplyConfig(const Config& cfg)
+void MetalOxide<Thermo>::ApplyConfig(const Config& cfg)
 {
     this->is_active_ = cfg.is_active;
 
@@ -1093,7 +1093,7 @@ void TiO2<Thermo>::ApplyConfig(const Config& cfg)
     {
         if (gas_stoichiometry_.empty())
             throw std::runtime_error(
-                "[TiO2] Gas consumption is enabled but no gas stoichiometry is available. "
+                "[MetalOxide] Gas consumption is enabled but no gas stoichiometry is available. "
                 "Provide explicit gas stoichiometry.");
         ValidateGasStoichiometryMassBalance();
     }
@@ -1117,10 +1117,10 @@ void TiO2<Thermo>::ApplyConfig(const Config& cfg)
     const int nucleated_units = cfg.nucleated_particle_formula_units;
 
     if (minimum_units <= 0)
-        throw std::invalid_argument("[TiO2] minimum formula units must be positive.");
+        throw std::invalid_argument("[MetalOxide] minimum formula units must be positive.");
     if (nucleated_units <= 0)
         throw std::invalid_argument(
-            "[TiO2] nucleated-particle formula units must be positive.");
+            "[MetalOxide] nucleated-particle formula units must be positive.");
 
     this->SetMinimumNumberOfFormulaUnits(static_cast<unsigned int>(minimum_units));
     this->SetNumberOfFormulaUnitsPerNucleatedParticle(
@@ -1157,7 +1157,7 @@ void TiO2<Thermo>::ApplyConfig(const Config& cfg)
 // ============================================================================
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::SetupFromConfig(const Config& cfg)
+void MetalOxide<Thermo>::SetupFromConfig(const Config& cfg)
 {
     ApplyConfig(cfg);
     PrintSummary();
@@ -1168,7 +1168,7 @@ void TiO2<Thermo>::SetupFromConfig(const Config& cfg)
 // ============================================================================
 
 template <ThermoMap Thermo>
-typename TiO2<Thermo>::NDFReconstructionData TiO2<Thermo>::ReconstructedNDFData(
+typename MetalOxide<Thermo>::NDFReconstructionData MetalOxide<Thermo>::ReconstructedNDFData(
     bool use_regularized_moments) const
 {
     NDFReconstructionData d{}; // all zero, valid = false
@@ -1250,7 +1250,7 @@ typename TiO2<Thermo>::NDFReconstructionData TiO2<Thermo>::ReconstructedNDFData(
 }
 
 template <ThermoMap Thermo>
-double TiO2<Thermo>::ReconstructedNormalizedNDF(double nu, bool use_regularized_moments) const
+double MetalOxide<Thermo>::ReconstructedNormalizedNDF(double nu, bool use_regularized_moments) const
 {
     if (!std::isfinite(nu) || nu <= 0.)
         return 0.;
@@ -1289,7 +1289,7 @@ double TiO2<Thermo>::ReconstructedNormalizedNDF(double nu, bool use_regularized_
 }
 
 template <ThermoMap Thermo>
-double TiO2<Thermo>::ReconstructedNDF(double nu, bool use_regularized_moments) const
+double MetalOxide<Thermo>::ReconstructedNDF(double nu, bool use_regularized_moments) const
 {
     const auto d = ReconstructedNDFData(use_regularized_moments);
     if (!d.valid)
@@ -1299,7 +1299,7 @@ double TiO2<Thermo>::ReconstructedNDF(double nu, bool use_regularized_moments) c
 }
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::ReconstructedNDF(const Eigen::VectorXd& nu,
+void MetalOxide<Thermo>::ReconstructedNDF(const Eigen::VectorXd& nu,
                                     Eigen::VectorXd& n,
                                     bool use_regularized_moments) const
 {
@@ -1310,21 +1310,21 @@ void TiO2<Thermo>::ReconstructedNDF(const Eigen::VectorXd& nu,
 
 #if defined(MOM_USE_DICTIONARY)
 // ============================================================================
-// ParseConfig — OpenSMOKE++ dictionary → TiO2::Config
+// ParseConfig — OpenSMOKE++ dictionary → MetalOxide::Config
 // ============================================================================
 
 template <ThermoMap Thermo>
 template <typename DictType>
-std::expected<typename TiO2<Thermo>::Config, std::string>
-TiO2<Thermo>::ParseConfig(DictType& dict)
+std::expected<typename MetalOxide<Thermo>::Config, std::string>
+MetalOxide<Thermo>::ParseConfig(DictType& dict)
 {
     // SetGrammar validates the dictionary against the grammar rules defined in
-    // TiO2_Grammar::DefineRules().  On any violation (missing mandatory
+    // MetalOxide_Grammar::DefineRules().  On any violation (missing mandatory
     // keyword, unknown keyword, duplicate, conflicting keyword) it calls
     // Dictionary::ErrorMessage() which throws std::runtime_error.
     // That exception is intentionally NOT caught here so it propagates to the
     // caller and stops the simulation.
-    TiO2_Grammar grammar;
+    MetalOxide_Grammar grammar;
     dict.SetGrammar(grammar);
 
     Config cfg;

@@ -78,12 +78,12 @@ namespace MOM
 //   in the hot loop. Eigen provides cache-line alignment and the same
 //   setZero() / .data() API as the fixed-size source vectors.
 //
-// * The Planck absorption coefficient implementation is shared here; TiO2
+// * The Planck absorption coefficient implementation is shared here; MetalOxide
 //   uses PlanckCoeffModel::None and gets 0.0 from planck_coefficient().
 //
 // Template parameters
 // -------------------
-//   Derived  — The concrete subclass (HMOM, BrookesMoss, ThreeEquations, TiO2)
+//   Derived  — The concrete subclass (HMOM, BrookesMoss, ThreeEquations, MetalOxide)
 //   NEq      — Number of transported moment equations (compile-time constant)
 // ============================================================================
 
@@ -92,12 +92,12 @@ namespace MOM
  * @brief CRTP base class providing shared state and common implementations for all
  *        Method of Moments particle transport models.
  *
- * @tparam Derived  The concrete subclass (HMOM, BrookesMoss, ThreeEquations, TiO2).
+ * @tparam Derived  The concrete subclass (HMOM, BrookesMoss, ThreeEquations, MetalOxide).
  *                  The CRTP pattern gives the base class access to the derived
  *                  implementation at compile time with zero overhead — no virtual
  *                  functions, no vtable, no indirect branches in the hot loop.
  * @tparam NEq      Number of transported moment equations (compile-time constant).
- *                  Typical values: 2 (BrookesMoss), 3 (ThreeEquations, TiO2), 4 (HMOM).
+ *                  Typical values: 2 (BrookesMoss), 3 (ThreeEquations, MetalOxide), 4 (HMOM).
  *
  * @par Design rationale
  *
@@ -161,7 +161,7 @@ public:
 
     /**
      * @brief Sets the particle material density.
-     * @param value Density [kg/m3] (default: 1800 for soot; TiO2 overrides to 3900).
+     * @param value Density [kg/m3] (default: 1800 for soot; MetalOxide overrides to 3900).
      */
     void SetParticleDensity(double value) noexcept { rho_particle_ = value; }
 
@@ -366,7 +366,7 @@ public:
     /**
      * @brief Planck mean absorption coefficient of the particle phase.
      *
-     * Returns 0.0 when `planck_model_ == PlanckCoeffModel::None` (e.g. TiO2).
+     * Returns 0.0 when `planck_model_ == PlanckCoeffModel::None` (e.g. MetalOxide).
      * The three empirical correlations (Smooke, Kent, Sazhin) are implemented in
      * `MomentMethodBase.tpp` and selected at runtime via a `switch`.
      *
@@ -411,7 +411,7 @@ protected:
     bool is_closure_dummy_species_ = false; //!< True if a closure dummy species is set.
 
     double schmidt_number_ = 0.7;    //!< Particle Schmidt number [-].
-    double rho_particle_   = 1800.;  //!< Particle material density [kg/m3]; TiO2 overrides to 3900.
+    double rho_particle_   = 1800.;  //!< Particle material density [kg/m3]; MetalOxide overrides to 3900.
 
     ThermophoreticModel thermophoretic_model_ = ThermophoreticModel::Off;
     PlanckCoeffModel planck_model_            = PlanckCoeffModel::Smooke;
@@ -495,7 +495,7 @@ private:
     // -- Planck coefficient model implementations ---------------------------
     // Implemented in MomentMethodBase.tpp; inlined via the planck_coefficient()
     // switch-dispatch in the header so that the compiler can eliminate the call
-    // entirely when PlanckCoeffModel::None is used (TiO2).
+    // entirely when PlanckCoeffModel::None is used (MetalOxide).
 
     /** @brief Smooke et al. (1988) Planck mean absorption coefficient [1/m]. */
     [[nodiscard]] double PlanckSmooke(double T, double fv) const noexcept;
