@@ -508,7 +508,7 @@ private:
 
     // -- Material properties ----------------------------------------------------
     static constexpr double default_solid_molecular_weight_kg_kmol_ = 79.866;
-    static constexpr double default_solid_density_kg_m3_            = 3900.;
+    static constexpr double default_solid_density_kg_m3_            = 4230.;
 
     std::string solid_name_ = "TiO2";
     double solid_molecular_weight_kg_kmol_ = default_solid_molecular_weight_kg_kmol_;

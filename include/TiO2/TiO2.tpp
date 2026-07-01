@@ -412,18 +412,25 @@ void TiO2<Thermo>::Properties(double& fv,
     const double SStar = std::max(S, S_min_);
     ss                 = std::max(SStar / NStar, ssph);
 
+    // Sphere-equivalent aggregate diameter [m]
+    // (diameter of a sphere whose volume equals the aggregate volume)
+    da = std::pow(6. * vs / this->pi_, 1. / 3.);
+    da = std::max(da, d0_);
+
     // Primary particle diameter [m]
+    // dp ≤ da always (since ss ≥ ssph ensures 6*vs/ss ≤ 6*vs/ssph = da)    
     dp = 6. * vs / ss;
     dp = std::max(dp, d0_);
 
     // Number of primary particles per aggregate [-]
     np = std::max(std::pow(ss, 3.) / std::pow(vs, 2.) / (36. * this->pi_), 1.);
 
-    // Collision (aggregate) diameter — same as primary for TiO2 (Df not used here)
-    dc = dp * std::pow(np, 1. / 3.); // Df = 3 (compact aggregates)
-
-    // Mobility/aggregate diameter [m]
-    da = dc;
+    // Collision diameter — fractal aggregate (Df = 1.8) [m]
+    // dc = dp * np^(1/Df). For np = 1 (sphere) this reduces to dc = dp.
+    // Df = 3 (compact sphere) would give a significantly smaller dc for np > 1,
+    // corrupting the condensation kernel (dprec + dc)^2 and coagulation (2*dc)^2.
+    constexpr double Df = 1.8;
+    dc = dp * std::pow(np, 1. / Df);
 
     // Sintering time scale [s]:  τ_s = As · T^ns · dp^4 · exp(Ts/T)
     tauS = As_ * std::pow(this->T_, ns_) * std::pow(dp, 4.) * std::exp(Ts_ / this->T_);
@@ -677,9 +684,14 @@ template <ThermoMap Thermo> void TiO2<Thermo>::CondensationSourceTerms()
 
     const double BetaNprecN = beta_cond * Nprec * N;
 
-    // Surface area change per condensation event
-    // (precursor adds vprec_ volume; surface treated as spherical increment)
-    const double deltas = (2. / 3.) * (vprec_ / vs) * ss;
+    // Surface area change per condensation event (fractal correction).
+    // deltas = (2/3) * (vprec/vs) * ss * np^chi
+    // The np^chi factor (chi = -0.2043) accounts for the fractal morphology of aggregates: 
+    // a particle with np primaries grows its surface less per unit volume added than a sphere
+    // would.  When np = 1 (sphere) the factor is 1. Dropping this term causes deltas to be 
+    // overestimated whenever coagulation has produced aggregates (np > 1).
+    constexpr double chi = -0.2043;
+    const double deltas = (2. / 3.) * (vprec_ / vs) * ss * std::pow(std::max(np, 1.), chi);
 
     this->source_condensation_(0) = solid_density_kg_m3_ / this->rho_ * vprec_ * BetaNprecN;
     this->source_condensation_(1) = 0.;
@@ -970,6 +982,9 @@ template <ThermoMap Thermo> void TiO2<Thermo>::PrintSummary() const
         std::cout
             << "    + Index (-):                     " << precursor_index_ << "\n"
             << "    + MW (kg/kmol):                  " << W_precursor_ << "\n"
+            << "    + m (kg):                        " << m_precursor_ << "\n"
+            << "    + v (m3):                        " << v_precursor_ << "\n"
+            << "    + d (m):                         " << d_precursor_ << "\n"
             << "    + nTi (legacy fallback):         " << nti_precursor_ << "\n"
             << "    + nH:                            " << nh_precursor_ << "\n"
             << "    + nO:                            " << no_precursor_ << "\n"
@@ -978,6 +993,12 @@ template <ThermoMap Thermo> void TiO2<Thermo>::PrintSummary() const
             << "    + nu_CO2:                        " << nu_CO2_from_prec_ << "\n"
             << "    + nu_O2:                         " << nu_O2_from_prec_ << "\n";
     }
+
+    std::cout
+        << "\n"
+        << " [Effective precursor]\n"
+            << "    + v (m3):                        " << vprec_ << "\n"
+            << "    + d (m):                         " << dprec_ << "\n";
 
     std::cout
         << "\n"
