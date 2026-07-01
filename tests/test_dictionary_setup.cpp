@@ -421,12 +421,6 @@ void checkTiO2DictionarySetup()
     require(parse_dict.grammar_was_set, "ParseConfig did not install the TiO2 grammar");
     require(cfg.has_value(), "TiO2 ParseConfig returned an unexpected error");
     require(cfg->is_active, "TiO2 activation flag was not parsed");
-
-    FakeDictionary legacy_activation;
-    legacy_activation.bools["@TiO2"] = false;
-    auto legacy_cfg = MOM::TiO2<MOM::BasicThermoData>::ParseConfig(legacy_activation);
-    require(legacy_cfg.has_value(), "TiO2 legacy activation ParseConfig returned an error");
-    require(!legacy_cfg->is_active, "TiO2 legacy @TiO2 activation key was not parsed");
     require(cfg->precursor_species == "TiOH4", "TiO2 @Precursor was not parsed");
     require(cfg->solid_name == "GenericOxide", "TiO2 @SolidName was not parsed");
     requireNear(cfg->solid_molecular_weight_kg_kmol, 100.0,
@@ -556,45 +550,27 @@ void checkTiO2ReporterLabels()
             "TiO2 reporter still exposes fixed TiO2 H2O label");
 }
 
-void checkTiO2LegacyAndExplicitStoichiometryMatch()
+void checkTiO2RequiresExplicitGasStoichiometry()
 {
     const auto thermo = buildTiO2GasThermo();
-    const double Y[] = {0.10, 0.0, 0.90};
 
-    MOM::TiO2<MOM::BasicThermoData> legacy(thermo);
-    legacy.SetPrecursor("TiOH4");
-    legacy.SetGasConsumption(true);
-    legacy.SetStatus(1500.0, 101325.0, Y);
-    legacy.SetMoments(1.e-8, 1.e-3, 1.e2);
-    legacy.CalculateSourceMoments();
+    bool rejected_missing_stoichiometry = false;
+    try
+    {
+        MOM::TiO2<MOM::BasicThermoData>::Config cfg;
+        cfg.precursor_species = "TiOH4";
+        cfg.gas_consumption = true;
 
-    MOM::TiO2<MOM::BasicThermoData> explicit_model(thermo);
-    explicit_model.SetPrecursor("TiOH4");
-    const std::vector<MOM::TiO2<MOM::BasicThermoData>::GasStoichiometryTerm> stoich{
-        {"TiOH4", -1.0},
-        {"H2O", 2.0}
-    };
-    explicit_model.SetGasStoichiometry(stoich);
-    explicit_model.SetGasConsumption(true);
-    explicit_model.SetStatus(1500.0, 101325.0, Y);
-    explicit_model.SetMoments(1.e-8, 1.e-3, 1.e2);
-    explicit_model.CalculateSourceMoments();
+        MOM::TiO2<MOM::BasicThermoData> model(thermo);
+        model.SetupFromConfig(cfg);
+    }
+    catch (const std::runtime_error&)
+    {
+        rejected_missing_stoichiometry = true;
+    }
 
-    const auto legacy_sources = legacy.sources();
-    const auto explicit_sources = explicit_model.sources();
-    require(legacy_sources.size() == explicit_sources.size(),
-            "TiO2 legacy and explicit source vectors have different sizes");
-    for (std::size_t i = 0; i < legacy_sources.size(); ++i)
-        requireNear(explicit_sources[i], legacy_sources[i],
-                    "TiO2 explicit stoichiometry changed solid source moments");
-
-    const auto legacy_omega = legacy.omega_gas();
-    const auto explicit_omega = explicit_model.omega_gas();
-    require(legacy_omega.size() == explicit_omega.size(),
-            "TiO2 legacy and explicit omega_gas vectors have different sizes");
-    for (std::size_t i = 0; i < legacy_omega.size(); ++i)
-        requireNear(explicit_omega[i], legacy_omega[i],
-                    "TiO2 explicit stoichiometry changed legacy gas sources");
+    require(rejected_missing_stoichiometry,
+            "TiO2 accepted gas consumption without explicit gas stoichiometry");
 }
 
 } // namespace
@@ -609,7 +585,7 @@ int main()
         checkTiO2DictionarySetup();
         checkTiO2GasStoichiometrySetup();
         checkTiO2ReporterLabels();
-        checkTiO2LegacyAndExplicitStoichiometryMatch();
+        checkTiO2RequiresExplicitGasStoichiometry();
 
         std::cout << "[PASS] Dictionary parsing and setup paths for all MOM variants\n";
         return 0;

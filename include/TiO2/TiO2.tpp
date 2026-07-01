@@ -54,8 +54,8 @@ namespace MOM
 template <ThermoMap Thermo> TiO2<Thermo>::TiO2(const Thermo& thermo) : thermo_(thermo)
 {
     // -- Default material / physics constants -----------------------------
-    // Config{} keeps TiO2/anatase as the backward-compatible default.  The
-    // material can be replaced at setup time for generic metal-oxide use.
+    // Config{} keeps TiO2/anatase as the default material. The material can be
+    // replaced at setup time for generic metal-oxide use.
     this->rho_particle_ = solid_density_kg_m3_;
     this->planck_model_ = PlanckCoeffModel::None;
 
@@ -256,10 +256,6 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SetPrecursor(std::string_view nam
     if (precursor_species_ == "none")
     {
         precursor_index_ = -1;
-        nti_precursor_   = 0.;
-        nh_precursor_    = 0.;
-        no_precursor_    = 0.;
-        nc_precursor_    = 0.;
         Y_precursor_     = 0.;
         c_precursor_     = 0.;
         W_precursor_     = 0.;
@@ -281,10 +277,6 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SetPrecursor(std::string_view nam
 
     W_precursor_   = thermo_.MolecularWeight(ui);
     m_precursor_   = W_precursor_ / this->Nav_kmol_;
-    nti_precursor_ = thermo_.NumberOfTitaniumAtoms(ui);
-    nh_precursor_  = thermo_.NumberOfHydrogenAtoms(ui);
-    no_precursor_  = thermo_.NumberOfOxygenAtoms(ui);
-    nc_precursor_  = thermo_.NumberOfCarbonAtoms(ui);
 
     v_precursor_ = m_precursor_ / solid_density_kg_m3_;
     d_precursor_ = std::pow(6. * v_precursor_ / this->pi_, 1. / 3.);
@@ -294,7 +286,6 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SetPrecursor(std::string_view nam
     vprec_ = solid_formula_units_per_precursor_ * solid_formula_unit_volume_m3_;
     dprec_ = d_precursor_;
 
-    SetupGasConsumptionStoichiometry();
     Precalculations();
 }
 
@@ -305,19 +296,10 @@ template <ThermoMap Thermo> void TiO2<Thermo>::SetPrecursor(std::string_view nam
 template <ThermoMap Thermo> void TiO2<Thermo>::ClearGasStoichiometry() noexcept
 {
     gas_stoichiometry_.clear();
-    gas_stoichiometry_is_explicit_ = false;
-
-    nu_H2O_from_prec_ = 0.;
-    nu_CO2_from_prec_ = 0.;
-    nu_O2_from_prec_  = 0.;
-    H2O_index_ = CO2_index_ = O2_index_ = -1;
-    W_H2O_ = W_CO2_ = W_O2_ = 0.;
 }
 
 template <ThermoMap Thermo>
-void TiO2<Thermo>::AddGasStoichiometryTerm(std::string_view species,
-                                           double coefficient,
-                                           bool require_species)
+void TiO2<Thermo>::AddGasStoichiometryTerm(std::string_view species, double coefficient)
 {
     if (!std::isfinite(coefficient))
         throw std::invalid_argument("[TiO2] Gas stoichiometric coefficient must be finite.");
@@ -326,52 +308,22 @@ void TiO2<Thermo>::AddGasStoichiometryTerm(std::string_view species,
 
     const int index = thermo_.IndexOfSpecies(species);
     if (index < 0)
-    {
-        if (require_species)
-            throw std::runtime_error("[TiO2] Gas stoichiometry species not found: " +
-                                     std::string(species));
-        return;
-    }
+        throw std::runtime_error("[TiO2] Gas stoichiometry species not found: " +
+                                 std::string(species));
 
     const double mw = thermo_.MolecularWeight(static_cast<unsigned>(index));
 
-    double combined_coefficient = coefficient;
-    bool found = false;
     for (auto& term : gas_stoichiometry_)
     {
         if (term.index == index)
         {
             term.coefficient += coefficient;
-            combined_coefficient = term.coefficient;
-            found = true;
-            break;
+            return;
         }
     }
 
-    if (!found)
-    {
-        gas_stoichiometry_.push_back(
-            RuntimeGasStoichiometryTerm{index, coefficient, mw, std::string(species)});
-    }
-
-    if (species == "H2O")
-    {
-        H2O_index_ = index;
-        W_H2O_ = mw;
-        nu_H2O_from_prec_ = combined_coefficient;
-    }
-    else if (species == "CO2")
-    {
-        CO2_index_ = index;
-        W_CO2_ = mw;
-        nu_CO2_from_prec_ = combined_coefficient;
-    }
-    else if (species == "O2")
-    {
-        O2_index_ = index;
-        W_O2_ = mw;
-        nu_O2_from_prec_ = combined_coefficient;
-    }
+    gas_stoichiometry_.push_back(
+        RuntimeGasStoichiometryTerm{index, coefficient, mw, std::string(species)});
 }
 
 template <ThermoMap Thermo> void TiO2<Thermo>::ValidateGasStoichiometryMassBalance() const
@@ -428,44 +380,16 @@ void TiO2<Thermo>::SetGasStoichiometry(std::span<const GasStoichiometryTerm> ter
     ClearGasStoichiometry();
 
     if (terms.empty())
-    {
-        SetupGasConsumptionStoichiometry();
         return;
-    }
 
-    gas_stoichiometry_is_explicit_ = true;
     for (const auto& term : terms)
     {
         if (term.species.empty())
             throw std::invalid_argument("[TiO2] Gas stoichiometry species name cannot be empty.");
-        AddGasStoichiometryTerm(term.species, term.coefficient, true);
+        AddGasStoichiometryTerm(term.species, term.coefficient);
     }
 
     ValidateGasStoichiometryMassBalance();
-}
-
-// Legacy TiO2 fallback.  This preserves the original Ti(OH)4-style path when
-// no explicit gas reaction is supplied.  Coefficients are still stored in the
-// generic gas_stoichiometry_ vector used by CalculateOmegaGas_internal().
-template <ThermoMap Thermo> void TiO2<Thermo>::SetupGasConsumptionStoichiometry()
-{
-    ClearGasStoichiometry();
-
-    if (precursor_index_ < 0 || nti_precursor_ <= 0.)
-        return;
-
-    const double product_units = solid_formula_units_per_precursor_;
-    const double b = nc_precursor_;
-    const double c = nh_precursor_;
-    const double d = no_precursor_;
-
-    AddGasStoichiometryTerm(precursor_species_, -1., true);
-    AddGasStoichiometryTerm("H2O", 0.5 * c, false);
-    AddGasStoichiometryTerm("CO2", b, false);
-
-    // Positive x means O2 is consumed.  Stored convention: consumed < 0.
-    const double x_O2 = (2. * product_units + 2. * b + 0.5 * c - d) / 2.;
-    AddGasStoichiometryTerm("O2", -x_O2, false);
 }
 
 // ============================================================================
@@ -1049,7 +973,7 @@ template <ThermoMap Thermo> void TiO2<Thermo>::PrintSummary() const
     std::cout
         << "\n"
         << "------------------------------------------------------------------------------------------\n"
-        << "                         TiO2 Nanoparticle Model Summary\n"
+        << "                      Solid Oxide Nanoparticle Model Summary\n"
         << "------------------------------------------------------------------------------------------\n"
         << " * Active: " << (this->is_active_ ? "yes" : "no") << "\n"
         << "\n"
@@ -1093,21 +1017,13 @@ template <ThermoMap Thermo> void TiO2<Thermo>::PrintSummary() const
             << "    + MW (kg/kmol):                  " << W_precursor_ << "\n"
             << "    + m (kg):                        " << m_precursor_ << "\n"
             << "    + v (m3):                        " << v_precursor_ << "\n"
-            << "    + d (m):                         " << d_precursor_ << "\n"
-            << "    + nTi (legacy fallback):         " << nti_precursor_ << "\n"
-            << "    + nH:                            " << nh_precursor_ << "\n"
-            << "    + nO:                            " << no_precursor_ << "\n"
-            << "    + nC:                            " << nc_precursor_ << "\n"
-            << "    + nu_H2O:                        " << nu_H2O_from_prec_ << "\n"
-            << "    + nu_CO2:                        " << nu_CO2_from_prec_ << "\n"
-            << "    + nu_O2:                         " << nu_O2_from_prec_ << "\n";
+            << "    + d (m):                         " << d_precursor_ << "\n";
     }
 
     std::cout
         << "\n"
         << " [Gas stoichiometry]\n"
-        << "    + Source:                        "
-        << (gas_stoichiometry_is_explicit_ ? "explicit" : "legacy TiO2 fallback") << "\n"
+        << "    + Source:                        explicit\n"
         << "    + Mass tolerance (-):            " << gas_stoichiometry_mass_tolerance_ << "\n";
     if (gas_stoichiometry_.empty())
     {
@@ -1178,7 +1094,7 @@ void TiO2<Thermo>::ApplyConfig(const Config& cfg)
         if (gas_stoichiometry_.empty())
             throw std::runtime_error(
                 "[TiO2] Gas consumption is enabled but no gas stoichiometry is available. "
-                "Provide explicit gas stoichiometry for non-TiO2 systems.");
+                "Provide explicit gas stoichiometry.");
         ValidateGasStoichiometryMassBalance();
     }
 
@@ -1197,15 +1113,8 @@ void TiO2<Thermo>::ApplyConfig(const Config& cfg)
     this->SetThermophoreticModel(cfg.thermophoretic_model);
 
     // -- Cluster sizes -----------------------------------------------------
-    const Config defaults{};
-    const int minimum_units =
-        (cfg.minimum_formula_units != defaults.minimum_formula_units)
-            ? cfg.minimum_formula_units
-            : cfg.minimum_tio2_units;
-    const int nucleated_units =
-        (cfg.nucleated_particle_formula_units != defaults.nucleated_particle_formula_units)
-            ? cfg.nucleated_particle_formula_units
-            : cfg.nucleated_particle_tio2_units;
+    const int minimum_units = cfg.minimum_formula_units;
+    const int nucleated_units = cfg.nucleated_particle_formula_units;
 
     if (minimum_units <= 0)
         throw std::invalid_argument("[TiO2] minimum formula units must be positive.");
@@ -1420,8 +1329,6 @@ TiO2<Thermo>::ParseConfig(DictType& dict)
 
     Config cfg;
 
-    if (dict.CheckOption("@TiO2"))
-        dict.ReadBool("@TiO2", cfg.is_active);
     if (dict.CheckOption("@MetalOxide"))
         dict.ReadBool("@MetalOxide", cfg.is_active);
 
@@ -1511,32 +1418,16 @@ TiO2<Thermo>::ParseConfig(DictType& dict)
     if (dict.CheckOption("@CondensationModel")) dict.ReadInt("@CondensationModel", cfg.condensation_model);
     if (dict.CheckOption("@ThermophoreticModel")) dict.ReadInt("@ThermophoreticModel", cfg.thermophoretic_model);
 
-    if (dict.CheckOption("@MinimumTiO2Units"))
-    {
-        int n; dict.ReadInt("@MinimumTiO2Units", n);
-        cfg.minimum_tio2_units = n;
-        cfg.minimum_formula_units = n;
-    }
-
-    if (dict.CheckOption("@NucleatedParticleTiO2Units"))
-    {
-        int n; dict.ReadInt("@NucleatedParticleTiO2Units", n);
-        cfg.nucleated_particle_tio2_units = n;
-        cfg.nucleated_particle_formula_units = n;
-    }
-
     if (dict.CheckOption("@MinimumFormulaUnits"))
     {
         int n; dict.ReadInt("@MinimumFormulaUnits", n);
         cfg.minimum_formula_units = n;
-        cfg.minimum_tio2_units = n;
     }
 
     if (dict.CheckOption("@NucleatedParticleFormulaUnits"))
     {
         int n; dict.ReadInt("@NucleatedParticleFormulaUnits", n);
         cfg.nucleated_particle_formula_units = n;
-        cfg.nucleated_particle_tio2_units = n;
     }
 
     if (dict.CheckOption("@SinteringDeferred"))

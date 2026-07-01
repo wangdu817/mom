@@ -41,12 +41,6 @@ namespace MOM
 void TiO2_Grammar::DefineRules()
 {
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
-        "@TiO2", 
-        OpenSMOKEpp::SINGLE_BOOL, 
-        "Legacy activation key for the solid oxide model: on/off (default: true)", 
-        false));
-
-    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
         "@MetalOxide",
         OpenSMOKEpp::SINGLE_BOOL,
         "Solid oxide model: on/off (default: true)",
@@ -206,21 +200,9 @@ void TiO2_Grammar::DefineRules()
         false));
 
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
-        "@MinimumTiO2Units", 
-        OpenSMOKEpp::SINGLE_INT, 
-        "Deprecated TiO2-specific alias for @MinimumFormulaUnits (default: 2)", 
-        false));
-
-    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
         "@MinimumFormulaUnits",
         OpenSMOKEpp::SINGLE_INT,
         "Minimum solid formula units (default: 2)",
-        false));
-
-    AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
-        "@NucleatedParticleTiO2Units",
-        OpenSMOKEpp::SINGLE_INT,
-        "Deprecated TiO2-specific alias for @NucleatedParticleFormulaUnits (default: 5)",
         false));
 
     AddKeyWord(OpenSMOKEpp::DictionaryKeyWord(
