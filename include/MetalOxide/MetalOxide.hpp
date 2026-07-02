@@ -36,6 +36,7 @@
 #pragma once
 
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -406,16 +407,37 @@ public:
 
     // -- Model switches --------------------------------------------------------
 
-    void SetNucleation(int flag) noexcept
+    void SetNucleation(int flag)
     {
+        if (flag != 0 && flag != 1 && flag != 2)
+            throw std::invalid_argument(
+                "[MetalOxide] Invalid nucleation model flag. Allowed values: 0, 1, 2.");
         nucleation_variant_ = static_cast<NucleationVariant>(flag);
     }
 
-    void SetCoagulation(int flag) noexcept { coagulation_model_ = flag; }
+    void SetCoagulation(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[MetalOxide] Invalid coagulation model flag. Allowed values: 0, 1.");
+        coagulation_model_ = flag;
+    }
 
-    void SetCondensation(int flag) noexcept { condensation_model_ = flag; }
+    void SetCondensation(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[MetalOxide] Invalid condensation model flag. Allowed values: 0, 1.");
+        condensation_model_ = flag;
+    }
 
-    void SetSintering(int flag) noexcept { sintering_model_ = flag; }
+    void SetSintering(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[MetalOxide] Invalid sintering model flag. Allowed values: 0, 1.");
+        sintering_model_ = flag;
+    }
 
     void SetSolidMaterial(std::string_view name, double molecular_weight_kg_kmol, double density_kg_m3);
 

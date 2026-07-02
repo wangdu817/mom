@@ -1109,6 +1109,9 @@ void MetalOxide<Thermo>::ApplyConfig(const Config& cfg)
         this->SetNucleation(static_cast<int>(NucleationVariant::Binary));
     else if (cfg.nucleation_model == "fixed-cluster" || cfg.nucleation_model == "2")
         this->SetNucleation(static_cast<int>(NucleationVariant::FixedCluster));
+    else
+        throw std::invalid_argument(
+            "[MetalOxide] Invalid nucleation model. Allowed values: none, binary, fixed-cluster.");
 
     // -- Other process models ----------------------------------------------
     this->SetSintering(cfg.sintering_model);

@@ -36,6 +36,7 @@
 #pragma once
 
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -359,15 +360,45 @@ public:
 
     // -- Model switches --------------------------------------------------------
 
-    void SetNucleation(int flag) noexcept { nucleation_model_ = flag; }
+    void SetNucleation(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[ThreeEquations] Invalid nucleation model flag. Allowed values: 0, 1.");
+        nucleation_model_ = flag;
+    }
 
-    void SetSurfaceGrowth(int flag) noexcept { surface_growth_model_ = flag; }
+    void SetSurfaceGrowth(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[ThreeEquations] Invalid surface-growth model flag. Allowed values: 0, 1.");
+        surface_growth_model_ = flag;
+    }
 
-    void SetCondensation(int flag) noexcept { condensation_model_ = flag; }
+    void SetCondensation(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[ThreeEquations] Invalid condensation model flag. Allowed values: 0, 1.");
+        condensation_model_ = flag;
+    }
 
-    void SetOxidation(int flag) noexcept { oxidation_model_ = flag; }
+    void SetOxidation(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[ThreeEquations] Invalid oxidation model flag. Allowed values: 0, 1.");
+        oxidation_model_ = flag;
+    }
 
-    void SetCoagulation(int flag) noexcept { coagulation_model_ = flag; }
+    void SetCoagulation(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[ThreeEquations] Invalid coagulation model flag. Allowed values: 0, 1.");
+        coagulation_model_ = flag;
+    }
 
     void SetSurfaceChemistryModel(std::string_view label);
 

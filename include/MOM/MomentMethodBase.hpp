@@ -39,6 +39,7 @@
 #include <cmath>
 #include <numbers>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -199,8 +200,11 @@ public:
      * @brief Sets the thermophoretic drift model by integer flag.
      * @param flag 0 = off, 1 = standard (drift encoded in effective diffusion coefficient).
      */
-    void SetThermophoreticModel(int flag) noexcept
+    void SetThermophoreticModel(int flag)
     {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[MomentMethodBase] Invalid thermophoretic model flag. Allowed values: 0, 1.");
         thermophoretic_model_ = static_cast<ThermophoreticModel>(flag);
     }
 

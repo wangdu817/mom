@@ -38,6 +38,7 @@
 #include <array>
 #include <cmath>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -855,32 +856,74 @@ public:
     // -- Model switches --------------------------------------------------------
 
     /** @brief Enable/disable nucleation (0 = off, 1 = standard PAH dimerisation). */
-    void SetNucleation(int flag) noexcept { nucleation_model_ = flag; }
+    void SetNucleation(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[HMOM] Invalid nucleation model flag. Allowed values: 0, 1.");
+        nucleation_model_ = flag;
+    }
 
     /** @brief Enable/disable HACA surface growth (0 = off, 1 = on). */
-    void SetSurfaceGrowth(int flag) noexcept { surface_growth_model_ = flag; }
+    void SetSurfaceGrowth(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[HMOM] Invalid surface-growth model flag. Allowed values: 0, 1.");
+        surface_growth_model_ = flag;
+    }
 
     /** @brief Enable/disable PAH condensation (0 = off, 1 = on). */
-    void SetCondensation(int flag) noexcept { condensation_model_ = flag; }
+    void SetCondensation(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[HMOM] Invalid condensation model flag. Allowed values: 0, 1.");
+        condensation_model_ = flag;
+    }
 
     /** @brief Enable/disable O2/OH oxidation (0 = off, 1 = on). */
-    void SetOxidation(int flag) noexcept { oxidation_model_ = flag; }
+    void SetOxidation(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[HMOM] Invalid oxidation model flag. Allowed values: 0, 1.");
+        oxidation_model_ = flag;
+    }
 
     /** @brief Enable/disable discrete coagulation (0 = off, 1 = on). */
-    void SetCoagulation(int flag) noexcept { coagulation_model_ = flag; }
+    void SetCoagulation(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[HMOM] Invalid coagulation model flag. Allowed values: 0, 1.");
+        coagulation_model_ = flag;
+    }
 
     /** @brief Enable/disable continuum coagulation correction (0 = off, 1 = on). */
-    void SetCoagulationContinuous(int flag) noexcept { coagulation_continuous_model_ = flag; }
+    void SetCoagulationContinuous(int flag)
+    {
+        if (flag != 0 && flag != 1)
+            throw std::invalid_argument(
+                "[HMOM] Invalid continuous-coagulation model flag. Allowed values: 0, 1.");
+        coagulation_continuous_model_ = flag;
+    }
 
     /** @brief Select the fractal aggregate diameter model (0 or 1). */
-    void SetFractalDiameterModel(int m) noexcept
+    void SetFractalDiameterModel(int m)
     {
+        if (m != 0 && m != 1)
+            throw std::invalid_argument(
+                "[HMOM] Invalid fractal-diameter model flag. Allowed values: 0, 1.");
         fractal_diameter_model_ = static_cast<FractalDiameterModel>(m);
     }
 
     /** @brief Select the collision diameter model (1 or 2). */
-    void SetCollisionDiameterModel(int m) noexcept
+    void SetCollisionDiameterModel(int m)
     {
+        if (m != 1 && m != 2)
+            throw std::invalid_argument(
+                "[HMOM] Invalid collision-diameter model flag. Allowed values: 1, 2.");
         collision_diameter_model_ = static_cast<CollisionDiameterModel>(m);
     }
 
