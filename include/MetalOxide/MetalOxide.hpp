@@ -351,20 +351,14 @@ public:
         cb("nu2mean[m3/#]", ndf.nu2mean);
         cb("mu[log(m3)]", ndf.mu);
 
-        const auto omega_at = [this](int idx) noexcept {
-            if (idx < 0 || static_cast<Eigen::Index>(idx) >= this->omega_gas_.size())
-                return 0.;
-            return this->omega_gas_[idx];
-        };
-
-        cb("omegaTot[kg/m3/s]", this->omega_gas_.sum());
-        cb("omegaPrecursor[kg/m3/s]", omega_at(precursor_index_));
+        cb("omegaTot[kg/m3/s]",       this->omega_gas_.sum());
+        cb("omegaPrecursor[kg/m3/s]", this->safe_omega_gas(precursor_index_));
         for (const auto& term : gas_stoichiometry_)
         {
             if (term.index == precursor_index_)
                 continue;
             const std::string label = "omegaGas(" + term.species + ")[kg/m3/s]";
-            cb(std::string_view{label}, omega_at(term.index));
+            cb(std::string_view{label}, this->safe_omega_gas(term.index));
         }
     }
 

@@ -323,13 +323,13 @@ public:
         cb("nu2mean[m3/#]", ndf.nu2mean);
         cb("mu[log(m3)]", ndf.mu);
 
-        cb("omegaTot[kg/m3/s]", this->omega_gas_.sum());
-        cb("omegaPrec[kg/m3/s]", this->omega_gas_[pah_index_]);
-        cb("omegaC2H2[kg/m3/s]", this->omega_gas_[index_C2H2_]);
-        cb("omegaH2[kg/m3/s]", this->omega_gas_[index_H2_]);
-        cb("omegaO2[kg/m3/s]", this->omega_gas_[index_O2_]);
-        cb("omegaH2O[kg/m3/s]", this->omega_gas_[index_H2O_]);
-        cb("omegaOH[kg/m3/s]", this->omega_gas_[index_OH_]);
+        cb("omegaTot[kg/m3/s]",  this->omega_gas_.sum());
+        cb("omegaPrec[kg/m3/s]", this->safe_omega_gas(pah_index_));
+        cb("omegaC2H2[kg/m3/s]", this->safe_omega_gas(index_C2H2_));
+        cb("omegaH2[kg/m3/s]",   this->safe_omega_gas(index_H2_));
+        cb("omegaO2[kg/m3/s]",   this->safe_omega_gas(index_O2_));
+        cb("omegaH2O[kg/m3/s]",  this->safe_omega_gas(index_H2O_));
+        cb("omegaOH[kg/m3/s]",   this->safe_omega_gas(index_OH_));
     }
 
     // -- NDF reconstruction (ThreeEquations-specific) --------------------------

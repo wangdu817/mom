@@ -472,6 +472,44 @@ protected:
         source_all_.setZero();
     }
 
+    // -- Safe gas-source accessor (for use in variant output hooks) ----------
+
+    /**
+     * @brief Safe accessor for a single gas-phase source term by species index.
+     *
+     * Returns `omega_gas_[idx]` when @p idx is a valid (non-negative,
+     * in-range) species index, and 0.0 otherwise.  Specifically:
+     * - Returns 0.0 if @p idx < 0.  The convention throughout the library is
+     *   that species absent in the user's mechanism are assigned index −1 by
+     *   `ThermoMap::IndexOfSpecies`.  Treating absent-species output as zero
+     *   is correct: no contribution means no source term.
+     * - Returns 0.0 if `idx >= omega_gas_.size()`.  This cannot occur after a
+     *   correct `MemoryAllocation()` call (which sizes `omega_gas_` to
+     *   `n_species`), but the guard makes the accessor unconditionally safe
+     *   even in partially-initialised states.
+     * - Returns 0.0 if `omega_gas_` is empty (not yet allocated).
+     *
+     * @par Intended use
+     * Call this inside `variant_prefix_output` / `variant_suffix_output` hooks
+     * instead of direct `omega_gas_[idx]` subscripting.  This prevents undefined
+     * behaviour if a species listed in the output hook (e.g. OH, H2) is absent
+     * from the user's reaction mechanism, which is a perfectly valid configuration.
+     *
+     * BrookesMoss and MetalOxide previously defined equivalent local lambdas
+     * inside their output hooks; this method is the canonical, documented
+     * replacement for that pattern.
+     *
+     * @param idx  Species index as returned by `ThermoMap::IndexOfSpecies`.
+     *             −1 signals "species not present in mechanism".
+     * @return     Gas-phase source term [kg/m³/s], or 0.0 if unavailable.
+     */
+    [[nodiscard]] double safe_omega_gas(int idx) const noexcept
+    {
+        if (idx < 0 || static_cast<Eigen::Index>(idx) >= omega_gas_.size())
+            return 0.;
+        return omega_gas_[idx];
+    }
+
     // -- CRTP down-cast helpers ---------------------------------------------
 
     /** @brief Mutable CRTP down-cast — used internally by setters in derived classes. */

@@ -255,14 +255,17 @@ void MomentMethodReporter::WriteHeader(const Model& model, unsigned precision)
     constexpr unsigned N = Model::n_equations;
 
     // Compile-time per-process ownership flags (for [ZF] tagging).
-    // These are the ONLY compile-time checks in the reporter — they query the
-    // concept-mandated process interface, not variant identity.
-    constexpr bool has_nuc = requires(const Model& m) { m.sources_nucleation_impl(); };
-    constexpr bool has_coa = requires(const Model& m) { m.sources_coagulation_impl(); };
-    constexpr bool has_con = requires(const Model& m) { m.sources_condensation_impl(); };
-    constexpr bool has_gro = requires(const Model& m) { m.sources_growth_impl(); };
-    constexpr bool has_oxi = requires(const Model& m) { m.sources_oxidation_impl(); };
-    constexpr bool has_sin = requires(const Model& m) { m.sources_sintering_impl(); };
+    // These are the ONLY compile-time checks in the reporter — they use the
+    // named process-capability concepts defined in MomentMethodConcept.hpp,
+    // which are the single authoritative detection point for which physical
+    // sub-processes each variant actively models.  A [ZF] tag means the column
+    // always contains zero for this variant (structural, not transient zero).
+    constexpr bool has_nuc = ModelsNucleation<Model>;
+    constexpr bool has_coa = ModelsCoagulation<Model>;
+    constexpr bool has_con = ModelsCondensation<Model>;
+    constexpr bool has_gro = ModelsSurfaceGrowth<Model>;
+    constexpr bool has_oxi = ModelsOxidation<Model>;
+    constexpr bool has_sin = ModelsSintering<Model>;
 
     // Lambda passed to variant_prefix_output / variant_suffix_output in header mode.
     // The variant calls cb(label, value); here we use only the label.
