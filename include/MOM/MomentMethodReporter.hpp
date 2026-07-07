@@ -121,14 +121,23 @@ public:
     /// @param species_names  (optional) Species names from the thermo map, used to
     ///                       label per-species gas-consumption columns.
     ///                       If empty, only the total omega_gas column is written.
+    /// Default constructor — reporter is in a disconnected state.
+    /// Call is a no-op until connected via the non-default constructor or move-assignment.
+    MomentMethodReporter() = default;
+
+    /// @param out            Output file managed externally. Must outlive the reporter.
+    /// @param species_names  (optional) Species names from the thermo map, used to
+    ///                       label per-species gas-consumption columns.
+    ///                       If empty, only the total omega_gas column is written.
     explicit MomentMethodReporter(OutputFileColumns& out, std::vector<std::string> species_names = {})
-        : out_(out), species_names_(std::move(species_names))
+        : out_(&out), species_names_(std::move(species_names))
     {
     }
 
     MomentMethodReporter(const MomentMethodReporter&)            = delete;
     MomentMethodReporter& operator=(const MomentMethodReporter&) = delete;
     MomentMethodReporter(MomentMethodReporter&&)                 = default;
+    MomentMethodReporter& operator=(MomentMethodReporter&&)      = default;
 
     // -- Static-dispatch API (preferred — zero overhead) -----------------------
 
@@ -224,7 +233,7 @@ private:
 
     // -- Internals -------------------------------------------------------------
 
-    OutputFileColumns& out_;
+    OutputFileColumns* out_ = nullptr;
     std::vector<std::string> species_names_;
 
     // Column-label helpers
@@ -241,7 +250,7 @@ private:
     void writeSpan(std::span<const double> s)
     {
         for (auto v : s)
-            out_ << v;
+            *out_ << v;
     }
 };
 
@@ -271,16 +280,16 @@ void MomentMethodReporter::WriteHeader(const Model& model, unsigned precision)
     // The variant calls cb(label, value); here we use only the label.
     auto add_col = [&](std::string_view label, double /*unused_in_header*/)
     {
-        out_.AddColumn(std::string(label), precision);
+        out_->AddColumn(std::string(label), precision);
     };
 
     // -- Block 1: Core particle state (concept-mandated, truly common) ---------
-    out_.AddColumn("Ys[-]", precision);
-    out_.AddColumn("Ns[#/m3]", precision);
-    out_.AddColumn("Ss[m2/m3]", precision);
-    out_.AddColumn("fv[-]", precision);
-    out_.AddColumn("dp[nm]", precision);
-    out_.AddColumn("dc[nm]", precision);
+    out_->AddColumn("Ys[-]", precision);
+    out_->AddColumn("Ns[#/m3]", precision);
+    out_->AddColumn("Ss[m2/m3]", precision);
+    out_->AddColumn("fv[-]", precision);
+    out_->AddColumn("dp[nm]", precision);
+    out_->AddColumn("dc[nm]", precision);
 
     // -- Variant prefix columns (np, ss, vs, aggregate props, statistics…) -----
     // The variant self-describes its extra columns by implementing
@@ -293,25 +302,25 @@ void MomentMethodReporter::WriteHeader(const Model& model, unsigned precision)
 
 
     // -- Block 3: Transport (concept-mandated) ---------------------------------
-    out_.AddColumn("D[kg/m/s]", precision);
+    out_->AddColumn("D[kg/m/s]", precision);
 
     // -- Block 4: Total source terms (concept-mandated) ------------------------
     for (unsigned j = 0; j < N; ++j)
-        out_.AddColumn(col("Sall", j, false, "mol/m3/s"), precision);
+        out_->AddColumn(col("Sall", j, false, "mol/m3/s"), precision);
 
     // -- Block 5: Per-process source terms ([ZF]-tagged for zero-fallback) ------
     for (unsigned j = 0; j < N; ++j)
-        out_.AddColumn(col("Snuc", j, !has_nuc), precision);
+        out_->AddColumn(col("Snuc", j, !has_nuc), precision);
     for (unsigned j = 0; j < N; ++j)
-        out_.AddColumn(col("Scoa", j, !has_coa), precision);
+        out_->AddColumn(col("Scoa", j, !has_coa), precision);
     for (unsigned j = 0; j < N; ++j)
-        out_.AddColumn(col("Scon", j, !has_con), precision);
+        out_->AddColumn(col("Scon", j, !has_con), precision);
     for (unsigned j = 0; j < N; ++j)
-        out_.AddColumn(col("Sgro", j, !has_gro), precision);
+        out_->AddColumn(col("Sgro", j, !has_gro), precision);
     for (unsigned j = 0; j < N; ++j)
-        out_.AddColumn(col("Soxi", j, !has_oxi), precision);
+        out_->AddColumn(col("Soxi", j, !has_oxi), precision);
     for (unsigned j = 0; j < N; ++j)
-        out_.AddColumn(col("Ssin", j, !has_sin), precision);
+        out_->AddColumn(col("Ssin", j, !has_sin), precision);
 
     // -- Variant suffix columns (detailed breakdowns, sub-process vectors…) -----
     // Same protocol as prefix.  HMOM uses this for the coagulation sub-breakdown.
@@ -331,17 +340,17 @@ template <MomentMethod Model> void MomentMethodReporter::WriteRow(const Model& m
     // The variant calls cb(label, value); here we use only the value.
     auto add_val = [&](std::string_view /*unused_in_row*/, double value)
     {
-        out_ << value;
+        *out_ << value;
     };
 
 
     // -- Block 1: Core particle state (concept-mandated) -----------------------
-    out_ << model.mass_fraction();
-    out_ << model.particle_number_density();
-    out_ << model.specific_surface();
-    out_ << model.volume_fraction();
-    out_ << model.particle_diameter() * 1.e9;  // m → nm
-    out_ << model.collision_diameter() * 1.e9; // m → nm
+    *out_ << model.mass_fraction();
+    *out_ << model.particle_number_density();
+    *out_ << model.specific_surface();
+    *out_ << model.volume_fraction();
+    *out_ << model.particle_diameter() * 1.e9;  // m → nm
+    *out_ << model.collision_diameter() * 1.e9; // m → nm
 
     // -- Variant prefix values -------------------------------------------------
     if constexpr (requires(const Model& m) {
@@ -351,7 +360,7 @@ template <MomentMethod Model> void MomentMethodReporter::WriteRow(const Model& m
 
 
     // -- Block 3: Transport (concept-mandated) ---------------------------------
-    out_ << model.diffusion_coefficient();
+    *out_ << model.diffusion_coefficient();
 
     // -- Block 4: Total source terms (concept-mandated) ------------------------
     writeSpan(model.sources());
