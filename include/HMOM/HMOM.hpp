@@ -45,6 +45,7 @@
 #include "Eigen/Dense"
 
 #include "MOM/MomentMethodBase.hpp"
+#include "MOM/MOMConfig.hpp"
 #include "MOM/ThermoProxy.hpp"
 
 #if defined(MOM_USE_DICTIONARY)
@@ -222,19 +223,18 @@ public:
      *
      * @note No external dependencies: only standard C++ types.
      */
-    struct Config
+    struct Config : CommonConfig<1>,
+                    PAHConfig,
+                    BinarySootProcessConfig,
+                    GasConsumptionConfig<true>,
+                    SootRadiationConfig,
+                    StickingConfig
     {
-        // ---- Activation / PAH setup ----------------------------------------
-        bool        is_active           = true;    //!< Enable this variant
-        std::string pah_species         = "C2H2";  //!< PAH growth species name
-        bool        simplified_pah_mass = false;   //!< Use Nc × WC instead of full PAH MW
-
         // ---- Geometry models -----------------------------------------------
         int fractal_diameter_model   = 1; //!< Fractal diameter model index   [1 = default]
         int collision_diameter_model = 2; //!< Collision diameter model index [2 = default]
 
-        // ---- Soot/particle properties --------------------------------------
-        double soot_density_kg_m3       = 1800.;   //!< Soot density                [kg/m³]
+        // ---- Surface density -----------------------------------------------
         double surface_density_per_m2   = 1.7e19;  //!< Active surface site density [#/m²]
         bool   surface_density_correction = false;  //!< Temperature-dependent χ correction
         double surf_dens_a1 = 12.65;    //!< Correction coefficient A1 [-]
@@ -242,29 +242,8 @@ public:
         double surf_dens_b1 = -1.38;   //!< Correction coefficient B1 [-]
         double surf_dens_b2 =  0.00069; //!< Correction coefficient B2 [1/K]
 
-        // ---- Process model selection (integer codes) -----------------------
-        int nucleation_model             = 1; //!< Nucleation model
-        int condensation_model           = 1; //!< Condensation model
-        int surface_growth_model         = 1; //!< Surface growth model (HACA)
-        int oxidation_model              = 1; //!< Oxidation model
-        int coagulation_model            = 1; //!< Coagulation (free-molecular) model
+        // ---- Additional process model selection -----------------------------
         int continuous_coagulation_model = 1; //!< Coagulation (continuum) model
-        int thermophoretic_model         = 1; //!< Thermophoretic model
-
-        // ---- Sticking coefficient ------------------------------------------
-        std::string sticking_model          = "constant"; //!< "constant" or "golaut"
-        double      sticking_coeff_constant = 2.e-3;      //!< Constant sticking coefficient [-]
-
-        // ---- Gas consumption / closure -------------------------------------
-        bool        gas_consumption           = true;   //!< Consume gas-phase species
-        std::string gas_closure_dummy_species = "none"; //!< Dummy mass-closure species
-
-        // ---- Radiation -----------------------------------------------------
-        bool        radiative_heat_transfer = true;     //!< Optically-thin radiation
-        std::string planck_coefficient      = "Smooke"; //!< Planck mean absorption coefficient
-
-        // ---- Transport -----------------------------------------------------
-        double schmidt_number = 50.; //!< Soot Schmidt number
 
         // ---- HACA kinetics (A in cm³/mol/s, E in kJ/mol) ------------------
         double A1f = 6.72e1;  double n1f =  3.33; double E1f =   6.09;
@@ -277,8 +256,6 @@ public:
         double A5  = 2.20e12; double n5  =  0.00; double E5  =  31.38;
         double efficiency6 = 0.13; //!< R6 third-body efficiency [-]
 
-        // ---- Debug ---------------------------------------------------------
-        bool debug_mode = false; //!< Verbose diagnostic output
     };
 
     // -- Construction --------------------------------------------------------

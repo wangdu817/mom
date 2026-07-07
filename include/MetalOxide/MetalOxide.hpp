@@ -44,6 +44,7 @@
 #include "Eigen/Dense"
 
 #include "MOM/MomentMethodBase.hpp"
+#include "MOM/MOMConfig.hpp"
 #include "MOM/ThermoProxy.hpp"
 
 #if defined(MOM_USE_DICTIONARY)
@@ -168,10 +169,9 @@ public:
      * @c "none" | @c "binary" (default) | @c "fixed-cluster".
      * @note No external dependencies: only standard C++ types.
      */
-    struct Config
+    struct Config : CommonConfig<1>, GasConsumptionConfig<false>
     {
         // ---- Activation / precursor ----------------------------------------
-        bool        is_active         = true;   //!< Enable this variant
         std::string precursor_species = "none"; //!< Solid oxide precursor species
 
         // ---- Solid material -------------------------------------------------
@@ -181,8 +181,6 @@ public:
         double      solid_formula_units_per_precursor = 1.;      //!< Solid formula units formed per precursor molecule
 
         // ---- Gas consumption / closure -------------------------------------
-        bool        gas_consumption           = false;  //!< Consume gas-phase species
-        std::string gas_closure_dummy_species = "none"; //!< Dummy mass-closure species
         std::vector<GasStoichiometryTerm> gas_stoichiometry; //!< Explicit gas reaction terms
         double gas_stoichiometry_mass_tolerance = 1.e-3; //!< Relative mass-balance tolerance
 
@@ -192,7 +190,6 @@ public:
         int sintering_model          = 1; //!< Sintering model index
         int coagulation_model        = 1; //!< Coagulation model index
         int condensation_model       = 1; //!< Condensation model index
-        int thermophoretic_model     = 1; //!< Thermophoretic model index
 
         // ---- Particle cluster sizes ----------------------------------------
         int minimum_formula_units            = 2; //!< Minimum solid formula units per aggregate
@@ -213,11 +210,6 @@ public:
         double ns_minimum_per_m3 = 1.e3;   //!< Minimum number density floor [#/m³]
         double fv_minimum        = 1.e-16; //!< Minimum volume fraction floor [-]
 
-        // ---- Transport -----------------------------------------------------
-        double schmidt_number = 50.; //!< Schmidt number for moment transport
-
-        // ---- Debug ---------------------------------------------------------
-        bool debug_mode = false; //!< Verbose diagnostic output
     };
 
     // -- Construction ---------------------------------------------------------

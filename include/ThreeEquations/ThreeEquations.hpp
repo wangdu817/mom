@@ -43,6 +43,7 @@
 #include "Eigen/Dense"
 
 #include "MOM/MomentMethodBase.hpp"
+#include "MOM/MOMConfig.hpp"
 #include "MOM/ThermoProxy.hpp"
 
 #if defined(MOM_USE_DICTIONARY)
@@ -163,56 +164,25 @@ public:
      * @brief Plain configuration parameters for the ThreeEquations variant.
      * @note No external dependencies: only standard C++ types.
      */
-    struct Config
+    struct Config : CommonConfig<1>,
+                    PAHConfig,
+                    BinarySootProcessConfig,
+                    CollisionEnhancementConfig,
+                    StickingConfig,
+                    GasConsumptionConfig<false>,
+                    SootRadiationConfig
     {
-        // ---- Activation / PAH setup ----------------------------------------
-        bool        is_active           = true;    //!< Enable this variant
-        std::string pah_species         = "C2H2";  //!< PAH growth species name
-        bool        simplified_pah_mass = false;   //!< Use Nc × WC instead of full PAH MW
-
-        // ---- Soot/particle properties --------------------------------------
-        double soot_density_kg_m3 = 1800.; //!< Soot density [kg/m³]
-
-        // ---- Process model selection ---------------------------------------
-        int nucleation_model     = 1; //!< Nucleation model
-        int condensation_model   = 1; //!< Condensation model
-        int surface_growth_model = 1; //!< Surface growth model
-        int oxidation_model      = 1; //!< Oxidation model
-        int coagulation_model    = 1; //!< Coagulation model
-        int thermophoretic_model = 1; //!< Thermophoretic model
-
         /// Surface chemistry model: "rcpah" | "hmom"
         std::string surface_chemistry_model = "rcpah";
 
         /// Dimer concentration model: "qssa-rodrigues" (currently only option)
         std::string dimer_model = "qssa-rodrigues";
 
-        // ---- Collision enhancement factors ---------------------------------
-        double eps_nucleation         = 2.5; //!< Nucleation enhancement factor   [-]
-        double eps_condensation       = 1.3; //!< Condensation enhancement factor [-]
-        double eps_coagulation        = 2.2; //!< Coagulation enhancement factor  [-]
+        // ---- Collision correction ------------------------------------------
         double correction_coeff_pah_pah = 4.4; //!< PAH–PAH correction coefficient [-]
 
         // ---- Numerical floors ----------------------------------------------
         double ns_minimum_per_m3 = 1.e6; //!< Minimum soot number density [#/m³]
-
-        // ---- Sticking coefficient ------------------------------------------
-        std::string sticking_model          = "constant"; //!< "constant" or "golaut"
-        double      sticking_coeff_constant = 2.e-3;      //!< Constant sticking coefficient [-]
-
-        // ---- Gas consumption / closure -------------------------------------
-        bool        gas_consumption           = false;  //!< Consume gas-phase species
-        std::string gas_closure_dummy_species = "none"; //!< Dummy mass-closure species
-
-        // ---- Radiation -----------------------------------------------------
-        bool        radiative_heat_transfer = true;     //!< Optically-thin radiation
-        std::string planck_coefficient      = "Smooke"; //!< Planck mean absorption coefficient
-
-        // ---- Transport -----------------------------------------------------
-        double schmidt_number = 50.; //!< Soot Schmidt number
-
-        // ---- Debug ---------------------------------------------------------
-        bool debug_mode = false; //!< Verbose diagnostic output
     };
 
     // -- Construction ---------------------------------------------------------
