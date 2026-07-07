@@ -249,7 +249,46 @@ public:
             any);
     }
 
+    // -- Convenience overloads: use this reporter's own output file ---------------
+    //
+    // When the reporter *is* the distribution file (e.g. reporter_mom_distribution_
+    // connected to fMOMDistribution_), these single-argument overloads avoid having
+    // to pass out_ explicitly.
 
+    template <MomentMethod Model>
+    requires HasReconstructedNDF<Model>
+    void WriteHeaderLineReconstructedNDF(const Model& model, unsigned precision = 16)
+    {
+        WriteHeaderLineReconstructedNDF(model, *out_, precision);
+    }
+
+    template <ThermoMap Thermo>
+    void WriteHeaderLineReconstructedNDF(const AnyMomentMethod<Thermo>& any,
+                                         unsigned precision = 16)
+    {
+        WriteHeaderLineReconstructedNDF(any, *out_, precision);
+    }
+
+    template <MomentMethod Model>
+    requires HasReconstructedNDF<Model>
+    void WriteReconstructedNDF(const Model& model,
+                               int    nv                      = 100,
+                               double vmin_nm3                = 1.0,
+                               double vmax_nm3                = 1.0e6,
+                               bool   use_regularized_moments = false)
+    {
+        WriteReconstructedNDF(model, *out_, nv, vmin_nm3, vmax_nm3, use_regularized_moments);
+    }
+
+    template <ThermoMap Thermo>
+    void WriteReconstructedNDF(const AnyMomentMethod<Thermo>& any,
+                               int    nv                      = 100,
+                               double vmin_nm3                = 1.0,
+                               double vmax_nm3                = 1.0e6,
+                               bool   use_regularized_moments = false)
+    {
+        WriteReconstructedNDF(any, *out_, nv, vmin_nm3, vmax_nm3, use_regularized_moments);
+    }
 
 private:
 
