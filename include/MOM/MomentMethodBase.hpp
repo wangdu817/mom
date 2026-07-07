@@ -35,6 +35,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <numbers>
@@ -42,6 +43,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "Eigen/Dense"
@@ -472,6 +474,64 @@ protected:
      */
     Eigen::VectorXd omega_gas_;
 
+    // -- Shared thermodynamic-state helpers --------------------------------
+
+    /**
+     * @brief Update common gas state from temperature, pressure, and mass fractions.
+     *
+     * Computes the mixture molecular weight, total molar concentration, and
+     * density using the same convention as the concrete variants:
+     * `1/MW = sum_k Y_k/MW_k`, `cTot = P/(R T)`, `rho = cTot * MW`.
+     * @return Total molar concentration [kmol/m3].
+     */
+    template <typename Thermo>
+    [[nodiscard]] double UpdateMixtureState(double T,
+                                            double P_Pa,
+                                            const double* Y,
+                                            const Thermo& thermo,
+                                            double gas_constant = Rgas_) noexcept
+    {
+        T_    = T;
+        P_Pa_ = P_Pa;
+
+        double invMW = 0.;
+        for (unsigned k = 0; k < thermo.NumberOfSpecies(); ++k)
+            invMW += Y[k] / thermo.MolecularWeight(k);
+        MW_ = 1. / invMW;
+
+        const double cTot = P_Pa_ / (gas_constant * T_);
+        rho_              = cTot * MW_;
+        return cTot;
+    }
+
+    /**
+     * @brief Species molar concentration from a mass fraction vector.
+     * @return Concentration [kmol/m3], or zero when @p idx is absent.
+     */
+    template <typename Thermo>
+    [[nodiscard]] double SpeciesConcentrationKmolM3(int idx,
+                                                    const double* Y,
+                                                    double cTot,
+                                                    const Thermo& thermo) const noexcept
+    {
+        if (idx < 0)
+            return 0.;
+        return cTot * std::max(Y[idx], 0.) * MW_ /
+               thermo.MolecularWeight(static_cast<unsigned>(idx));
+    }
+
+    /**
+     * @brief Species molar concentration in [mol/cm3], used by HMOM HACA rates.
+     */
+    template <typename Thermo>
+    [[nodiscard]] double SpeciesConcentrationMolCm3(int idx,
+                                                    const double* Y,
+                                                    double cTot,
+                                                    const Thermo& thermo) const noexcept
+    {
+        return SpeciesConcentrationKmolM3(idx, Y, cTot, thermo) / 1.e3;
+    }
+
     // -- Helpers for zero-initialising source vectors between time steps -----
 
     /**
@@ -524,6 +584,32 @@ protected:
         if (idx < 0 || static_cast<Eigen::Index>(idx) >= omega_gas_.size())
             return 0.;
         return omega_gas_[idx];
+    }
+
+    /** @brief Emit a single labelled gas-source diagnostic column safely. */
+    template <typename CB, typename Label>
+    void EmitOmegaGas(CB&& cb, Label&& label, int idx) const
+    {
+        cb(std::forward<Label>(label), safe_omega_gas(idx));
+    }
+
+    /** @brief Emit gas-source diagnostics common to soot variants. */
+    template <typename CB>
+    void EmitStandardSootOmegaGas(CB&& cb,
+                                  int precursor_index,
+                                  int c2h2_index,
+                                  int h2_index,
+                                  int o2_index,
+                                  int h2o_index,
+                                  int oh_index) const
+    {
+        cb("omegaTot[kg/m3/s]", omega_gas_.sum());
+        EmitOmegaGas(cb, "omegaPrec[kg/m3/s]", precursor_index);
+        EmitOmegaGas(cb, "omegaC2H2[kg/m3/s]", c2h2_index);
+        EmitOmegaGas(cb, "omegaH2[kg/m3/s]", h2_index);
+        EmitOmegaGas(cb, "omegaO2[kg/m3/s]", o2_index);
+        EmitOmegaGas(cb, "omegaH2O[kg/m3/s]", h2o_index);
+        EmitOmegaGas(cb, "omegaOH[kg/m3/s]", oh_index);
     }
 
     // -- CRTP down-cast helpers ---------------------------------------------

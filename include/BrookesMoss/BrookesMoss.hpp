@@ -279,18 +279,18 @@ public:
     /// BrookesMoss-specific prefix columns: gas-phase source diagnostics.
     template <typename CB> void variant_prefix_output(CB&& cb) const
     {
-        cb("omegaTot[kg/m3/s]",  this->omega_gas_.sum());
-        cb("omegaPrec[kg/m3/s]", this->safe_omega_gas(prec_index_));
-        cb("omegaSg[kg/m3/s]",   this->safe_omega_gas(sg_index_));
-        cb("omegaH2[kg/m3/s]",   this->safe_omega_gas(index_H2_));
-        cb("omegaC2H2[kg/m3/s]", this->safe_omega_gas(index_C2H2_));
-        cb("omegaOH[kg/m3/s]",   this->safe_omega_gas(index_OH_));
-        cb("omegaO2[kg/m3/s]",   this->safe_omega_gas(index_O2_));
+        cb("omegaTot[kg/m3/s]", this->omega_gas_.sum());
+        this->EmitOmegaGas(cb, "omegaPrec[kg/m3/s]", prec_index_);
+        this->EmitOmegaGas(cb, "omegaSg[kg/m3/s]", sg_index_);
+        this->EmitOmegaGas(cb, "omegaH2[kg/m3/s]", index_H2_);
+        this->EmitOmegaGas(cb, "omegaC2H2[kg/m3/s]", index_C2H2_);
+        this->EmitOmegaGas(cb, "omegaOH[kg/m3/s]", index_OH_);
+        this->EmitOmegaGas(cb, "omegaO2[kg/m3/s]", index_O2_);
 
         if (nucleation_variant_ == NucleationVariant::BrookesMossHall)
         {
-            cb("omegaC6H5[kg/m3/s]", this->safe_omega_gas(index_C6H5_));
-            cb("omegaC6H6[kg/m3/s]", this->safe_omega_gas(index_C6H6_));
+            this->EmitOmegaGas(cb, "omegaC6H5[kg/m3/s]", index_C6H5_);
+            this->EmitOmegaGas(cb, "omegaC6H6[kg/m3/s]", index_C6H6_);
         }
         else
         {

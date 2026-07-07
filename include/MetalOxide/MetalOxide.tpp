@@ -199,19 +199,7 @@ void MetalOxide<Thermo>::SetMinimumNumberOfFormulaUnits(unsigned n)
 template <ThermoMap Thermo>
 void MetalOxide<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noexcept
 {
-    this->T_    = T;
-    this->P_Pa_ = P_Pa;
-
-    // Mixture molecular weight  (1/MW = sum Yi/MWi)
-    {
-        double inv = 0.;
-        for (unsigned i = 0; i < thermo_.NumberOfSpecies(); ++i)
-            inv += Y[i] / thermo_.MolecularWeight(i);
-        this->MW_ = (inv > 1.e-300) ? 1. / inv : 1.;
-    }
-
-    const double cTot = this->P_Pa_ / (this->Rgas_ * this->T_); // [kmol/m3]
-    this->rho_        = cTot * this->MW_;                       // [kg/m3]
+    const double cTot = this->template UpdateMixtureState<>(T, P_Pa, Y, thermo_);
 
     // Precursor mass fraction and concentration
     Y_precursor_ = 0.;
@@ -219,8 +207,7 @@ void MetalOxide<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noexc
     if (precursor_index_ >= 0)
     {
         Y_precursor_ = std::max(Y[precursor_index_], 0.);
-        c_precursor_ = cTot * Y_precursor_ * this->MW_ /
-                       thermo_.MolecularWeight(static_cast<unsigned>(precursor_index_));
+        c_precursor_ = this->SpeciesConcentrationKmolM3(precursor_index_, Y, cTot, thermo_);
     }
 }
 

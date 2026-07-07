@@ -777,13 +777,8 @@ public:
         cb("gsd_dp_L[-]", std::exp(soot_large_log_geom_std_dev_primary_particle_diameter()));
         cb("gsd_np_L[-]", std::exp(soot_large_log_geom_std_dev_primary_particle_number()));
 
-        cb("omegaTot[kg/m3/s]",  this->omega_gas_.sum());
-        cb("omegaPrec[kg/m3/s]", this->safe_omega_gas(pah_index_));
-        cb("omegaC2H2[kg/m3/s]", this->safe_omega_gas(index_C2H2_));
-        cb("omegaH2[kg/m3/s]",   this->safe_omega_gas(index_H2_));
-        cb("omegaO2[kg/m3/s]",   this->safe_omega_gas(index_O2_));
-        cb("omegaH2O[kg/m3/s]",  this->safe_omega_gas(index_H2O_));
-        cb("omegaOH[kg/m3/s]",   this->safe_omega_gas(index_OH_));
+        this->EmitStandardSootOmegaGas(
+            cb, pah_index_, index_C2H2_, index_H2_, index_O2_, index_H2O_, index_OH_);
     }
 
     /**

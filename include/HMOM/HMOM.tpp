@@ -304,48 +304,22 @@ template <ThermoMap Thermo> void HMOM<Thermo>::SetStickingCoefficientModel(std::
 template <ThermoMap Thermo>
 void HMOM<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noexcept
 {
-    this->T_    = T;
-    this->P_Pa_ = P_Pa;
-
-    // MW from mass fractions
-    double invMW = 0.;
-    for (unsigned i = 0; i < thermo_.NumberOfSpecies(); ++i)
-        invMW += Y[i] / thermo_.MolecularWeight(i);
-    this->MW_ = 1. / invMW;
-
-    const double cTot = P_Pa / (this->Rgas_ * T); // [kmol/m3]
-    this->rho_        = cTot * this->MW_;
+    const double cTot = this->template UpdateMixtureState<>(
+        T, P_Pa, Y, thermo_);
 
     // Save mass fractions needed for HACA threshold
     mass_fraction_H_  = (index_H_ >= 0) ? std::max(Y[index_H_], 0.) : 0.;
     mass_fraction_OH_ = (index_OH_ >= 0) ? std::max(Y[index_OH_], 0.) : 0.;
 
-    // Helper: concentration in [mol/cm3] = [kmol/m3] / 1e3
-    auto concMolCm3 = [&](int idx) -> double
-    {
-        if (idx < 0)
-            return 0.;
-        return cTot * std::max(Y[idx], 0.) * this->MW_ /
-               thermo_.MolecularWeight(static_cast<unsigned>(idx)) / 1.e3;
-    };
-
-    conc_H_    = concMolCm3(index_H_);
-    conc_OH_   = concMolCm3(index_OH_);
-    conc_O2_   = concMolCm3(index_O2_);
-    conc_H2_   = concMolCm3(index_H2_);
-    conc_H2O_  = concMolCm3(index_H2O_);
-    conc_C2H2_ = concMolCm3(index_C2H2_);
+    conc_H_    = this->SpeciesConcentrationMolCm3(index_H_, Y, cTot, thermo_);
+    conc_OH_   = this->SpeciesConcentrationMolCm3(index_OH_, Y, cTot, thermo_);
+    conc_O2_   = this->SpeciesConcentrationMolCm3(index_O2_, Y, cTot, thermo_);
+    conc_H2_   = this->SpeciesConcentrationMolCm3(index_H2_, Y, cTot, thermo_);
+    conc_H2O_  = this->SpeciesConcentrationMolCm3(index_H2O_, Y, cTot, thermo_);
+    conc_C2H2_ = this->SpeciesConcentrationMolCm3(index_C2H2_, Y, cTot, thermo_);
 
     // PAH [mol/cm3]
-    if (pah_index_ >= 0)
-    {
-        conc_PAH_ = cTot * std::max(Y[pah_index_], 0.) * this->MW_ /
-                    thermo_.MolecularWeight(static_cast<unsigned>(pah_index_)) / 1.e3;
-    }
-    else
-    {
-        conc_PAH_ = 0.;
-    }
+    conc_PAH_ = this->SpeciesConcentrationMolCm3(pah_index_, Y, cTot, thermo_);
 }
 
 // ============================================================================

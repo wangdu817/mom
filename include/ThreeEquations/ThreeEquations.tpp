@@ -265,47 +265,21 @@ void ThreeEquations<Thermo>::SetStickingCoefficientModel(std::string_view label)
 template <ThermoMap Thermo>
 void ThreeEquations<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noexcept
 {
-    this->T_    = T;
-    this->P_Pa_ = P_Pa;
-
-    // Mixture molecular weight [kg/kmol]  (1/MW = sum Yi/MWi)
-    {
-        const int nsp = thermo_.NumberOfSpecies();
-        double inv_MW = 0.;
-        for (int k = 0; k < nsp; ++k)
-            inv_MW += Y[k] / thermo_.MolecularWeight(k);
-        this->MW_ = (inv_MW > 1.e-300) ? 1. / inv_MW : 1.;
-    }
-
     // Gas constant: R [J/kmol/K] = kB * Nav_kmol
     const double R_J_kmol = this->kB_ * this->Nav_kmol_;
-    const double cTot     = this->P_Pa_ / (R_J_kmol * this->T_); // [kmol/m3]
-    this->rho_            = cTot * this->MW_;                    // [kg/m3]
+    const double cTot = this->template UpdateMixtureState<>(T, P_Pa, Y, thermo_, R_J_kmol);
 
     // Mass fractions of HACA-relevant species (for active-site cutoff)
     mass_fraction_OH_ = std::max(Y[index_OH_], 0.);
     mass_fraction_H_  = std::max(Y[index_H_], 0.);
 
-    // PAH mole fraction → concentration [kmol/m3]
-    {
-        const double Y_PAH = std::max(Y[pah_index_], 0.);
-        const double X_PAH =
-            Y_PAH * this->MW_ / thermo_.MolecularWeight(static_cast<unsigned>(pah_index_));
-        conc_PAH_          = cTot * X_PAH;
-    }
-
-    // Concentrations of key species [kmol/m3]
-    auto conc = [&](int idx) -> double
-    {
-        return cTot * std::max(Y[idx], 0.) * this->MW_ /
-               thermo_.MolecularWeight(static_cast<unsigned>(idx));
-    };
-    conc_H_    = conc(index_H_);
-    conc_OH_   = conc(index_OH_);
-    conc_O2_   = conc(index_O2_);
-    conc_H2_   = conc(index_H2_);
-    conc_H2O_  = conc(index_H2O_);
-    conc_C2H2_ = conc(index_C2H2_);
+    conc_PAH_  = this->SpeciesConcentrationKmolM3(pah_index_, Y, cTot, thermo_);
+    conc_H_    = this->SpeciesConcentrationKmolM3(index_H_, Y, cTot, thermo_);
+    conc_OH_   = this->SpeciesConcentrationKmolM3(index_OH_, Y, cTot, thermo_);
+    conc_O2_   = this->SpeciesConcentrationKmolM3(index_O2_, Y, cTot, thermo_);
+    conc_H2_   = this->SpeciesConcentrationKmolM3(index_H2_, Y, cTot, thermo_);
+    conc_H2O_  = this->SpeciesConcentrationKmolM3(index_H2O_, Y, cTot, thermo_);
+    conc_C2H2_ = this->SpeciesConcentrationKmolM3(index_C2H2_, Y, cTot, thermo_);
 
     if (is_debug_mode_)
     {

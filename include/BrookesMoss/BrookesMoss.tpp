@@ -100,50 +100,23 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::MemoryAllocation()
 template <ThermoMap Thermo>
 void BrookesMoss<Thermo>::SetStatus(double T, double P_Pa, const double* Y) noexcept
 {
-    this->T_    = T;
-    this->P_Pa_ = P_Pa;
-
-    // Mixture molecular weight [kg/kmol]  (1/MW = sum Yi/MWi)
-    {
-        const unsigned nsp = thermo_.NumberOfSpecies();
-        double inv_MW      = 0.;
-        for (unsigned k = 0; k < nsp; ++k)
-            inv_MW += Y[k] / thermo_.MolecularWeight(k);
-        this->MW_ = (inv_MW > 1.e-300) ? 1. / inv_MW : 1.;
-    }
-
-    // Total molar concentration [kmol/m3] and mixture density [kg/m3]
-    const double cTot = this->P_Pa_ / (this->Rgas_ * this->T_);
-    this->rho_        = cTot * this->MW_;
-
-    // Helper lambda: molar concentration of species idx [kmol/m3]
-    auto conc = [&](int idx) -> double
-    {
-        if (idx < 0)
-            return 0.;
-        return cTot * std::max(Y[idx], 0.) * this->MW_ /
-               thermo_.MolecularWeight(static_cast<unsigned>(idx));
-    };
+    const double cTot = this->template UpdateMixtureState<>(T, P_Pa, Y, thermo_);
 
     // Precursor concentration [kmol/m3]
-    conc_prec_ = (prec_index_ >= 0) ? cTot * std::max(Y[prec_index_], 0.) * this->MW_ /
-                                          thermo_.MolecularWeight(static_cast<unsigned>(prec_index_))
-                                    : 0.;
+    conc_prec_ = this->SpeciesConcentrationKmolM3(prec_index_, Y, cTot, thermo_);
 
     // Surface growth species concentration [kmol/m3]
-    conc_sg_ = (sg_index_ >= 0) ? cTot * std::max(Y[sg_index_], 0.) * this->MW_ /
-                                      thermo_.MolecularWeight(static_cast<unsigned>(sg_index_))
-                                : 0.;
+    conc_sg_ = this->SpeciesConcentrationKmolM3(sg_index_, Y, cTot, thermo_);
 
     // Key species concentrations [kmol/m3]
     // NOTE: conc_H2_ is required by the BM-Hall nucleation rate (denominator);
     //       index_H2_ is always set in the constructor (soft lookup, −1 if absent).
-    conc_OH_   = conc(index_OH_);
-    conc_O2_   = conc(index_O2_);
-    conc_H2_   = conc(index_H2_);
-    conc_C2H2_ = conc(index_C2H2_);
-    conc_C6H5_ = conc(index_C6H5_);
-    conc_C6H6_ = conc(index_C6H6_);
+    conc_OH_   = this->SpeciesConcentrationKmolM3(index_OH_, Y, cTot, thermo_);
+    conc_O2_   = this->SpeciesConcentrationKmolM3(index_O2_, Y, cTot, thermo_);
+    conc_H2_   = this->SpeciesConcentrationKmolM3(index_H2_, Y, cTot, thermo_);
+    conc_C2H2_ = this->SpeciesConcentrationKmolM3(index_C2H2_, Y, cTot, thermo_);
+    conc_C6H5_ = this->SpeciesConcentrationKmolM3(index_C6H5_, Y, cTot, thermo_);
+    conc_C6H6_ = this->SpeciesConcentrationKmolM3(index_C6H6_, Y, cTot, thermo_);
 }
 
 // ============================================================================
