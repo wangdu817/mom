@@ -178,8 +178,8 @@ public:
 
     BrookesMoss(const BrookesMoss&)            = delete;
     BrookesMoss& operator=(const BrookesMoss&) = delete;
-    BrookesMoss(BrookesMoss&&)                 = default;
-    BrookesMoss& operator=(BrookesMoss&&)      = default;
+    BrookesMoss(BrookesMoss&&)            = default; ///< Move-constructible for placement in std::variant.
+    BrookesMoss& operator=(BrookesMoss&&) = delete;  ///< Not move-assignable — const Thermo& member cannot be reseated.
 
     /**
      * @brief Configure all BrookesMoss parameters from a plain configuration struct.

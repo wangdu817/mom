@@ -196,8 +196,8 @@ public:
 
     ThreeEquations(const ThreeEquations&)            = delete;
     ThreeEquations& operator=(const ThreeEquations&) = delete;
-    ThreeEquations(ThreeEquations&&)                 = default;
-    ThreeEquations& operator=(ThreeEquations&&)      = default;
+    ThreeEquations(ThreeEquations&&)            = default; ///< Move-constructible for placement in std::variant.
+    ThreeEquations& operator=(ThreeEquations&&) = delete;  ///< Not move-assignable — const Thermo& member cannot be reseated.
 
     /**
      * @brief Configure all ThreeEquations parameters from a plain configuration struct.

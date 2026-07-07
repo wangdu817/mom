@@ -274,8 +274,8 @@ public:
 
     HMOM(const HMOM&)            = delete; ///< Non-copyable — holds external thermo reference.
     HMOM& operator=(const HMOM&) = delete;
-    HMOM(HMOM&&)                 = default; ///< Move-constructible for placement in std::variant.
-    HMOM& operator=(HMOM&&)      = default;
+    HMOM(HMOM&&)            = default; ///< Move-constructible for placement in std::variant.
+    HMOM& operator=(HMOM&&) = delete;  ///< Not move-assignable — const Thermo& member cannot be reseated.
 
     /**
      * @brief Configure all HMOM parameters from a plain configuration struct.

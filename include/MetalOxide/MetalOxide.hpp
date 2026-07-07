@@ -219,8 +219,8 @@ public:
 
     MetalOxide(const MetalOxide&)            = delete;
     MetalOxide& operator=(const MetalOxide&) = delete;
-    MetalOxide(MetalOxide&&)                 = default;
-    MetalOxide& operator=(MetalOxide&&)      = default;
+    MetalOxide(MetalOxide&&)            = default; ///< Move-constructible for placement in std::variant.
+    MetalOxide& operator=(MetalOxide&&) = delete;  ///< Not move-assignable — const Thermo& member cannot be reseated.
 
     /**
      * @brief Configure all solid oxide parameters from a plain configuration struct.
