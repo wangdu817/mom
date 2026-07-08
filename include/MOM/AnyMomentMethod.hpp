@@ -412,6 +412,27 @@ template <ThermoMap Thermo>
     return std::visit([](const auto& mm) { return mm.mass_fraction(); }, m);
 }
 
+/** @brief Returns the specific surface area [m2/m3]. */
+template <ThermoMap Thermo>
+[[nodiscard]] inline double GetSpecificSurfaceArea(const AnyMomentMethod<Thermo>& m) noexcept
+{
+    return std::visit([](const auto& mm) { return mm.specific_surface(); }, m);
+}
+
+/** @brief Returns the collision diameter [m]. */
+template <ThermoMap Thermo>
+[[nodiscard]] inline double GetCollisionDiameter(const AnyMomentMethod<Thermo>& m) noexcept
+{
+    return std::visit([](const auto& mm) { return mm.collision_diameter(); }, m);
+}
+
+/** @brief Returns the number of primary particles [-]. */
+template <ThermoMap Thermo>
+[[nodiscard]] inline double GetNumberPrimaryParticles(const AnyMomentMethod<Thermo>& m) noexcept
+{
+    return std::visit([](const auto& mm) { return mm.number_primary_particles(); }, m);
+}
+
 /** @brief Returns the particle Schmidt number [-]. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline double GetSchmidtNumber(const AnyMomentMethod<Thermo>& m) noexcept

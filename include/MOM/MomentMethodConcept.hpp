@@ -153,6 +153,7 @@ concept MomentMethod =
         { cm.particle_diameter() } -> std::same_as<double>;
         { cm.collision_diameter() } -> std::same_as<double>;
         { cm.particle_number_density() } -> std::same_as<double>;
+        { cm.number_primary_particles() } -> std::same_as<double>;
         { cm.mass_fraction() } -> std::same_as<double>;
         { cm.particle_density() } -> std::same_as<double>;
         { cm.specific_surface() } -> std::same_as<double>;

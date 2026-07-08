@@ -852,6 +852,11 @@ template <ThermoMap Thermo> double BrookesMoss<Thermo>::diffusion_coefficient() 
     return this->mu_ / this->schmidt_number_;
 }
 
+template <ThermoMap Thermo> double BrookesMoss<Thermo>::number_primary_particles() const noexcept
+{
+    return 0.;
+}
+
 // ============================================================================
 // PrintSummary
 // ============================================================================

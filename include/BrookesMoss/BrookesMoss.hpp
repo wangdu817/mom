@@ -230,7 +230,8 @@ public:
     [[nodiscard]] double mass_fraction() const noexcept;          //!< = Ys_
     [[nodiscard]] double specific_surface() const noexcept;       //!< [m2/m3]
     [[nodiscard]] double diffusion_coefficient() const noexcept;  //!< [kg/m/s]
-
+    [[nodiscard]] double number_primary_particles() const noexcept;
+    
     // -- MomentMethod concept — initial conditions -----------------------------
 
     [[nodiscard]] std::span<const double> initial_moments() const noexcept
