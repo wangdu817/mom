@@ -814,9 +814,19 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::CoagulationSourceTerms(
     const double Beta2  = 8. * this->kB_ * this->T_ / 3. / this->mu_ * Cu;
     const double Betavs = Beta1 * Beta2 / (Beta1 + Beta2);
 
-    // Coagulation threshold: FORTRAN skips below 100 #/cm3 = 1e8 #/m3
-    static constexpr double Ns_coag_threshold = 1.e8;
-    const double OmegaNs = (Ns > Ns_coag_threshold) ? -0.5 * Betavs * Ns * Ns : 0.;
+    // Smooth activation at the FORTRAN-heritage threshold (100 #/cm3 = 1e8 #/m3).
+    // The original hard step (Heaviside) created a Dirac-delta-like discontinuity
+    // in the ODE Jacobian as Ns crossed the threshold, forcing the stiff solver to
+    // bracket the crossing and shrink dt drastically.  Replacing it with a tanh
+    // transition of width 20 % of the threshold makes the source C¹-continuous
+    // while preserving the correct asymptotic behaviour (zero well below, full
+    // -½βNs² well above).  This also prevents unbounded Ns accumulation in
+    // nucleation-onset cells where Ns < threshold and no other sink is active.
+    static constexpr double Ns_coag_threshold = 1.e8;   // #/m3  (100 #/cm3)
+    static constexpr double Ns_coag_width     = 2.e7;   // #/m3  (20 % transition)
+    const double smooth_coag =
+        0.5 * (1. + std::tanh((Ns - Ns_coag_threshold) / Ns_coag_width));
+    const double OmegaNs = -0.5 * Betavs * Ns * Ns * smooth_coag;
 
     this->source_coagulation_(0) = 0.;
     this->source_coagulation_(1) = OmegaNs / N0_scaling_;
@@ -880,7 +890,10 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::OxidationSourceTerms()
 
     if (smooth_heaviside_oxidation_)
     {
-        const double eps_v = 0.1 * vc2_;
+        // Wider bandwidth (50 % of vc2_) compared to the original 10 %.
+        // The narrower band produced a near-discontinuous ∂OmegaNs/∂vs that
+        // contributed to stiffness when the average particle volume hovered near vc2_.
+        const double eps_v = 0.5 * vc2_;
         const double H     = SmoothHeaviside(vs_oxid - vc2_, eps_v);
         double destroy_sw  = 1. - H;
         if (ss_oxid <= deltas_sph)
