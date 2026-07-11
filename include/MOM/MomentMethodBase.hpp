@@ -375,6 +375,25 @@ public:
             return {kZeroData, NEq};
     }
 
+    /**
+     * @brief Oxidation-only gas-phase source terms [kg/m³/s].
+     *
+     * Returns the subset of `omega_gas_` due exclusively to soot oxidation
+     * (O2/OH surface attack).  Non-oxidation contributions (nucleation, surface
+     * growth, condensation) are excluded.  Used by the operator-splitting API
+     * (GetOmegaGasOxidation / GetOmegaGasWithoutOxidation) to remove the stiff
+     * oxidation eigenvalue from the ODE system and integrate it analytically.
+     *
+     * Returns an empty span for models without oxidation gas coupling (e.g. TiO2).
+     */
+    [[nodiscard]] std::span<const double> omega_gas_oxidation() const noexcept
+    {
+        if constexpr (requires(const Derived& d) { d.omega_gas_oxidation_impl(); })
+            return derived().omega_gas_oxidation_impl();
+        else
+            return {};   // empty span — model has no oxidation gas coupling
+    }
+
     /** @} */
 
     /**

@@ -126,7 +126,8 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::MemoryAllocation()
     source_oxidation_.setZero();
 
     // Gas source vector — dynamic size (depends on mechanism).
-    this->omega_gas_ = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
+    this->omega_gas_     = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
+    omega_gas_oxidation_ = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
 }
 
 // ============================================================================
@@ -962,6 +963,7 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::CalculateSourceMoments(
 template <ThermoMap Thermo> void ThreeEquations<Thermo>::CalculateOmegaGas() noexcept
 {
     this->omega_gas_.setZero();
+    omega_gas_oxidation_.setZero();
     if (!this->gas_consumption_)
         return;
 
@@ -1013,6 +1015,8 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::CalculateOmegaGas() noe
             //   OH channel: C + OH  → CO + ½H2
             if (oxidation_model_ > 0 && Ys_ > 0.)
             {
+                // Snapshot for oxidation-only extraction (operator splitting support).
+                const Eigen::VectorXd omega_snap_before_ox = this->omega_gas_;
                 const double R_O2 = lambda * std::max(r.ko2, 0.) * Ss; // [#/m3/s]
                 const double R_OH = lambda * std::max(r.koh, 0.) * Ss; // [#/m3/s]
 
@@ -1033,6 +1037,9 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::CalculateOmegaGas() noe
                     if (index_H2_ >= 0)
                         AddMolar(index_H2_, +0.5 * R_OH / this->Nav_kmol_);
                 }
+
+                // Capture oxidation-only gas contribution (before closure).
+                omega_gas_oxidation_ = this->omega_gas_ - omega_snap_before_ox;
             }
         }
     }
@@ -1047,6 +1054,13 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::CalculateOmegaGas() noe
             if (i != this->closure_dummy_index_)
                 sum += this->omega_gas_[i];
         this->omega_gas_[this->closure_dummy_index_] = -sum;
+
+        // Apply the same closure to the oxidation-only vector.
+        double sum_ox = 0.;
+        for (int i = 0; i < nsp; ++i)
+            if (i != this->closure_dummy_index_)
+                sum_ox += omega_gas_oxidation_[i];
+        omega_gas_oxidation_[this->closure_dummy_index_] = -sum_ox;
     }
 
     if (is_debug_mode_)

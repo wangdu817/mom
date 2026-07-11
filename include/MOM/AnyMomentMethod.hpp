@@ -488,6 +488,65 @@ template <ThermoMap Thermo>
     return std::visit([](const auto& mm) { return mm.omega_gas(); }, m);
 }
 
+/**
+ * @brief Returns a zero-copy span over the **oxidation-only** gas-phase source vector [kg/m³/s].
+ *
+ * Points directly into internal storage — zero-overhead.
+ * Empty span for models without oxidation gas coupling (TiO2/MetalOxide).
+ *
+ * @pre Compute() must have been called at the current state.
+ */
+template <ThermoMap Thermo>
+[[nodiscard]] inline std::span<const double>
+GetOmegaGasOxidation(const AnyMomentMethod<Thermo>& m) noexcept
+{
+    return std::visit([](const auto& mm) { return mm.omega_gas_oxidation(); }, m);
+}
+
+/**
+ * @brief Writes `omega_gas[k] − omega_gas_oxidation[k]` into @p out for each species.
+ *
+ * For operator splitting: pass these reduced gas sources inside `Equations()`,
+ * then apply the oxidation sub-step analytically after the ODE step completes.
+ *
+ * @par Post-step gas-phase correction
+ * After the outer CFD timestep @p dt has completed and the soot moments have been
+ * updated with the exponential decay, apply the integrated oxidation effect on gas
+ * species using a correction factor that accounts for the decreasing oxidation rate
+ * as soot is consumed:
+ *
+ * @code
+ *   // kappa_eff = effective soot-mass oxidation rate [1/s] from GetOxidationRateCoefficients()
+ *   //             (use the mass-fraction moment index: 0 for ThreeEquations, 1 for HMOM)
+ *   const double x = kappa_eff * dt;
+ *   const double phi = (x > 1e-8) ? (1. - std::exp(-x)) / x : 1.;
+ *   auto ox_gas = MOM::GetOmegaGasOxidation(mom_);
+ *   for (int k = 0; k < n_species; ++k)
+ *       Y[k] += ox_gas[k] / rho * dt * phi;
+ * @endcode
+ *
+ * The factor `phi` ∈ (0, 1] collapses to 1 for small `kappa_eff * dt` (first-order
+ * approximation) and falls toward `1/(kappa_eff*dt)` for fast oxidation, correctly
+ * bounding the integrated gas consumption to at most the available reactant mass.
+ *
+ * @pre  Compute() must have been called at the current state.
+ * @param[in]  m    Model variant.
+ * @param[out] out  Caller-allocated buffer; size must be >= n_species.
+ */
+template <ThermoMap Thermo>
+inline void GetOmegaGasWithoutOxidation(const AnyMomentMethod<Thermo>& m,
+                                         std::span<double> out) noexcept
+{
+    std::visit([&out](const auto& mm)
+    {
+        const auto total = mm.omega_gas();            // full omega_gas_  — zero-copy
+        const auto ox    = mm.omega_gas_oxidation();  // oxidation-only   — zero-copy
+        const std::size_t N = std::min(total.size(), out.size());
+        for (std::size_t k = 0; k < N; ++k)
+            out[k] = total[k] - (k < ox.size() ? ox[k] : 0.);
+    }, m);
+}
+
 /** @brief Returns the particle volume fraction [-]. */
 template <ThermoMap Thermo>
 [[nodiscard]] inline double GetVolumeFraction(const AnyMomentMethod<Thermo>& m) noexcept

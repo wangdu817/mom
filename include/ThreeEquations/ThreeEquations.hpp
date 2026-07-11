@@ -449,6 +449,13 @@ public:
         return {source_oxidation_.data(), this->n_equations};
     }
 
+    /** @brief Oxidation-only gas-phase source terms [kg/m³/s] for operator splitting. */
+    [[nodiscard, gnu::always_inline]] std::span<const double> omega_gas_oxidation_impl() const noexcept
+    {
+        return {omega_gas_oxidation_.data(),
+                static_cast<std::size_t>(omega_gas_oxidation_.size())};
+    }
+
     /** @} */
 
 private:
@@ -586,6 +593,8 @@ private:
     MomentVector source_condensation_ = MomentVector::Zero();
     MomentVector source_growth_       = MomentVector::Zero();
     MomentVector source_oxidation_    = MomentVector::Zero();
+
+    Eigen::VectorXd omega_gas_oxidation_; //!< Oxidation-only gas-phase sources [kg/m³/s].
 
     // -- Initial moments cache --------------------------------------------------
     MomentVector initial_moments_cache_ = MomentVector::Zero();

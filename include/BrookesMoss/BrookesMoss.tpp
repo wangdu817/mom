@@ -86,7 +86,8 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::MemoryAllocation()
     source_growth_.setZero();
     source_oxidation_.setZero();
 
-    this->omega_gas_ = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
+    this->omega_gas_            = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
+    omega_gas_oxidation_        = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
 
     // Default initial moment values
     initial_moments_cache_(0) = 1.e-21; // Ys_init [-]
@@ -598,6 +599,7 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::OxidationSourceTerms_BMH()
 template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexcept
 {
     this->omega_gas_.setZero();
+    omega_gas_oxidation_.setZero();
     if (!this->gas_consumption_)
         return;
 
@@ -741,6 +743,11 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexce
 
     // -- Oxidation coupling ------------------------------------------------
     //
+    // Snapshot omega_gas_ before adding any oxidation terms.  The diff taken
+    // after the block gives the oxidation-only gas contribution, stored in
+    // omega_gas_oxidation_ for operator-splitting (GetOmegaGasOxidation).
+    const Eigen::VectorXd omega_snap_before_ox = this->omega_gas_;
+
     // OH channel (both BM and BM-Hall):  C_soot + OH → CO + ½H₂
     //   Per kg soot oxidized:
     //     OH consumed = MW_OH / W_C            (17/12 kg/kg_soot)
@@ -791,6 +798,9 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexce
         }
     }
 
+    // Capture oxidation-only gas contribution (before closure modifies the dummy species).
+    omega_gas_oxidation_ = this->omega_gas_ - omega_snap_before_ox;
+
     // -- Dummy species closure (enforce mass conservation) -----------------
     if (this->is_closure_dummy_species_)
     {
@@ -801,6 +811,15 @@ template <ThermoMap Thermo> void BrookesMoss<Thermo>::CalculateOmegaGas() noexce
             if (i != this->closure_dummy_index_)
                 sum += this->omega_gas_[i];
         this->omega_gas_[this->closure_dummy_index_] = -sum;
+
+        // Apply the same closure to the oxidation-only vector so that
+        // omega_gas_[k] == omega_gas_oxidation_[k] + omega_gas_without_oxidation[k]
+        // holds for ALL k, including the dummy species.
+        double sum_ox = 0.;
+        for (int i = 0; i < nsp; ++i)
+            if (i != this->closure_dummy_index_)
+                sum_ox += omega_gas_oxidation_[i];
+        omega_gas_oxidation_[this->closure_dummy_index_] = -sum_ox;
     }
 }
 

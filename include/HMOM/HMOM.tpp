@@ -161,7 +161,8 @@ template <ThermoMap Thermo> void HMOM<Thermo>::MemoryAllocation()
     source_coagulation_cont_ll_    = MomentVector::Zero();
     source_coagulation_all_        = MomentVector::Zero();
 
-    this->omega_gas_ = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
+    this->omega_gas_     = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
+    omega_gas_oxidation_ = Eigen::VectorXd::Zero(static_cast<Eigen::Index>(thermo_.NumberOfSpecies()));
 
     NL_   = 0.;
     NLVL_ = 0.;
@@ -1049,6 +1050,7 @@ template <ThermoMap Thermo> void HMOM<Thermo>::CalculateSourceMoments() noexcept
 template <ThermoMap Thermo> void HMOM<Thermo>::CalculateOmegaGas() noexcept
 {
     this->omega_gas_.setZero();
+    omega_gas_oxidation_.setZero();
     if (!this->gas_consumption_)
         return;
 
@@ -1084,6 +1086,9 @@ template <ThermoMap Thermo> void HMOM<Thermo>::CalculateOmegaGas() noexcept
 
     if (oxidation_model_ > 0 && VC2_ > 0.)
     {
+        // Snapshot for oxidation-only extraction (operator splitting support).
+        const Eigen::VectorXd omega_snap_before_ox = this->omega_gas_;
+
         // R_oxid_C2 [mol C2-pairs/m3/s] = rate of soot C2 pairs removed by oxidation.
         const double R_oxid_C2 = -this->source_oxidation_(1) * V0_ / VC2_;
         if (R_oxid_C2 > 0. && std::isfinite(R_oxid_C2))
@@ -1137,6 +1142,9 @@ template <ThermoMap Thermo> void HMOM<Thermo>::CalculateOmegaGas() noexcept
                 }
             }
         }
+
+        // Capture oxidation-only gas contribution (before closure).
+        omega_gas_oxidation_ = this->omega_gas_ - omega_snap_before_ox;
     }
 
     if (this->is_closure_dummy_species_ && this->closure_dummy_index_ >= 0)
@@ -1146,6 +1154,13 @@ template <ThermoMap Thermo> void HMOM<Thermo>::CalculateOmegaGas() noexcept
             if (i != static_cast<Eigen::Index>(this->closure_dummy_index_))
                 sum += this->omega_gas_[i];
         this->omega_gas_[this->closure_dummy_index_] = -sum;
+
+        // Apply the same closure to the oxidation-only vector.
+        double sum_ox = 0.;
+        for (Eigen::Index i = 0; i < omega_gas_oxidation_.size(); ++i)
+            if (i != static_cast<Eigen::Index>(this->closure_dummy_index_))
+                sum_ox += omega_gas_oxidation_[i];
+        omega_gas_oxidation_[static_cast<Eigen::Index>(this->closure_dummy_index_)] = -sum_ox;
     }
 }
 
