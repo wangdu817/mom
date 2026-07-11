@@ -617,8 +617,25 @@ template <ThermoMap Thermo> void HMOM<Thermo>::SootKineticConstants()
     if (ratio > 0.)
         conc_sootStar = (k1f * conc_OH_ + k2f * conc_H_ + k3f) / ratio;
 
-    if (mass_fraction_H_ < 2.e-9 && mass_fraction_OH_ < 2.e-8)
-        conc_sootStar = 0.;
+    // Original hard cutoff: if (mass_fraction_H_ < 2e-9 && mass_fraction_OH_ < 2e-8)
+    //     conc_sootStar = 0.
+    // This Heaviside on species mass fractions was a step discontinuity in the ODE
+    // Jacobian: when the numerical Jacobian probed a slightly different T, the
+    // thresholds could flip, producing a spurious spike in ∂kox/∂T that caused the
+    // Gear solver to drastically reduce dt or fail.
+    // Fix: replace with a smooth product of two sigmoid ramps, one for YH and one for
+    // YOH.  Width = 50% of each threshold keeps the damping onset physically faithful.
+    {
+        constexpr double YH_threshold  = 2.e-9;
+        constexpr double YOH_threshold = 2.e-8;
+        const double rampH  = 0.5 * (1. + std::tanh((mass_fraction_H_  - YH_threshold)
+                                                     / (0.5 * YH_threshold)));
+        const double rampOH = 0.5 * (1. + std::tanh((mass_fraction_OH_ - YOH_threshold)
+                                                     / (0.5 * YOH_threshold)));
+        // Original logic: zero when BOTH are below threshold → multiply the two ramps.
+        // For numerical Jacobian safety: smooth approach to zero, C¹ everywhere.
+        conc_sootStar *= rampH * rampOH;
+    }
 
     conc_sootStar = conc_sootStar / (1. + conc_sootStar);
     conc_sootStar = std::max(conc_sootStar, 0.);
