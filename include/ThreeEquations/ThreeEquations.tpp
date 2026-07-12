@@ -63,11 +63,14 @@ inline double SmoothHeaviside(double x, double eps) noexcept
     return 0.5 * (1.0 + std::tanh(x / epsSafe));
 }
 
+// Gas constant [J/mol/K] — equals MomentMethodBase::Rgas_mol_ (= Rgas_ / 1000).
+// Used here by the non-member Arrhenius_cgs helper; member functions access this->Rgas_mol_.
+static constexpr double kRgas_mol = 8.31446261815324;
+
 /// Arrhenius rate in CGS: A in [cm3/mol/s] or [1/s], E in [J/mol].
 inline double Arrhenius_cgs(double A, double n, double E_J_mol, double T) noexcept
 {
-    static constexpr double R_J_mol = 8.31446261815324;
-    return A * std::pow(T, n) * std::exp(-E_J_mol / (R_J_mol * T));
+    return A * std::pow(T, n) * std::exp(-E_J_mol / (kRgas_mol * T));
 }
 
 template <ThermoMap Thermo>
@@ -534,8 +537,7 @@ typename ThreeEquations<Thermo>::SurfaceKineticsRates ThreeEquations<Thermo>::Ki
     // OH oxidation collision rate [1/s]
     const double surface_c2_cm2 = sc2_ * 1.e4;
     const double MW_OH_kg_mol   = thermo_.MolecularWeight(static_cast<unsigned>(index_OH_)) / 1000.;
-    const double R_J_mol        = 8.31446261815324;
-    const double mean_OH_m_s    = std::sqrt(8. * R_J_mol * this->T_ / (this->pi_ * MW_OH_kg_mol));
+    const double mean_OH_m_s    = std::sqrt(8. * this->Rgas_mol_ * this->T_ / (this->pi_ * MW_OH_kg_mol));
     const double r07f =
         std::max(small, 0.25 * this->Nav_mol_ * surface_c2_cm2 * 0.13 * (mean_OH_m_s * 100.) * cOH);
 

@@ -52,9 +52,6 @@ namespace MOM
 // ============================================================================
 namespace
 {
-// HMOM uses R in [J/mol/K] for HACA kinetics (stored E are in [K] = E_kJ/mol * 1e3 / R_J_mol)
-constexpr double R_J_mol_HMOM = 8.31446261815324;
-
 // K_diam = (6/pi)^(1/3), K_spher = (36*pi)^(1/3)
 inline double K_diam_HMOM(double pi) noexcept
 {
@@ -1810,42 +1807,42 @@ template <ThermoMap Thermo> void HMOM<Thermo>::SetA5(double v) noexcept
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SetE1f(double kJ) noexcept
 {
-    E1f_ = kJ * 1e3 / R_J_mol_HMOM;
+    E1f_ = kJ * 1e3 / this->Rgas_mol_;
 }
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SetE1b(double kJ) noexcept
 {
-    E1b_ = kJ * 1e3 / R_J_mol_HMOM;
+    E1b_ = kJ * 1e3 / this->Rgas_mol_;
 }
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SetE2f(double kJ) noexcept
 {
-    E2f_ = kJ * 1e3 / R_J_mol_HMOM;
+    E2f_ = kJ * 1e3 / this->Rgas_mol_;
 }
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SetE2b(double kJ) noexcept
 {
-    E2b_ = kJ * 1e3 / R_J_mol_HMOM;
+    E2b_ = kJ * 1e3 / this->Rgas_mol_;
 }
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SetE3f(double kJ) noexcept
 {
-    E3f_ = kJ * 1e3 / R_J_mol_HMOM;
+    E3f_ = kJ * 1e3 / this->Rgas_mol_;
 }
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SetE3b(double kJ) noexcept
 {
-    E3b_ = kJ * 1e3 / R_J_mol_HMOM;
+    E3b_ = kJ * 1e3 / this->Rgas_mol_;
 }
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SetE4(double kJ) noexcept
 {
-    E4_ = kJ * 1e3 / R_J_mol_HMOM;
+    E4_ = kJ * 1e3 / this->Rgas_mol_;
 }
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SetE5(double kJ) noexcept
 {
-    E5_ = kJ * 1e3 / R_J_mol_HMOM;
+    E5_ = kJ * 1e3 / this->Rgas_mol_;
 }
 
 template <ThermoMap Thermo> void HMOM<Thermo>::Setn1f(double v) noexcept
@@ -1963,14 +1960,14 @@ template <ThermoMap Thermo> void HMOM<Thermo>::PrintSummary() const
         << "    + Sticking coeff. (-):           " << sticking_coeff_constant_ << "\n"
         << "\n"
         << " [HACA surface kinetics]  A [cm3/mol/s or 1/s],  n [-],  E [kJ/mol]\n"
-        << "    + R1f (H-abs. fwd):  A=" << A1f_ << "  n=" << n1f_ << "  E=" << E1f_ * R_J_mol_HMOM / 1000. << "\n"
-        << "    + R1b (H-abs. rev):  A=" << A1b_ << "  n=" << n1b_ << "  E=" << E1b_ * R_J_mol_HMOM / 1000. << "\n"
-        << "    + R2f (OH-ox. fwd):  A=" << A2f_ << "  n=" << n2f_ << "  E=" << E2f_ * R_J_mol_HMOM / 1000. << "\n"
-        << "    + R2b (OH-ox. rev):  A=" << A2b_ << "  n=" << n2b_ << "  E=" << E2b_ * R_J_mol_HMOM / 1000. << "\n"
-        << "    + R3f (O2-ox. fwd):  A=" << A3f_ << "  n=" << n3f_ << "  E=" << E3f_ * R_J_mol_HMOM / 1000. << "\n"
-        << "    + R3b (O2-ox. rev):  A=" << A3b_ << "  n=" << n3b_ << "  E=" << E3b_ * R_J_mol_HMOM / 1000. << "\n"
-        << "    + R4  (C2H2 add.):   A=" << A4_  << "  n=" << n4_  << "  E=" << E4_  * R_J_mol_HMOM / 1000. << "\n"
-        << "    + R5  (O-ox.):       A=" << A5_  << "  n=" << n5_  << "  E=" << E5_  * R_J_mol_HMOM / 1000. << "\n"
+        << "    + R1f (H-abs. fwd):  A=" << A1f_ << "  n=" << n1f_ << "  E=" << E1f_ * this->Rgas_mol_ / 1000. << "\n"
+        << "    + R1b (H-abs. rev):  A=" << A1b_ << "  n=" << n1b_ << "  E=" << E1b_ * this->Rgas_mol_ / 1000. << "\n"
+        << "    + R2f (OH-ox. fwd):  A=" << A2f_ << "  n=" << n2f_ << "  E=" << E2f_ * this->Rgas_mol_ / 1000. << "\n"
+        << "    + R2b (OH-ox. rev):  A=" << A2b_ << "  n=" << n2b_ << "  E=" << E2b_ * this->Rgas_mol_ / 1000. << "\n"
+        << "    + R3f (O2-ox. fwd):  A=" << A3f_ << "  n=" << n3f_ << "  E=" << E3f_ * this->Rgas_mol_ / 1000. << "\n"
+        << "    + R3b (O2-ox. rev):  A=" << A3b_ << "  n=" << n3b_ << "  E=" << E3b_ * this->Rgas_mol_ / 1000. << "\n"
+        << "    + R4  (C2H2 add.):   A=" << A4_  << "  n=" << n4_  << "  E=" << E4_  * this->Rgas_mol_ / 1000. << "\n"
+        << "    + R5  (O-ox.):       A=" << A5_  << "  n=" << n5_  << "  E=" << E5_  * this->Rgas_mol_ / 1000. << "\n"
         << "    + eff6 (O-rad.):     " << eff6_ << "\n"
         << "\n"
         << " [Surface density]\n"

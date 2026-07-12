@@ -859,6 +859,7 @@ protected:
     static constexpr double Nav_mol_     = 6.02214076e23;    //!< Avogadro number [#/mol].
     static constexpr double Nav_kmol_    = 6.02214076e26;    //!< Avogadro number [#/kmol].
     static constexpr double Rgas_        = 8314.46261815324; //!< Ideal gas constant [J/kmol/K].
+    static constexpr double Rgas_mol_    = Rgas_ / 1000.;   //!< Ideal gas constant [J/mol/K].
     static constexpr double WC_          = 12.011;           //!< Carbon standard atomic weight [kg/kmol].
 
     //! Cunningham slip-correction coefficient A (linearised Kn limit, Hutchins et al. 1995).
