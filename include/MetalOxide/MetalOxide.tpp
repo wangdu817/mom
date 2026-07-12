@@ -114,8 +114,8 @@ template <ThermoMap Thermo> void MetalOxide<Thermo>::MemoryAllocation()
 template <ThermoMap Thermo> void MetalOxide<Thermo>::Precalculations()
 {
     v0_ = static_cast<double>(n_formula_units_min_) * solid_formula_unit_volume_m3_;
-    d0_ = std::pow(6. * v0_ / this->pi_, 1. / 3.);
-    s0_ = this->pi_ * d0_ * d0_;
+    d0_ = std::pow(6. * v0_ / this->pi_, 1. / 3.); // Pattern B (6*v/π): NOT SphereDiameter
+    s0_ = this->SphereSurface(d0_);
 
     v_min_ = v0_;
     S_min_ = N_min_ * s0_;
@@ -435,7 +435,7 @@ void MetalOxide<Thermo>::Properties(double& fv,
     vs = std::max(fvStar / NStar, v_min_);
 
     // Spherical surface area for a particle of volume vs [m2]
-    ssph = std::pow(36. * this->pi_, 1. / 3.) * std::pow(vs, 2. / 3.);
+    ssph = this->SphereSurfaceFromVolume(vs);
 
     // Specific surface per particle [m2]
     const double SStar = std::max(S, S_min_);
@@ -452,7 +452,7 @@ void MetalOxide<Thermo>::Properties(double& fv,
     dp = std::max(dp, d0_);
 
     // Number of primary particles per aggregate [-]
-    np = std::max(std::pow(ss, 3.) / std::pow(vs, 2.) / (36. * this->pi_), 1.);
+    np = this->NumberPrimaryParticles(ss, vs);
 
     // Collision diameter — fractal aggregate (Df = 1.8) [m]
     // dc = dp * np^(1/Df). For np = 1 (sphere) this reduces to dc = dp.

@@ -153,24 +153,24 @@ template <ThermoMap Thermo> void ThreeEquations<Thermo>::Precalculations()
         mwpah_ = ncpah_ * this->WC_;
 
     vpah_ = mwpah_ / rho_soot / this->Nav_kmol_;       // [m3]
-    dpah_ = std::pow(6. / this->pi_ * vpah_, 1. / 3.); // [m]
-    spah_ = this->pi_ * dpah_ * dpah_;                 // [m2]
+    dpah_ = this->SphereDiameter(vpah_);               // [m]
+    spah_ = this->SphereSurface(dpah_);                // [m2]
     mpah_ = mwpah_ / this->Nav_kmol_;                  // [kg/#]
 
     // -- Dimer geometry ----------------------------------------------------
     vdim_ = 2. * vpah_;
-    ddim_ = std::pow(6. / this->pi_ * vdim_, 1. / 3.);
-    sdim_ = this->pi_ * ddim_ * ddim_;
+    ddim_ = this->SphereDiameter(vdim_);
+    sdim_ = this->SphereSurface(ddim_);
 
     // -- Nucleus geometry  (dimer + dimer) ---------------------------------
     vnucl_ = 2. * vdim_;
-    dnucl_ = std::pow(6. / this->pi_ * vnucl_, 1. / 3.);
-    snucl_ = this->pi_ * dnucl_ * dnucl_;
+    dnucl_ = this->SphereDiameter(vnucl_);
+    snucl_ = this->SphereSurface(dnucl_);
 
     // -- C2 pair geometry --------------------------------------------------
     vc2_ = (this->WC_ / rho_soot / this->Nav_kmol_) * 2.;
-    dc2_ = std::pow(6. / this->pi_ * vc2_, 1. / 3.);
-    sc2_ = this->pi_ * dc2_ * dc2_;
+    dc2_ = this->SphereDiameter(vc2_);
+    sc2_ = this->SphereSurface(dc2_);
 
     // -- Numerical floors --------------------------------------------------
     vs_min_ = vnucl_;
@@ -343,10 +343,10 @@ void ThreeEquations<Thermo>::Properties(
     fv = this->rho_ / this->rho_particle_ * YsStar; // [-]
     vs = std::max(fv / NsStar, vs_min_);            // [m3]
 
-    const double s_sphere = std::pow(36.0 * this->pi_, 1.0 / 3.0) * std::pow(vs, 2.0 / 3.0); // [m2]
+    const double s_sphere = this->SphereSurfaceFromVolume(vs);                              // [m2]
     ss                    = std::max(SsStar / NsStar, s_sphere);                             // [m2]
     dp                    = 6. * vs / ss;                                                    // [m]
-    np = std::max(std::pow(ss, 3.) / std::pow(vs, 2.) / (36. * this->pi_), 1.);              // [-]
+    np                    = this->NumberPrimaryParticles(ss, vs);                            // [-]
     dc = dp * std::pow(np, 1. / Df_);                                                        // [m]
 }
 

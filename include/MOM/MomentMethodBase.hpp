@@ -751,6 +751,48 @@ protected:
         return rho_ * D;
     }
 
+    // -- Sphere-geometry primitives ------------------------------------------
+    //
+    // These small helpers centralise the sphere-geometry identities used in
+    // the per-particle Properties() functions and initialisation code of every
+    // variant.  All four are `const noexcept` (they read the static pi_ only)
+    // and are marked always_inline so they fold away completely in hot loops.
+    //
+    // Naming convention:
+    //   SphereDiameter(v)          d = (6V/π)^{1/3}          [m]
+    //   SphereSurface(d)           S = π d²                   [m²]
+    //   SphereSurfaceFromVolume(v) S = (36π)^{1/3} V^{2/3}   [m²]
+    //   NumberPrimaryParticles(ss,vs)  np = ss³/(36π vs²) ≥ 1 [-]
+    //
+    // ⚠ FP note for SphereDiameter: the expression (6/π)·V uses the operand
+    //   order "6./pi_ * v" (divide first, then multiply).  Callers that use
+    //   the alternative order "6.*v/pi_" are NOT bit-identical and must keep
+    //   their own inline expression.  Only call SphereDiameter where the
+    //   original code already used the 6./π·V ordering.
+
+    //! Diameter of the sphere with volume @p v [m³].  d = (6V/π)^{1/3}.
+    [[nodiscard]] [[gnu::always_inline]]
+    double SphereDiameter(double v) const noexcept
+    { return std::pow(6. / pi_ * v, 1. / 3.); }
+
+    //! Surface area of the sphere with diameter @p d [m].  S = π d².
+    [[nodiscard]] [[gnu::always_inline]]
+    double SphereSurface(double d) const noexcept
+    { return pi_ * d * d; }
+
+    //! Surface area of the sphere with volume @p v [m³].
+    //! Avoids the intermediate diameter: S = (36π)^{1/3} V^{2/3}.
+    [[nodiscard]] [[gnu::always_inline]]
+    double SphereSurfaceFromVolume(double v) const noexcept
+    { return std::pow(36. * pi_, 1. / 3.) * std::pow(v, 2. / 3.); }
+
+    //! Number of primary spherical particles from per-particle surface @p ss [m²]
+    //! and volume @p vs [m³].  From the identity np = ss³/(36π vs²).
+    //! Returns max(np, 1): a fully sintered aggregate counts as one particle.
+    [[nodiscard]] [[gnu::always_inline]]
+    double NumberPrimaryParticles(double ss, double vs) const noexcept
+    { return std::max(std::pow(ss, 3.) / std::pow(vs, 2.) / (36. * pi_), 1.); }
+
     // -- Helpers for zero-initialising source vectors between time steps -----
 
     /**

@@ -228,11 +228,9 @@ template <ThermoMap Thermo> void HMOM<Thermo>::SetPAH(std::string_view name)
         mwpah = ncpah * this->WC_;
 
     const auto vpah = mwpah / this->rho_particle_ / this->Nav_kmol_; // [m3]
-    const auto dpah = std::pow(6. / this->pi_ * vpah, 1. / 3.);      // [m]
-    const auto spah = this->pi_ * dpah * dpah;                       // [m2]
+    const auto dpah = this->SphereDiameter(vpah);                    // [m]
+    const auto spah = this->SphereSurface(dpah);                     // [m2]
     const auto mpah = mwpah / this->Nav_kmol_;                       // [kg]
-
-    const double K_spher = K_spher_HMOM(this->pi_);
 
     pah_species_ = std::string(name);
     pah_index_   = pah_index;
@@ -245,9 +243,9 @@ template <ThermoMap Thermo> void HMOM<Thermo>::SetPAH(std::string_view name)
     mpah_        = mpah;
 
     dimer_volume_  = 2. * vpah_;
-    dimer_surface_ = K_spher * std::pow(dimer_volume_, 2. / 3.);
+    dimer_surface_ = this->SphereSurfaceFromVolume(dimer_volume_);
     V0_            = 2. * dimer_volume_;
-    S0_            = K_spher * std::pow(V0_, 2. / 3.);
+    S0_            = this->SphereSurfaceFromVolume(V0_);
     VC2_           = (this->WC_ / this->rho_particle_ / this->Nav_kmol_) * 2.;
 }
 
@@ -761,10 +759,9 @@ template <ThermoMap Thermo> void HMOM<Thermo>::SootCoagulationM4()
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SootCoagulationSmallSmallM4()
 {
-    const double K_diam  = K_diam_HMOM(this->pi_);
-    const double K_spher = K_spher_HMOM(this->pi_);
-    const double DcNUCL  = K_diam * std::pow(V0_, 1. / 3.);
-    const double S00     = K_spher * std::pow(2. * V0_, 2. / 3.);
+    const double K_diam = K_diam_HMOM(this->pi_);
+    const double DcNUCL = K_diam * std::pow(V0_, 1. / 3.);
+    const double S00    = this->SphereSurfaceFromVolume(2. * V0_);
     const double beta00 =
         2.20 * Cfm_ * std::sqrt(2. / V0_) * std::pow(2. * DcNUCL, 2.) * std::sqrt(this->T_);
 
@@ -874,11 +871,10 @@ template <ThermoMap Thermo> void HMOM<Thermo>::SootCoagulationContinuousM4()
 
 template <ThermoMap Thermo> void HMOM<Thermo>::SootCoagulationContinuousSmallSmallM4(double lambda)
 {
-    const double K_diam  = K_diam_HMOM(this->pi_);
-    const double K_spher = K_spher_HMOM(this->pi_);
-    const double DcNUCL  = K_diam * std::pow(V0_, 1. / 3.);
-    const double S00     = K_spher * std::pow(2. * V0_, 2. / 3.);
-    const double CC0     = 1. + lambda / DcNUCL;
+    const double K_diam = K_diam_HMOM(this->pi_);
+    const double DcNUCL = K_diam * std::pow(V0_, 1. / 3.);
+    const double S00    = this->SphereSurfaceFromVolume(2. * V0_);
+    const double CC0    = 1. + lambda / DcNUCL;
     const double beta00 =
         2. * this->kB_ * this->T_ / 3. / this->mu_ * (2. * CC0 / DcNUCL) * (2. * DcNUCL);
 
