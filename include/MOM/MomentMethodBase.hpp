@@ -586,6 +586,68 @@ public:
      */
     [[nodiscard]] double planck_coefficient(double T, double fv) const noexcept;
 
+    // -- Operator-splitting helpers (used by Splitting.hpp free functions) -----
+
+    /**
+     * @brief Fills the internal `source_no_oxidation_` cache and returns a span.
+     *
+     * Computes `source_all_[i] − source_oxidation_[i]` for each moment equation
+     * and stores the result in the `mutable source_no_oxidation_` cache.  Returns
+     * a zero-copy span into that cache.
+     *
+     * Called by `MOM::GetSourcesWithoutOxidation()` in `Splitting.hpp`.  The free
+     * function wraps this via `std::visit`; access to the `protected` cache from a
+     * non-member lambda would violate C++ access control, so the computation lives
+     * here instead.
+     *
+     * @pre  `ComputeSources()` must have been called at the current cell state.
+     * @return Span of size `n_equations`; valid until next `ComputeSources()` or
+     *         next call to this function — whichever comes first.
+     */
+    [[nodiscard]] std::span<const double>
+    sources_without_oxidation() const noexcept
+    {
+        const auto total    = derived().sources();
+        const auto ox       = derived().sources_oxidation();
+        const std::size_t N = total.size();
+        for (std::size_t i = 0; i < N; ++i)
+            source_no_oxidation_[i] = total[i] - ox[i];
+        return {source_no_oxidation_.data(), N};
+    }
+
+    /**
+     * @brief Fills the internal `kappa_oxidation_` cache and returns a span.
+     *
+     * Linearises oxidation as a first-order decay:
+     *
+     *   κ_i = max(−source_oxidation[i], 0) / max(|M_i|, ε)
+     *
+     * and stores the result in the `mutable kappa_oxidation_` cache.  Returns a
+     * zero-copy span into that cache.
+     *
+     * Called by `MOM::GetOxidationRateCoefficients()` in `Splitting.hpp`.  The
+     * same access-control rationale as `sources_without_oxidation()` applies.
+     *
+     * @param current_moments  Transported moment values M_i at the current time.
+     *                         Must have size ≥ `n_equations`.
+     * @return Span of size `n_equations`; valid until the next call to this
+     *         function or `ComputeSources()` — whichever comes first.
+     */
+    [[nodiscard]] std::span<const double>
+    kappa_oxidation(std::span<const double> current_moments) const noexcept
+    {
+        const auto ox       = derived().sources_oxidation();
+        const std::size_t N = std::min(ox.size(), current_moments.size());
+        constexpr double eps = 1.e-300;
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            const double neg_src   = -ox[i];
+            const double M         = std::max(std::abs(current_moments[i]), eps);
+            kappa_oxidation_[i]    = (neg_src > 0.) ? neg_src / M : 0.;
+        }
+        return {kappa_oxidation_.data(), N};
+    }
+
 protected:
 
     // -- Protected constructor — only accessible through derived classes -----
@@ -639,7 +701,7 @@ protected:
     /**
      * @brief Cached: `source_all_ − source_oxidation_` [same units as source_all_].
      *
-     * Populated on demand by `GetSourcesWithoutOxidation()` in `Splitting.hpp`.
+     * Populated on demand by `sources_without_oxidation()` (called via `GetSourcesWithoutOxidation()`).
      * Declared `mutable` so that the logically-const getter can update the cache
      * without requiring a non-const model reference.  This is the standard C++
      * justification for `mutable`: the cache is derived state, not primary state.
@@ -653,10 +715,10 @@ protected:
      *
      *   κ_i = max(−source_oxidation[i], 0) / max(|M_i|, ε)
      *
-     * Populated on demand by `GetOxidationRateCoefficients()` in `Splitting.hpp`.
+     * Populated on demand by `kappa_oxidation()` (called via `GetOxidationRateCoefficients()`).
      * Declared `mutable` for the same reason as `source_no_oxidation_`.
      *
-     * Lifetime: valid until the next call to `GetOxidationRateCoefficients()`
+     * Lifetime: valid until the next call to `kappa_oxidation()`
      * or `ComputeSources()` — whichever comes first.
      */
     mutable MomentVector kappa_oxidation_ = MomentVector::Zero();

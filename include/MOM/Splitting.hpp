@@ -158,12 +158,7 @@ GetSourcesWithoutOxidation(const AnyMomentMethod<Thermo>& m) noexcept
     return std::visit(
         [](const auto& mm) -> std::span<const double>
         {
-            const auto total = mm.sources();           // source_all_      — zero-copy
-            const auto ox    = mm.sources_oxidation(); // source_oxidation_ — zero-copy
-            const std::size_t N = total.size();
-            for (std::size_t i = 0; i < N; ++i)
-                mm.source_no_oxidation_[i] = total[i] - ox[i];
-            return {mm.source_no_oxidation_.data(), N};
+            return mm.sources_without_oxidation();
         },
         m);
 }
@@ -205,17 +200,7 @@ GetOxidationRateCoefficients(const AnyMomentMethod<Thermo>& m,
     return std::visit(
         [&current_moments](const auto& mm) -> std::span<const double>
         {
-            const auto ox       = mm.sources_oxidation();
-            const std::size_t N = std::min(ox.size(), current_moments.size());
-            constexpr double eps = 1.e-300;
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                // Oxidation is a sink: source_ox[i] ≤ 0.  Rate coeff is non-negative.
-                const double neg_src = -ox[i];
-                const double M       = std::max(std::abs(current_moments[i]), eps);
-                mm.kappa_oxidation_[i] = (neg_src > 0.) ? neg_src / M : 0.;
-            }
-            return {mm.kappa_oxidation_.data(), N};
+            return mm.kappa_oxidation(current_moments);
         },
         m);
 }
