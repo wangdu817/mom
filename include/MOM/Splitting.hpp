@@ -55,50 +55,59 @@
  *
  * **Step A** — ODE sub-step with non-oxidation sources only:
  * @code
- *   double src_buf[MAX_MOM];
  *   MOM::Compute(mom);
- *   MOM::GetSourcesWithoutOxidation(mom, {src_buf, n_mom});
- *   // pass src_buf to the stiff ODE solver — no large eigenvalue
+ *   auto src_no_ox = MOM::GetSourcesWithoutOxidation(mom); // zero-copy span
+ *   // pass src_no_ox to the stiff ODE solver — no large eigenvalue
  * @endcode
  *
  * **Step B** — analytical oxidation sub-step after the ODE completes:
  * @code
- *   double kappa[MAX_MOM];
- *   MOM::GetOxidationRateCoefficients(mom, {M, n_mom}, {kappa, n_mom});
+ *   auto kappa = MOM::GetOxidationRateCoefficients(mom, {M, n_mom});
  *   for (int i = 0; i < n_mom; ++i)
  *       M[i] *= std::exp(-kappa[i] * dt);
  * @endcode
  *
  * **Step C** — gas-phase correction with saturation factor φ:
  * @code
- *   // Inside Equations(), pass the non-oxidation gas sources only:
+ *   // Inside Equations(), pass only the non-oxidation gas sources:
+ *   auto gas_no_ox = MOM::GetOmegaGasOxidation(mom);  // zero-copy, oxidation-only
  *   double gas_buf[MAX_SPECIES];
- *   MOM::GetOmegaGasWithoutOxidation(mom, {gas_buf, n_species});
+ *   MOM::FillOmegaGasWithoutOxidation(mom, {gas_buf, n_species});
  *
  *   // After Step B, apply the integrated oxidation contribution:
- *   const double x   = kappa[MASS_IDX] * dt;   // use the mass-fraction moment
+ *   const double x   = kappa[MASS_IDX] * dt;   // use the mass-fraction moment index
  *   const double phi = (x > 1e-8) ? (1. - std::exp(-x)) / x : 1.;
  *   auto ox_gas = MOM::GetOmegaGasOxidation(mom);
  *   for (int k = 0; k < n_species; ++k)
  *       Y[k] += ox_gas[k] / rho * dt * phi;
  * @endcode
  *
- * @par When to use this header
- * Include `MOM/MOM.hpp` (which pulls in `Splitting.hpp` automatically) when
- * compiling any translation unit that uses operator splitting.  If only dispatch
- * or simple source retrieval is needed, those translation units compile faster
- * including only `Dispatch.hpp` or `Sources.hpp` directly.
+ * @par API convention
+ *
+ * All functions in this file follow the same convention as `Sources.hpp`:
+ *
+ * | Pattern | When used | Example |
+ * |---|---|---|
+ * | `[[nodiscard]] std::span<const double> GetXxx(m)` | Zero-copy into internal storage | `GetOxidationSources`, `GetSourcesWithoutOxidation`, `GetOxidationRateCoefficients` |
+ * | `[[nodiscard]] std::span<const double> GetXxx(m, inputs...)` | Derived value, needs external input, written to internal cache | `GetOxidationRateCoefficients` |
+ * | `void FillXxx(m, out)` | Output too large to buffer internally (gas-phase, n_species) | `FillOmegaGasWithoutOxidation` |
+ *
+ * The `Fill` prefix signals an output-parameter function.  It is used only for
+ * `FillOmegaGasWithoutOxidation` where caching would require a second n_species
+ * `Eigen::VectorXd` per model instance — cost not justified by the marginal
+ * ergonomic gain.  For the moment-space functions the cache is a `MomentVector`
+ * (≤ 32 bytes) and is unconditionally worth the uniformity.
  *
  * @par Functions provided
- * - `GetOxidationSources`             — zero-copy span of oxidation-only moment sources
- * - `GetSourcesWithoutOxidation`      — total minus oxidation, written into caller buffer
- * - `GetOxidationRateCoefficients`    — first-order rate coefficients κ_i [1/s]
- * - `GetOmegaGasOxidation`            — zero-copy span of oxidation-only gas-phase sources
- * - `GetOmegaGasWithoutOxidation`     — total gas minus oxidation, written into caller buffer
+ * - `GetOxidationSources`           — zero-copy span of oxidation-only moment sources
+ * - `GetSourcesWithoutOxidation`    — zero-copy span: total − oxidation (internal cache)
+ * - `GetOxidationRateCoefficients`  — zero-copy span: κ_i [1/s] (internal cache)
+ * - `GetOmegaGasOxidation`          — zero-copy span of oxidation-only gas-phase sources
+ * - `FillOmegaGasWithoutOxidation`  — writes total gas − oxidation into caller buffer
  */
 
 #include <algorithm>   // std::min
-#include <cmath>       // std::abs, std::exp (std::exp used in doc; not called here)
+#include <cmath>       // std::abs
 
 #include "AnyMomentMethod.hpp"
 
@@ -116,8 +125,8 @@ namespace MOM
  * Points directly into the model's internal `source_oxidation_` storage —
  * zero-overhead.  All entries are ≤ 0 (oxidation is always a sink for soot).
  *
- * @pre  Compute() must have been called at the current state.
- * @return Span of size `n_equations`; valid until next Compute().
+ * @pre  `ComputeSources()` must have been called at the current state.
+ * @return Span of size `n_equations`; valid until next `ComputeSources()`.
  */
 template <ThermoMap Thermo>
 [[nodiscard]] inline std::span<const double>
@@ -127,34 +136,40 @@ GetOxidationSources(const AnyMomentMethod<Thermo>& m) noexcept
 }
 
 /**
- * @brief Writes `source_all[i] - source_oxidation[i]` into @p out for each moment.
+ * @brief Returns a zero-copy span over `source_all[i] − source_oxidation[i]`.
  *
- * For operator splitting of the stiff oxidation terms: pass these reduced sources
- * to the stiff ODE solver instead of the full `GetSources()` vector, then apply
- * the oxidation sub-step analytically with `GetOxidationRateCoefficients()`.
+ * For operator splitting of the stiff oxidation terms: pass these reduced
+ * sources to the stiff ODE solver instead of the full `GetSources()` vector,
+ * then apply the oxidation sub-step analytically with
+ * `GetOxidationRateCoefficients()`.
  *
- * @pre  Compute() must have been called at the current state.
- * @param[in]  m    Model variant.
- * @param[out] out  Caller-allocated buffer; size must be >= n_equations.
+ * The result is written into `MomentMethodBase::source_no_oxidation_` (a
+ * `mutable MomentVector`) and a span into that buffer is returned.  The span
+ * is valid until the next `ComputeSources()` call or the next call to this
+ * function — whichever comes first.
+ *
+ * @pre  `ComputeSources()` must have been called at the current state.
+ * @return Span of size `n_equations`.
  */
 template <ThermoMap Thermo>
-inline void GetSourcesWithoutOxidation(const AnyMomentMethod<Thermo>& m,
-                                        std::span<double> out) noexcept
+[[nodiscard]] inline std::span<const double>
+GetSourcesWithoutOxidation(const AnyMomentMethod<Thermo>& m) noexcept
 {
-    std::visit(
-        [&out](const auto& mm)
+    return std::visit(
+        [](const auto& mm) -> std::span<const double>
         {
-            const auto total = mm.sources();           // source_all_ — zero-copy
+            const auto total = mm.sources();           // source_all_      — zero-copy
             const auto ox    = mm.sources_oxidation(); // source_oxidation_ — zero-copy
-            const std::size_t N = std::min(total.size(), out.size());
+            const std::size_t N = total.size();
             for (std::size_t i = 0; i < N; ++i)
-                out[i] = total[i] - ox[i];
+                mm.source_no_oxidation_[i] = total[i] - ox[i];
+            return {mm.source_no_oxidation_.data(), N};
         },
         m);
 }
 
 /**
- * @brief Computes the effective first-order oxidation rate coefficient [1/s] per moment.
+ * @brief Returns a zero-copy span of first-order oxidation rate coefficients κ_i [1/s].
  *
  * Linearises the (generally nonlinear) oxidation depletion as a first-order decay:
  *
@@ -164,38 +179,43 @@ inline void GetSourcesWithoutOxidation(const AnyMomentMethod<Thermo>& m,
  *
  *   M_i(t + Δt) = M_i(t) · exp(−κ_i · Δt)
  *
- * This is unconditionally stable regardless of how large κ_i is — it removes the
- * stiff oxidation eigenvalue from the ODE system entirely.
+ * This is unconditionally stable regardless of how large κ_i is — it removes
+ * the stiff oxidation eigenvalue from the ODE system entirely.
  *
- * @note  κ_i is evaluated at the **current** stored state (the last Compute() call).
- *        For Lie–Trotter splitting, call this after the ODE step has finished.
+ * The result is written into `MomentMethodBase::kappa_oxidation_` (a
+ * `mutable MomentVector`) and a span into that buffer is returned.
+ *
+ * @note  κ_i is evaluated at the **current** stored oxidation sources (the
+ *        last `ComputeSources()` call) and the @p current_moments passed by
+ *        the caller.  For Lie–Trotter splitting, call this after the ODE step.
  *        For symmetric Strang splitting, evaluate at t + Δt/2.
  *
- * @pre   Compute() must have been called at the current state.
- * @param[in]  m                Model variant.
- * @param[in]  current_moments  Transported moment values M_i at current time.
- *                              Size must be >= n_equations.
- * @param[out] kappa_out        Output buffer for κ_i [1/s].  Size >= n_equations.
+ * @pre   `ComputeSources()` must have been called at the current state.
+ * @param m                Model variant.
+ * @param current_moments  Transported moment values M_i at current time.
+ *                         Size must be ≥ n_equations.
+ * @return Span of size `n_equations`; valid until the next call to this
+ *         function or the next `ComputeSources()` — whichever comes first.
  */
 template <ThermoMap Thermo>
-inline void GetOxidationRateCoefficients(const AnyMomentMethod<Thermo>& m,
-                                          std::span<const double> current_moments,
-                                          std::span<double>       kappa_out) noexcept
+[[nodiscard]] inline std::span<const double>
+GetOxidationRateCoefficients(const AnyMomentMethod<Thermo>& m,
+                              std::span<const double> current_moments) noexcept
 {
-    std::visit(
-        [&current_moments, &kappa_out](const auto& mm)
+    return std::visit(
+        [&current_moments](const auto& mm) -> std::span<const double>
         {
-            const auto ox = mm.sources_oxidation();
-            const std::size_t N =
-                std::min({ox.size(), current_moments.size(), kappa_out.size()});
+            const auto ox       = mm.sources_oxidation();
+            const std::size_t N = std::min(ox.size(), current_moments.size());
             constexpr double eps = 1.e-300;
             for (std::size_t i = 0; i < N; ++i)
             {
                 // Oxidation is a sink: source_ox[i] ≤ 0.  Rate coeff is non-negative.
                 const double neg_src = -ox[i];
                 const double M       = std::max(std::abs(current_moments[i]), eps);
-                kappa_out[i] = (neg_src > 0.) ? neg_src / M : 0.;
+                mm.kappa_oxidation_[i] = (neg_src > 0.) ? neg_src / M : 0.;
             }
+            return {mm.kappa_oxidation_.data(), N};
         },
         m);
 }
@@ -208,12 +228,13 @@ inline void GetOxidationRateCoefficients(const AnyMomentMethod<Thermo>& m,
  */
 
 /**
- * @brief Returns a zero-copy span over the **oxidation-only** gas-phase source vector [kg/m³/s].
+ * @brief Returns a zero-copy span over the **oxidation-only** gas-phase source
+ *        vector [kg/m³/s].
  *
  * Points directly into internal storage — zero-overhead.
  * Returns an empty span for models without oxidation gas coupling (e.g. MetalOxide/TiO₂).
  *
- * @pre Compute() must have been called at the current state.
+ * @pre `ComputeSources()` must have been called at the current state.
  */
 template <ThermoMap Thermo>
 [[nodiscard]] inline std::span<const double>
@@ -227,6 +248,13 @@ GetOmegaGasOxidation(const AnyMomentMethod<Thermo>& m) noexcept
  *
  * For operator splitting: pass these reduced gas sources inside `Equations()`,
  * then apply the oxidation contribution analytically after the ODE step completes.
+ *
+ * @par Why this function uses an output parameter
+ * Gas-phase source vectors are sized to `n_species` at runtime (typically 50–300
+ * elements).  Caching a second copy inside the model would double the per-instance
+ * `omega_gas_` storage, which is significant in multi-cell CFD loops.  The `Fill`
+ * prefix signals intentionally that this function writes into a caller-owned buffer,
+ * unlike the moment-space functions which return zero-copy spans into internal caches.
  *
  * @par Post-step gas-phase correction with saturation factor φ
  * After the outer CFD timestep @p dt has completed and the soot moments have been
@@ -247,13 +275,13 @@ GetOmegaGasOxidation(const AnyMomentMethod<Thermo>& m) noexcept
  * and falls toward `1/(κ·Δt)` for fast oxidation, bounding the integrated gas
  * consumption to at most the available reactant mass.
  *
- * @pre  Compute() must have been called at the current state.
- * @param[in]  m    Model variant.
- * @param[out] out  Caller-allocated buffer; size must be >= n_species.
+ * @pre  `ComputeSources()` must have been called at the current state.
+ * @param m    Model variant.
+ * @param out  Caller-allocated buffer; size must be ≥ n_species.
  */
 template <ThermoMap Thermo>
-inline void GetOmegaGasWithoutOxidation(const AnyMomentMethod<Thermo>& m,
-                                         std::span<double> out) noexcept
+inline void FillOmegaGasWithoutOxidation(const AnyMomentMethod<Thermo>& m,
+                                          std::span<double> out) noexcept
 {
     std::visit(
         [&out](const auto& mm)

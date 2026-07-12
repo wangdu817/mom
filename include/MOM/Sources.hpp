@@ -181,7 +181,7 @@ GetSinteringSources(const AnyMomentMethod<Thermo>& m) noexcept
  * @code
  *   if (MOM::IsActive(MOM::GetOxidationModel(mom_))) {
  *       // oxidation is active — use operator splitting (see Splitting.hpp)
- *       MOM::GetSourcesWithoutOxidation(mom_, src_buf);
+ *       auto src_no_ox = MOM::GetSourcesWithoutOxidation(mom_);  // zero-copy span
  *   }
  * @endcode
  *

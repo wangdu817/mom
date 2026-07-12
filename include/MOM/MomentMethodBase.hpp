@@ -543,7 +543,7 @@ public:
      * Returns the subset of `omega_gas_` due exclusively to soot oxidation
      * (O2/OH surface attack).  Non-oxidation contributions (nucleation, surface
      * growth, condensation) are excluded.  Used by the operator-splitting API
-     * (GetOmegaGasOxidation / GetOmegaGasWithoutOxidation) to remove the stiff
+     * (GetOmegaGasOxidation / FillOmegaGasWithoutOxidation) to remove the stiff
      * oxidation eigenvalue from the ODE system and integrate it analytically.
      *
      * Returns an empty span for models without oxidation gas coupling (e.g. TiO2).
@@ -635,6 +635,31 @@ protected:
     // owned by the Derived class (see class-level @par Design rationale).
 
     MomentVector source_all_ = MomentVector::Zero(); //!< Sum of all active process source terms.
+
+    /**
+     * @brief Cached: `source_all_ − source_oxidation_` [same units as source_all_].
+     *
+     * Populated on demand by `GetSourcesWithoutOxidation()` in `Splitting.hpp`.
+     * Declared `mutable` so that the logically-const getter can update the cache
+     * without requiring a non-const model reference.  This is the standard C++
+     * justification for `mutable`: the cache is derived state, not primary state.
+     *
+     * Lifetime: valid until the next `ComputeSources()` call (same as all source spans).
+     */
+    mutable MomentVector source_no_oxidation_ = MomentVector::Zero();
+
+    /**
+     * @brief Cached: first-order oxidation rate coefficients κ_i [1/s].
+     *
+     *   κ_i = max(−source_oxidation[i], 0) / max(|M_i|, ε)
+     *
+     * Populated on demand by `GetOxidationRateCoefficients()` in `Splitting.hpp`.
+     * Declared `mutable` for the same reason as `source_no_oxidation_`.
+     *
+     * Lifetime: valid until the next call to `GetOxidationRateCoefficients()`
+     * or `ComputeSources()` — whichever comes first.
+     */
+    mutable MomentVector kappa_oxidation_ = MomentVector::Zero();
 
     /**
      * @brief Compile-time zero array of length `NEq`.
