@@ -319,6 +319,110 @@ concept ModelsSintering =
         { cm.sources_sintering_impl() } -> std::convertible_to<std::span<const double>>;
     };
 
+// ============================================================================
+// Reporter output-hook concepts
+// ============================================================================
+//
+// These concepts detect whether a variant provides optional callback-based
+// hooks consumed by MomentMethodReporter.  Each hook uses the same dual-mode
+// callback protocol:
+//
+//   void hook(CB&& cb) const
+//       where CB satisfies: cb(std::string_view label, double value)
+//
+// The reporter supplies different lambdas in header mode (uses only label)
+// and row mode (uses only value); the variant calls cb identically in both.
+//
+// Detection is by checking that the method is callable with a lambda that
+// matches the expected signature.  The lambda is tested with a generic
+// captureless lambda `[](std::string_view, double){}` — chosen because it
+// is the tightest constraint that still allows the template deduction inside
+// each hook to succeed.
+//
+// Concept matrix (as of 2026-07)
+// ---------------------------------------------------------------
+//   Concept                  | HMOM | BrookesMoss | ThreeEq | MetalOxide
+//   HasVariantPrefixOutput   |  Y   |      Y      |    Y    |     Y
+//   HasVariantSuffixOutput   |  Y   |      N      |    N    |     N
+//   HasNDFExtraOutput        |  Y   |      N      |    N    |     N
+// ---------------------------------------------------------------
+//
+// HasVariantPrefixOutput is currently satisfied by ALL four variants.
+// HasVariantSuffixOutput and HasNDFExtraOutput are HMOM-only for now.
+// ---------------------------------------------------------------
+
+/**
+ * @concept HasVariantPrefixOutput
+ * @brief Satisfied by variants that provide extra output columns *before* the
+ *        transport block in MomentMethodReporter::WriteHeader / WriteRow.
+ *
+ * A variant satisfies this concept by implementing:
+ * @code
+ *   template <typename CB>
+ *   void variant_prefix_output(CB&& cb) const;
+ * @endcode
+ * where @p cb is called as `cb(std::string_view label, double value)` once
+ * per extra column.  The reporter supplies either a column-registration lambda
+ * (WriteHeader) or a value-writing lambda (WriteRow) — the variant always
+ * calls cb identically.
+ *
+ * Satisfied by: HMOM, BrookesMoss, ThreeEquations, MetalOxide.
+ */
+template <typename M>
+concept HasVariantPrefixOutput =
+    requires(const M& cm) {
+        cm.variant_prefix_output([](std::string_view, double) {});
+    };
+
+/**
+ * @concept HasVariantSuffixOutput
+ * @brief Satisfied by variants that provide extra output columns *after* the
+ *        per-process source block in MomentMethodReporter::WriteHeader / WriteRow.
+ *
+ * A variant satisfies this concept by implementing:
+ * @code
+ *   template <typename CB>
+ *   void variant_suffix_output(CB&& cb) const;
+ * @endcode
+ * with the same dual-mode callback protocol as `variant_prefix_output`.
+ * HMOM uses this for detailed coagulation sub-process breakdowns.
+ *
+ * Satisfied by: HMOM.
+ * NOT satisfied by: BrookesMoss, ThreeEquations, MetalOxide.
+ */
+template <typename M>
+concept HasVariantSuffixOutput =
+    requires(const M& cm) {
+        cm.variant_suffix_output([](std::string_view, double) {});
+    };
+
+/**
+ * @concept HasNDFExtraOutput
+ * @brief Satisfied by variants that provide extra per-point columns appended
+ *        after the six core NDF columns in WriteReconstructedNDF.
+ *
+ * A variant satisfies this concept by implementing:
+ * @code
+ *   template <typename CB>
+ *   void ndf_extra_output(CB&& cb) const;
+ * @endcode
+ * with the same dual-mode callback protocol.  HMOM uses this to append
+ * bimodal parameters (N₀, V₀, d_p0, N_L, V_L, d̄_pL, σ_NDF) that are
+ * constant across the volume grid but make the NDF file self-contained.
+ *
+ * ThreeEquations and MetalOxide do NOT implement this hook because their
+ * NDF parameters are already written in the main per-timestep output via
+ * `variant_prefix_output`.
+ *
+ * Satisfied by: HMOM.
+ * NOT satisfied by: BrookesMoss, ThreeEquations, MetalOxide.
+ */
+template <typename M>
+concept HasNDFExtraOutput =
+    requires(const M& cm) {
+        cm.ndf_extra_output([](std::string_view, double) {});
+    };
+
 /**
  * @brief Illustrates the "one line to switch" idiom.
  *
