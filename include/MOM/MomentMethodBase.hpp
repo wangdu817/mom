@@ -713,6 +713,44 @@ protected:
         return SpeciesConcentrationKmolM3(idx, Y, cTot, thermo) / 1.e3;
     }
 
+    // -- Shared transport helper -------------------------------------------
+
+    /**
+     * @brief Cunningham-corrected Brownian effective diffusion coefficient [kg/m/s].
+     *
+     * Shared kernel for HMOM, ThreeEquations, and MetalOxide.  Implements the
+     * Stokes–Einstein–Cunningham model in the continuum–slip transition regime:
+     *
+     *   @f[
+     *     C_u = 1 + A \frac{\lambda}{d_c}, \quad
+     *     D   = \frac{k_B T C_u}{3 \pi \mu d_c}, \quad
+     *     \Gamma = \rho D
+     *   @f]
+     *
+     * where @f$\lambda = \mu/\rho \cdot \sqrt{\pi m_\text{gas} / (2 k_B T)}@f$
+     * is the mean free path of the carrier gas, @f$m_\text{gas} = \rho k_B T / P@f$
+     * is the mean gas-molecule mass, and @f$A = @f$ `kCunningham_` = 2.154
+     * (Hutchins et al. 1995, linearised Knudsen-number limit).
+     *
+     * @pre `dc_safe` **must be strictly positive** (> 0).  Each caller applies its
+     *      own minimum guard before invoking this method:
+     *      - HMOM and ThreeEquations: `std::max(dc, 1e-12)`
+     *      - MetalOxide:              `std::max(dc, d0_)` (nucleation cluster diameter)
+     *
+     * @param dc_safe  Collision diameter [m], already clamped to a positive minimum.
+     * @return @f$\rho D@f$ [kg/m/s]; the caller adds the Schmidt-number fallback
+     *         `std::max(result, mu_ / schmidt_number_)` when desired.
+     */
+    [[nodiscard]] [[gnu::always_inline]]
+    double CunninghamDiffusionCoeff(double dc_safe) const noexcept
+    {
+        const double m_gas  = rho_ * kB_ * T_ / P_Pa_;
+        const double lambda = mu_ / rho_ * std::sqrt(pi_ * m_gas / (2. * kB_ * T_));
+        const double Cu     = 1. + kCunningham_ * lambda / dc_safe;
+        const double D      = kB_ * T_ * Cu / (3. * pi_ * mu_ * dc_safe);
+        return rho_ * D;
+    }
+
     // -- Helpers for zero-initialising source vectors between time steps -----
 
     /**
@@ -817,11 +855,15 @@ protected:
     // kB and Nav are exact by the SI 2019 redefinition.
     // Rgas = kB * Nav (exact). WC is the IUPAC 2021 standard atomic weight.
 
-    static constexpr double kB_       = 1.380649e-23;     //!< Boltzmann constant [J/K].
-    static constexpr double Nav_mol_  = 6.02214076e23;    //!< Avogadro number [#/mol].
-    static constexpr double Nav_kmol_ = 6.02214076e26;    //!< Avogadro number [#/kmol].
-    static constexpr double Rgas_     = 8314.46261815324; //!< Ideal gas constant [J/kmol/K].
-    static constexpr double WC_       = 12.011;           //!< Carbon standard atomic weight [kg/kmol].
+    static constexpr double kB_          = 1.380649e-23;     //!< Boltzmann constant [J/K].
+    static constexpr double Nav_mol_     = 6.02214076e23;    //!< Avogadro number [#/mol].
+    static constexpr double Nav_kmol_    = 6.02214076e26;    //!< Avogadro number [#/kmol].
+    static constexpr double Rgas_        = 8314.46261815324; //!< Ideal gas constant [J/kmol/K].
+    static constexpr double WC_          = 12.011;           //!< Carbon standard atomic weight [kg/kmol].
+
+    //! Cunningham slip-correction coefficient A (linearised Kn limit, Hutchins et al. 1995).
+    //! Enters the correction as Cu = 1 + kCunningham_ * λ/dc where λ is the mean free path.
+    static constexpr double kCunningham_ = 2.154;
 
 private:
 

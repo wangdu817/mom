@@ -1225,13 +1225,9 @@ template <ThermoMap Thermo> double HMOM<Thermo>::number_primary_particles() cons
 
 template <ThermoMap Thermo> double HMOM<Thermo>::diffusion_coefficient() const noexcept
 {
-    const double m = this->rho_ * this->kB_ * this->T_ / this->P_Pa_;
-    const double lambda =
-        this->mu_ / this->rho_ * std::sqrt(this->pi_ * m / (2. * this->kB_ * this->T_));
-    const double dc = std::max(collision_diameter(), 1.e-12);
-    const double Cu = 1. + 2.154 * lambda / dc;
-    const double D  = this->kB_ * this->T_ * Cu / (3. * this->pi_ * this->mu_ * dc);
-    return std::max(this->rho_ * D, this->mu_ / this->schmidt_number_);
+    const double dc_safe       = std::max(collision_diameter(), 1.e-12);
+    const double GammaBrownian = this->CunninghamDiffusionCoeff(dc_safe);
+    return std::max(GammaBrownian, this->mu_ / this->schmidt_number_);
 }
 
 // ============================================================================

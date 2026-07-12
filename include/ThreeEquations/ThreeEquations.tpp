@@ -393,16 +393,10 @@ template <ThermoMap Thermo> double ThreeEquations<Thermo>::diffusion_coefficient
     double fv, dp, dc, np, ss, vs;
     Properties(fv, dp, dc, np, ss, vs);
 
-    const double m_mol = this->rho_ * this->kB_ * this->T_ / this->P_Pa_; // [kg] mean molecule mass
-    const double lambdaGas =
-        this->mu_ / this->rho_ * std::sqrt(this->pi_ * m_mol / (2. * this->kB_ * this->T_)); // [m]
-    const double dcSafe = std::max(dc, 1.e-12);
-    const double Cu     = 1. + 2.154 * lambdaGas / dcSafe;
-
-    const double D = this->kB_ * this->T_ * Cu / (3. * this->pi_ * this->mu_ * dcSafe); // [m2/s]
-    const double GammaBrownian = this->rho_ * D;
+    const double dc_safe       = std::max(dc, 1.e-12);
+    const double GammaBrownian = this->CunninghamDiffusionCoeff(dc_safe); // [kg/m/s]
     const double GammaSc       = this->mu_ / this->schmidt_number_;
-    return std::max(GammaBrownian, GammaSc); // [kg/m/s]
+    return std::max(GammaBrownian, GammaSc);
 }
 
 // ============================================================================

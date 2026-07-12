@@ -531,13 +531,8 @@ template <ThermoMap Thermo> double MetalOxide<Thermo>::diffusion_coefficient() c
     double fv, dp, dc, da, np, ss, vs, ssph, tauS;
     Properties(fv, dp, dc, da, np, ss, vs, ssph, tauS);
 
-    const double dcSafe = std::max(dc, d0_);
-    const double mGas   = this->rho_ * this->kB_ * this->T_ / this->P_Pa_;
-    const double lambdaGas =
-        this->mu_ / this->rho_ * std::sqrt(this->pi_ * mGas / (2. * this->kB_ * this->T_));
-    const double Cu            = 1. + 2.154 * lambdaGas / dcSafe;
-    const double D             = this->kB_ * this->T_ * Cu / (3. * this->pi_ * this->mu_ * dcSafe);
-    const double GammaBrownian = this->rho_ * D;
+    const double dc_safe       = std::max(dc, d0_);    // d0_: nucleation cluster diameter
+    const double GammaBrownian = this->CunninghamDiffusionCoeff(dc_safe); // [kg/m/s]
     const double GammaSc       = this->mu_ / this->schmidt_number_;
     return std::max(GammaBrownian, GammaSc);
 }
