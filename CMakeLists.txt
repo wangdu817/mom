@@ -6,6 +6,14 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Source/execution charset --------------------------------------------------
+# The MOM sources are UTF-8 encoded (they contain e.g. "C₂H₂", "✓", "→" in
+# comments/strings and non-ASCII intermediate identifiers).  MSVC otherwise
+# decodes source files using the host system codepage (e.g. 936/GBK), which
+# corrupts these multibyte sequences and produces spurious C2065/C3688 errors.
+# /utf-8 forces both the source- and execution-charset to UTF-8.
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
+
 # Build options --------------------------------------------------------------
 option(MOM_BUILD_SHARED "Build libMOM as a shared library (.so/.dylib)" OFF)
 option(MOM_BUILD_TESTS "Build the standalone test executables" ON)
@@ -41,6 +49,7 @@ endif()
 function(mom_configure_target tgt access)
     target_include_directories(${tgt} ${access}
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party>
         $<INSTALL_INTERFACE:include>)
     target_link_libraries(${tgt} ${access} Eigen3::Eigen)
     target_compile_features(${tgt} ${access} cxx_std_20)
@@ -60,6 +69,9 @@ set(_MOM_SOURCES
     src/BrookesMoss/BrookesMoss_BasicThermoData.cpp
     src/MetalOxide/MetalOxide_BasicThermoData.cpp
     src/Utilities/OutputFileColumns.cpp
+    src/MOM/ManifestReader.cpp
+    src/MOM/MechanismAdapter.cpp
+    src/MOM/MomContext.cpp
 )
 
 # Dictionary support ---------------------------------------------------------
@@ -134,6 +146,54 @@ if(MOM_BUILD_TESTS)
     target_compile_options(reporter_usage_example PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
     add_test(NAME ReporterUsageExample COMMAND reporter_usage_example)
+
+    add_executable(test_oh_fixture tests/test_oh_fixture.cpp)
+    target_link_libraries(test_oh_fixture PRIVATE MOM)
+    target_compile_options(test_oh_fixture PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME OHFixture COMMAND test_oh_fixture)
+
+    # G1Closure + G1Negative: Python-based closure verification on the JSON
+    # produced by OHFixture. Python3 is a HARD requirement -- if not found,
+    # configuration fails rather than silently dropping to 7 tests.
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+    add_test(
+        NAME G1Closure
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/g1_closure_analysis.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/oh_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(G1Closure PROPERTIES DEPENDS OHFixture)
+
+    # G1Negative: proves G1Closure fails on wrong stoichiometry (red/green proof).
+    add_test(
+        NAME G1Negative
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/g1_negative_test.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/oh_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(G1Negative PROPERTIES DEPENDS OHFixture)
+
+    add_executable(test_manifest_reader tests/test_manifest_reader.cpp)
+    target_link_libraries(test_manifest_reader PRIVATE MOM)
+    target_compile_options(test_manifest_reader PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME ManifestReader COMMAND test_manifest_reader)
+
+    add_executable(test_mechanism_adapter tests/test_mechanism_adapter.cpp)
+    target_link_libraries(test_mechanism_adapter PRIVATE MOM)
+    target_compile_options(test_mechanism_adapter PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME MechanismAdapter COMMAND test_mechanism_adapter)
+
+    add_executable(test_mom_context tests/test_mom_context.cpp)
+    target_link_libraries(test_mom_context PRIVATE MOM)
+    target_compile_options(test_mom_context PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME MomContext COMMAND test_mom_context)
 
     if(MOM_USE_DICTIONARY)
         add_executable(test_dictionary_setup tests/test_dictionary_setup.cpp)

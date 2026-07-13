@@ -986,21 +986,26 @@ template <ThermoMap Thermo> void HMOM<Thermo>::CalculateOmegaGas() noexcept
                     }
                 }
 
-                // OH channel gas coupling follows the model's C2-pair rate convention.
+                // -- OH channel: per C2 pair, C2 + 2OH -> 2CO + H2.
+                // Stoichiometry (2 OH consumed, 2 CO + 1 H2 produced per C2 pair)
+                // verified by the G1 closure analysis; see
+                // .swarm/evidence/1/G1-closure-analysis.md.  R_oxid_C2 is a per-C2
+                // rate, so the gas-phase terms carry the per-C2 factors (2, 2, 1),
+                // consistent with the O2 channel above (R_O2 * 2 CO).
                 if (index_OH_ >= 0 && fOH > 0.)
                 {
-                    const double R_OH = fOH * R_oxid_C2; // [mol OH consumed (per C2) / m3/s]
+                    const double R_OH = fOH * R_oxid_C2; // [mol C2/m3/s] via OH (OH consumed = 2*R_OH)
                     const double MW_OH = thermo_.MolecularWeight(static_cast<unsigned>(index_OH_));
-                    this->omega_gas_[static_cast<unsigned>(index_OH_)] -= R_OH * MW_OH / 1000.;
+                    this->omega_gas_[static_cast<unsigned>(index_OH_)] -= R_OH * 2. * MW_OH / 1000.;
                     if (index_CO_ >= 0)
                     {
                         const double MW_CO = thermo_.MolecularWeight(static_cast<unsigned>(index_CO_));
-                        this->omega_gas_[static_cast<unsigned>(index_CO_)] += R_OH * MW_CO / 1000.;
+                        this->omega_gas_[static_cast<unsigned>(index_CO_)] += R_OH * 2. * MW_CO / 1000.;
                     }
                     if (index_H2_ >= 0)
                     {
                         const double MW_H2 = thermo_.MolecularWeight(static_cast<unsigned>(index_H2_));
-                        this->omega_gas_[static_cast<unsigned>(index_H2_)] += R_OH * 0.5 * MW_H2 / 1000.;
+                        this->omega_gas_[static_cast<unsigned>(index_H2_)] += R_OH * 1. * MW_H2 / 1000.;
                     }
                 }
             }
