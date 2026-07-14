@@ -933,11 +933,26 @@ template <ThermoMap Thermo> void HMOM<Thermo>::CalculateOmegaGas() noexcept
 
     if (nucleation_model_ > 0 && pah_index_ >= 0)
     {
+        // Nucleation active: all dimers consumed (nucleation + condensation sinks).
+        // PAH gas consumption = total dimerization rate.
         const double R_PAH = PAHDimerizationRate(); // [kmol/m3/s]
         if (R_PAH > 0. && std::isfinite(R_PAH))
         {
             const double mw_pah = thermo_.MolecularWeight(static_cast<unsigned>(pah_index_));
             this->omega_gas_[static_cast<unsigned>(pah_index_)] -= R_PAH * mw_pah;
+        }
+    }
+    else if (condensation_model_ > 0 && pah_index_ >= 0)
+    {
+        // Nucleation off, condensation on: only condensation portion consumes PAH.
+        // source_condensation_(1) [mol/m3/s] is dM10/dt; V0 = 4*vpah, V_dimer = V0/2.
+        // Each condensation event adds V_dimer/V0 = 1/2 to M10, so event rate = 2*src.
+        // Each event consumes 1 dimer = 2 PAH, so PAH rate = 4*src [mol/m3/s].
+        const double R_PAH_cond = 4.0 * source_condensation_(1) / 1000.0; // [kmol/m3/s]
+        if (R_PAH_cond > 0. && std::isfinite(R_PAH_cond))
+        {
+            const double mw_pah = thermo_.MolecularWeight(static_cast<unsigned>(pah_index_));
+            this->omega_gas_[static_cast<unsigned>(pah_index_)] -= R_PAH_cond * mw_pah;
         }
     }
 

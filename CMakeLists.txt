@@ -177,6 +177,138 @@ if(MOM_BUILD_TESTS)
     )
     set_tests_properties(G1Negative PROPERTIES DEPENDS OHFixture)
 
+    # --- M1 Condensation fixture (condensation-only vertical slice) --------
+    add_executable(test_condensation_fixture tests/test_condensation_fixture.cpp)
+    target_link_libraries(test_condensation_fixture PRIVATE MOM)
+    target_compile_options(test_condensation_fixture PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME CondFixture COMMAND test_condensation_fixture)
+
+    # CondClosure + CondNegative: Python-based closure verification on the JSON
+    # produced by CondFixture.
+    add_test(
+        NAME CondClosure
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/cond_closure_analysis.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/condensation_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(CondClosure PROPERTIES DEPENDS CondFixture)
+
+    # CondNegative: proves CondClosure fails when omega_gas[C2H2] is zeroed
+    # (simulating the pre-fix bug where PAH gas consumption was gated by
+    # nucleation_model_).
+    add_test(
+        NAME CondNegative
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/cond_negative_test.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/condensation_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(CondNegative PROPERTIES DEPENDS CondFixture)
+
+    # --- M1 Nucleation fixture (nucleation-only vertical slice) ------------
+    add_executable(test_nucleation_fixture tests/test_nucleation_fixture.cpp)
+    target_link_libraries(test_nucleation_fixture PRIVATE MOM)
+    target_compile_options(test_nucleation_fixture PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME NucFixture COMMAND test_nucleation_fixture)
+
+    add_test(
+        NAME NucClosure
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/nuc_closure_analysis.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/nucleation_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(NucClosure PROPERTIES DEPENDS NucFixture)
+
+    add_test(
+        NAME NucNegative
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/nuc_negative_test.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/nucleation_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(NucNegative PROPERTIES DEPENDS NucFixture)
+
+    # --- M1 Surface growth fixture (HACA, tanh threshold states) ----------
+    add_executable(test_surface_growth_fixture tests/test_surface_growth_fixture.cpp)
+    target_link_libraries(test_surface_growth_fixture PRIVATE MOM)
+    target_compile_options(test_surface_growth_fixture PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME SGFixture COMMAND test_surface_growth_fixture)
+
+    # SGClosure + SGNegative: Python-based closure verification.
+    add_test(
+        NAME SGClosure
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/sg_closure_analysis.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/surface_growth_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(SGClosure PROPERTIES DEPENDS SGFixture)
+
+    add_test(
+        NAME SGNegative
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/sg_negative_test.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/surface_growth_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(SGNegative PROPERTIES DEPENDS SGFixture)
+
+    # --- M1 O2 Oxidation fixture ------------------------------------------------
+    add_executable(test_o2_oxidation_fixture tests/test_o2_oxidation_fixture.cpp)
+    target_link_libraries(test_o2_oxidation_fixture PRIVATE MOM)
+    target_compile_options(test_o2_oxidation_fixture PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME O2OxFixture COMMAND test_o2_oxidation_fixture)
+
+    # O2OxClosure + O2OxNegative: Python-based closure verification.
+    add_test(
+        NAME O2OxClosure
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/o2ox_closure_analysis.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/o2_oxidation_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(O2OxClosure PROPERTIES DEPENDS O2OxFixture)
+
+    add_test(
+        NAME O2OxNegative
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/o2ox_negative_test.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/o2_oxidation_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(O2OxNegative PROPERTIES DEPENDS O2OxFixture)
+
+    # --- M1 OH-oxidation fixture (extends G1 with tanh threshold states) ---
+    add_executable(test_oh_oxidation_fixture tests/test_oh_oxidation_fixture.cpp)
+    target_link_libraries(test_oh_oxidation_fixture PRIVATE MOM)
+    target_compile_options(test_oh_oxidation_fixture PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME OHOxFixture COMMAND test_oh_oxidation_fixture)
+
+    add_test(
+        NAME OHOxClosure
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/ohox_closure_analysis.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/oh_oxidation_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(OHOxClosure PROPERTIES DEPENDS OHOxFixture)
+
+    add_test(
+        NAME OHOxNegative
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/ohox_negative_test.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/oh_oxidation_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(OHOxNegative PROPERTIES DEPENDS OHOxFixture)
+
     add_executable(test_manifest_reader tests/test_manifest_reader.cpp)
     target_link_libraries(test_manifest_reader PRIVATE MOM)
     target_compile_options(test_manifest_reader PRIVATE
