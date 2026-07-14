@@ -309,6 +309,30 @@ if(MOM_BUILD_TESTS)
     )
     set_tests_properties(OHOxNegative PROPERTIES DEPENDS OHOxFixture)
 
+    add_executable(test_coagulation_fixture tests/test_coagulation_fixture.cpp)
+    target_link_libraries(test_coagulation_fixture PRIVATE MOM)
+    target_compile_options(test_coagulation_fixture PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME CoagFixture COMMAND test_coagulation_fixture)
+
+    add_test(
+        NAME CoagClosure
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/coag_closure_analysis.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/coagulation_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(CoagClosure PROPERTIES DEPENDS CoagFixture)
+
+    add_test(
+        NAME CoagNegative
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/coag_negative_test.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/coagulation_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(CoagNegative PROPERTIES DEPENDS CoagFixture)
+
     add_executable(test_manifest_reader tests/test_manifest_reader.cpp)
     target_link_libraries(test_manifest_reader PRIVATE MOM)
     target_compile_options(test_manifest_reader PRIVATE
