@@ -333,6 +333,30 @@ if(MOM_BUILD_TESTS)
     )
     set_tests_properties(CoagNegative PROPERTIES DEPENDS CoagFixture)
 
+    add_executable(test_cunningham_diffusion_fixture tests/test_cunningham_diffusion_fixture.cpp)
+    target_link_libraries(test_cunningham_diffusion_fixture PRIVATE MOM)
+    target_compile_options(test_cunningham_diffusion_fixture PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic>)
+    add_test(NAME CunninghamFixture COMMAND test_cunningham_diffusion_fixture)
+
+    add_test(
+        NAME CunninghamClosure
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/cunningham_diffusion_analysis.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/cunningham_diffusion_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(CunninghamClosure PROPERTIES DEPENDS CunninghamFixture)
+
+    add_test(
+        NAME CunninghamNegative
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/cunningham_diffusion_negative_test.py
+                --input ${CMAKE_CURRENT_BINARY_DIR}/cunningham_diffusion_fixture_results.json
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    set_tests_properties(CunninghamNegative PROPERTIES DEPENDS CunninghamFixture)
+
     add_executable(test_manifest_reader tests/test_manifest_reader.cpp)
     target_link_libraries(test_manifest_reader PRIVATE MOM)
     target_compile_options(test_manifest_reader PRIVATE
